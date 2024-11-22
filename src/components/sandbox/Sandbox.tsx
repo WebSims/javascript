@@ -6,7 +6,24 @@ import {
     ResizablePanelGroup,
 } from "@/components/ui/resizable"
 
+import CodeEditor from './code-editor/CodeEditor'
 import CheatSheetAccordion from './CheatSheetAccordion'
+
+const CODE_SAMPLE = `
+2*3+4
+  a++
+  2*(3+4
+    );
+    (2*((3+(((4))))))
+    const z = (x) => x ** 2
+  console.log(1,2, "Hello, " + name)
+  console.log(1,something == "xxx" ? myArr[i+1] : false)
+  //something == "xxx" ? myArr[i+1] : false
+  const emptyArray = []
+  const emptyObject = {}
+  const array = [1, 2, 3]
+  const object = {name: "John", age: 2, isMale: true, nestedProp: object["name"]}
+`
 
 const Sandbox: React.FC = () => {
     return (
@@ -20,6 +37,7 @@ const Sandbox: React.FC = () => {
                 >
                     <div className="h-full flex flex-col">
                         <div className="flex-1">
+                            <CodeEditor fromAstOf={CODE_SAMPLE} />
                         </div>
                         <div className="mt-auto">
                             <CheatSheetAccordion />
