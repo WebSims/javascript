@@ -1,0 +1,212 @@
+[
+    {
+        "title": "Statements",
+        "items": [
+            {
+                "title": "Evaluate Single Expression",
+                "items": [
+                    {
+                        "title": "Useful: e.g. function calls and assignments",
+                        "link": ""
+                    },
+                    {
+                        "title": "Useless: e.g. data & data evaluations",
+                        "link": ""
+                    }
+                ]
+            },
+            {
+                "title": "Declaration",
+                "items": [
+                    {
+                        "title": "Declare a Variable (within a scope)",
+                        "link": ""
+                    },
+                    {
+                        "title": "Declare and Assign (initial value)",
+                        "link": ""
+                    },
+                    {
+                        "title": "Declare a Named Function",
+                        "link": ""
+                    }
+                ]
+            },
+            {
+                "title": "Conditional",
+                "items": [
+                    {
+                        "title": "If",
+                        "link": ""
+                    },
+                    {
+                        "title": "Else",
+                        "link": ""
+                    },
+                    {
+                        "title": "Switch",
+                        "link": ""
+                    }
+                ]
+            },
+            {
+                "title": "Loop",
+                "items": [
+                    {
+                        "title": "For",
+                        "items": [
+                            {
+                                "title": "3 Statements",
+                                "link": ""
+                            },
+                            {
+                                "title": "For-in",
+                                "link": ""
+                            },
+                            {
+                                "title": "For-of",
+                                "link": ""
+                            }
+                        ]
+                    },
+                    {
+                        "title": "While",
+                        "items": [
+                            {
+                                "title": "While",
+                                "link": ""
+                            },
+                            {
+                                "title": "Do-while",
+                                "link": ""
+                            }
+                        ]
+                    }
+                ]
+            },
+            {
+                "title": "Code flow control",
+                "items": [
+                    {
+                        "title": "Return",
+                        "link": ""
+                    },
+                    {
+                        "title": "Throw",
+                        "link": ""
+                    },
+                    {
+                        "title": "Break",
+                        "link": ""
+                    },
+                    {
+                        "title": "Continue",
+                        "link": ""
+                    }
+                ]
+            },
+            {
+                "title": "Error Handling",
+                "items": [
+                    {
+                        "title": "Try-Catch",
+                        "link": ""
+                    },
+                    {
+                        "title": "Try-Catch-Finally",
+                        "link": ""
+                    }
+                ]
+            }
+        ]
+    },
+    {
+        "title": "Expressions",
+        "items": [
+            {
+                "title": "Read variable",
+                "items": [
+                    {
+                        "title": "From Variable (Closest Scope)",
+                        "link": ""
+                    },
+                    {
+                        "title": "From property",
+                        "items": [
+                            {
+                                "title": "By static name",
+                                "link": ""
+                            },
+                            {
+                                "title": "By dynamic name ( expression ) / array index",
+                                "link": ""
+                            }
+                        ]
+                    }
+                ]
+            },
+            {
+                "title": "Function call",
+                "link": ""
+            },
+            {
+                "title": "Operation",
+                "items": [
+                    {
+                        "title": "Unary",
+                        "link": ""
+                    },
+                    {
+                        "title": "Binary",
+                        "link": ""
+                    },
+                    {
+                        "title": "Ternary",
+                        "link": ""
+                    }
+                ]
+            }
+        ]
+    },
+    {
+        "title": "Data",
+        "items": [
+            {
+                "title": "Number",
+                "link": ""
+            },
+            {
+                "title": "Boolean",
+                "link": ""
+            },
+            {
+                "title": "String",
+                "link": ""
+            },
+            {
+                "title": "Null",
+                "link": ""
+            },
+            {
+                "title": "Undefined",
+                "link": ""
+            },
+            {
+                "title": "Object",
+                "link": ""
+            },
+            {
+                "title": "Array",
+                "link": ""
+            },
+            {
+                "title": "Function",
+                "link": ""
+            },
+            {
+                "title": "Arrow Function",
+                "link": ""
+            }
+        ]
+    }
+]

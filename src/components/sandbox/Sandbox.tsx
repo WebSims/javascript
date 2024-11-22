@@ -6,7 +6,9 @@ import {
     ResizablePanelGroup,
 } from "@/components/ui/resizable"
 
-const Sandbox = () => {
+import CheatSheetAccordion from './CheatSheetAccordion'
+
+const Sandbox: React.FC = () => {
     return (
         <div className="h-screen">
             <ResizablePanelGroup
@@ -14,18 +16,24 @@ const Sandbox = () => {
             >
                 <ResizablePanel
                     className="h-full"
-                    defaultSize={50}
+                    defaultSize={65}
                 >
-                    One
+                    <div className="h-full flex flex-col">
+                        <div className="flex-1">
+                        </div>
+                        <div className="mt-auto">
+                            <CheatSheetAccordion />
+                        </div>
+                    </div>
                 </ResizablePanel>
                 <ResizableHandle withHandle />
-                <ResizablePanel defaultSize={50}>
+                <ResizablePanel defaultSize={35}>
                     <ResizablePanelGroup direction="vertical">
-                        <ResizablePanel defaultSize={50}>
+                        <ResizablePanel defaultSize={40}>
                             Two
                         </ResizablePanel>
                         <ResizableHandle withHandle />
-                        <ResizablePanel defaultSize={50}>
+                        <ResizablePanel defaultSize={60}>
                             Three
                         </ResizablePanel >
                     </ResizablePanelGroup >
