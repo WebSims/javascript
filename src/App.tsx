@@ -1,4 +1,4 @@
-import Sandbox from '@/components/Sandbox/Sandbox'
+import Sandbox from '@/components/sandbox/Sandbox'
 
 function App() {
   return (
