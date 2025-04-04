@@ -1,212 +1,51 @@
-[
-    {
-        "title": "Statements",
-        "items": [
-            {
-                "title": "Evaluate Single Expression",
-                "items": [
-                    {
-                        "title": "Useful: e.g. function calls and assignments",
-                        "link": ""
-                    },
-                    {
-                        "title": "Useless: e.g. data & data evaluations",
-                        "link": ""
-                    }
-                ]
-            },
-            {
-                "title": "Declaration",
-                "items": [
-                    {
-                        "title": "Declare a Variable (within a scope)",
-                        "link": ""
-                    },
-                    {
-                        "title": "Declare and Assign (initial value)",
-                        "link": ""
-                    },
-                    {
-                        "title": "Declare a Named Function",
-                        "link": ""
-                    }
-                ]
-            },
-            {
-                "title": "Conditional",
-                "items": [
-                    {
-                        "title": "If",
-                        "link": ""
-                    },
-                    {
-                        "title": "Else",
-                        "link": ""
-                    },
-                    {
-                        "title": "Switch",
-                        "link": ""
-                    }
-                ]
-            },
-            {
-                "title": "Loop",
-                "items": [
-                    {
-                        "title": "For",
-                        "items": [
-                            {
-                                "title": "3 Statements",
-                                "link": ""
-                            },
-                            {
-                                "title": "For-in",
-                                "link": ""
-                            },
-                            {
-                                "title": "For-of",
-                                "link": ""
-                            }
-                        ]
-                    },
-                    {
-                        "title": "While",
-                        "items": [
-                            {
-                                "title": "While",
-                                "link": ""
-                            },
-                            {
-                                "title": "Do-while",
-                                "link": ""
-                            }
-                        ]
-                    }
-                ]
-            },
-            {
-                "title": "Code flow control",
-                "items": [
-                    {
-                        "title": "Return",
-                        "link": ""
-                    },
-                    {
-                        "title": "Throw",
-                        "link": ""
-                    },
-                    {
-                        "title": "Break",
-                        "link": ""
-                    },
-                    {
-                        "title": "Continue",
-                        "link": ""
-                    }
-                ]
-            },
-            {
-                "title": "Error Handling",
-                "items": [
-                    {
-                        "title": "Try-Catch",
-                        "link": ""
-                    },
-                    {
-                        "title": "Try-Catch-Finally",
-                        "link": ""
-                    }
-                ]
-            }
-        ]
-    },
-    {
-        "title": "Expressions",
-        "items": [
-            {
-                "title": "Read variable",
-                "items": [
-                    {
-                        "title": "From Variable (Closest Scope)",
-                        "link": ""
-                    },
-                    {
-                        "title": "From property",
-                        "items": [
-                            {
-                                "title": "By static name",
-                                "link": ""
-                            },
-                            {
-                                "title": "By dynamic name ( expression ) / array index",
-                                "link": ""
-                            }
-                        ]
-                    }
-                ]
-            },
-            {
-                "title": "Function call",
-                "link": ""
-            },
-            {
-                "title": "Operation",
-                "items": [
-                    {
-                        "title": "Unary",
-                        "link": ""
-                    },
-                    {
-                        "title": "Binary",
-                        "link": ""
-                    },
-                    {
-                        "title": "Ternary",
-                        "link": ""
-                    }
-                ]
-            }
-        ]
-    },
-    {
-        "title": "Data",
-        "items": [
-            {
-                "title": "Number",
-                "link": ""
-            },
-            {
-                "title": "Boolean",
-                "link": ""
-            },
-            {
-                "title": "String",
-                "link": ""
-            },
-            {
-                "title": "Null",
-                "link": ""
-            },
-            {
-                "title": "Undefined",
-                "link": ""
-            },
-            {
-                "title": "Object",
-                "link": ""
-            },
-            {
-                "title": "Array",
-                "link": ""
-            },
-            {
-                "title": "Function",
-                "link": ""
-            },
-            {
-                "title": "Arrow Function",
-                "link": ""
-            }
-        ]
-    }
-]
+{
+    "st": "Statements",
+    "st/exp": "Evaluate Single Expression",
+    "st/exp/useful": "Useful: e.g. function calls and assignments",
+    "st/exp/useless": "Useless: e.g. data & data evaluations",
+    "st/dec": "Declaration",
+    "st/dec/var": "Declare a Variable (within a scope)",
+    "st/dec/assign": "Declare and Assign (initial value)",
+    "st/dec/func": "Declare a Named Function",
+    "st/cond": "Conditional",
+    "st/cond/if": "If",
+    "st/cond/else": "Else",
+    "st/cond/switch": "Switch",
+    "st/loop": "Loop",
+    "st/loop/for": "For",
+    "st/loop/for/3statements": "3 Statements",
+    "st/loop/for/in": "For-in",
+    "st/loop/for/of": "For-of",
+    "st/loop/while": "While",
+    "st/loop/while/standard": "While",
+    "st/loop/while/dowhile": "Do-while",
+    "st/flow": "Code flow control",
+    "st/flow/return": "Return",
+    "st/flow/throw": "Throw",
+    "st/flow/break": "Break",
+    "st/flow/continue": "Continue",
+    "st/error": "Error Handling",
+    "st/error/trycatch": "Try-Catch",
+    "st/error/trycatchfinally": "Try-Catch-Finally",
+    "exp": "Expressions",
+    "exp/read": "Read variable",
+    "exp/read/var": "From Variable (Closest Scope)",
+    "exp/read/prop": "From property",
+    "exp/read/prop/static": "By static name",
+    "exp/read/prop/dynamic": "By dynamic name ( expression ) / array index",
+    "exp/func": "Function call",
+    "exp/op": "Operation",
+    "exp/op/unary": "Unary",
+    "exp/op/binary": "Binary",
+    "exp/op/ternary": "Ternary",
+    "data": "Data",
+    "data/number": "Number",
+    "data/boolean": "Boolean",
+    "data/string": "String",
+    "data/null": "Null",
+    "data/undefined": "Undefined",
+    "data/object": "Object",
+    "data/array": "Array",
+    "data/function": "Function",
+    "data/arrow": "Arrow Function"
+}
