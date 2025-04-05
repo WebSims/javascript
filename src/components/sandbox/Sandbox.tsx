@@ -36,7 +36,8 @@ const Sandbox: React.FC = () => {
                     defaultSize={65}
                 >
                     <div className="h-full flex flex-col">
-                        <div className="flex-1">
+                        <h4 className="text-xl font-bold p-2">Code Editor</h4>
+                        <div className="flex-1 overflow-auto p-2">
                             <CodeEditor fromAstOf={CODE_SAMPLE} />
                         </div>
                         <div className="mt-auto">

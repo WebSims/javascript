@@ -27,7 +27,7 @@
     --chart-3: 197 37% 24%;
     --chart-4: 43 74% 66%;
     --chart-5: 27 87% 67%;
-    --radius: 0.5rem
+    --radius: 0.5rem;
   }
   .dark {
     --background: 0 0% 3.9%;
@@ -53,7 +53,7 @@
     --chart-2: 160 60% 45%;
     --chart-3: 30 80% 55%;
     --chart-4: 280 65% 60%;
-    --chart-5: 340 75% 55%
+    --chart-5: 340 75% 55%;
   }
 }
 @layer base {
@@ -64,3 +64,419 @@
     @apply bg-background text-foreground;
   }
 }
+
+:root {
+  --duration-standOut: 0.2s;
+  --duration-wait: 0.3s;
+  --duration-goBack: 0.2s;
+  --delay-all: 0.3s;
+  --delay-child1: 0s;
+  --delay-child2: -0.1s;
+  --delay-child3: -0.1s;
+  --highlight-cs-color: #adadad;
+  --delay-child1-standOut: calc(var(--delay-all) + var(--delay-child1));
+  --delay-child1-goBack: calc(var(--delay-child1-standOut) + var(--duration-standOut) + var(--duration-wait));
+  --delay-child2-standOut: calc(var(--delay-child1-goBack) + var(--duration-goBack) + var(--delay-child2));
+  --delay-child2-goBack: calc(var(--delay-child2-standOut) + var(--duration-standOut) + var(--duration-wait));
+  --delay-child3-standOut: calc(var(--delay-child2-goBack) + var(--duration-goBack) + var(--delay-child3));
+  --delay-child3-goBack: calc(var(--delay-child3-standOut) + var(--duration-standOut) + var(--duration-wait));
+}
+
+.ast {
+  background-color: #f5f5f5;
+  border-radius: 20px;
+  margin: 20px;
+  padding: 10px;
+  /* letter-spacing: 0.2rem; */
+  font-family: 'Courier New', Courier, monospace;
+  font-weight: bold;
+}
+
+.punc {
+  font-size: 1.5em;
+  font-weight: 900;
+  margin-left: 5px;
+  margin-right: 5px;
+}
+
+.punc-comma {
+  margin-left: 0px;
+}
+
+.punc-open,
+.punc-close {
+  margin-left: 0px;
+  margin-right: 0px;
+}
+
+.punc-member-name,
+.punc-member-exp {
+  transform: translateY(-2px);
+}
+
+.ast-st {
+  background-color: rgba(0, 0, 0, 0.07);
+  padding: 10px 10px;
+}
+
+.ast-st * {
+  display: inline-block;
+  vertical-align: middle;
+}
+
+.ast-st:first-child {
+  border-top-left-radius: 10px;
+  border-top-right-radius: 10px;
+}
+
+.ast-st:last-child {
+  border-bottom-left-radius: 10px;
+  border-bottom-right-radius: 10px;
+}
+
+.ast-st:not(:last-child) {
+  margin-bottom: 5px;
+}
+
+.ast-st:hover {
+  background-color: rgba(0, 0, 0, 0.1);
+}
+
+.ast-st-unk {
+  background-color: orange;
+}
+
+.ast-st-exp {
+  /* background-color: rgba(0, 238, 255, 0.34); */
+}
+
+.ast-exp {
+  border: 1px solid rgba(0 0 0 / 5%);
+  border-radius: 5px;
+  padding-left: 7.5px;
+  padding-right: 7.5px;
+}
+
+.ast-exp:has(.ast-exp) {
+  padding-top: 5px;
+  padding-bottom: 5px;
+}
+
+.ast-exp:not(:has(.ast-exp:hover)):hover {
+  border: 1px solid rgba(0 0 0 / 50%);
+}
+
+.ast-exp-unk {
+  background-color: orange;
+}
+
+.ast-exp-data-literal {
+  color: blue;
+}
+
+.ast-exp-data-bool {
+}
+
+.ast-exp-data-num {
+}
+
+.ast-exp-data-str {
+  color: gray;
+}
+
+.ast-exp-data-nul {
+}
+
+.ast-exp-data-undef {
+}
+
+.ast-exp-data-arr {
+}
+
+.ast-exp-data-obj {
+}
+
+.ast-exp-data-fn {
+}
+
+.ast-exp-data-fna {
+}
+
+.ast-exp-op {
+}
+
+.ast-exp-op1 {
+}
+
+.ast-exp-op2 {
+}
+
+.ast-exp-op3 {
+}
+
+.ast-noundef {
+  border-color: red !important;
+}
+
+.ast-exp-read {
+}
+
+.ast-exp-read-var {
+}
+
+.ast-exp-read-prop {
+}
+
+.ast-exp-read-prop-name {
+}
+
+.ast-exp-read-expr {
+}
+
+/* // WRITE */
+
+.ast-exp-call {
+}
+
+.punc-exp-group {
+}
+
+/* ( ) .punc-open .punc-close */
+
+.punc-member-name {
+}
+
+/* . */
+.punc-member-exp {
+}
+
+/* [ ] .punc-open .punc-close */
+
+.punc-ass {
+}
+
+.punc-op {
+}
+
+.punc-unary {
+}
+
+/* .punc-op */
+.punc-binary {
+}
+
+/* .punc-op */
+.punc-ternary {
+}
+
+/* .punc-op */
+
+.punc-call {
+}
+
+/* ( ) .punc-open .punc-close */
+.punc-call-arg-sep {
+}
+
+/* , .punc-comma */
+
+.punc-arrow {
+}
+
+/* => .punc-comma */
+.punc-block {
+}
+
+.punc-block-start {
+}
+
+.punc-block-end {
+}
+
+.punc-new-obj {
+}
+
+/* { } .punc-open .punc-close */
+.punc-new-obj-prop-exp {
+}
+
+/* [ ] .punc-open .punc-close */
+.punc-new-obj-keyval-sep {
+}
+
+/* : */
+.punc-new-obj-prop-sep {
+}
+
+/* , .punc-comma */
+
+.punc-new-arr {
+}
+
+/* [ ] .punc-open .punc-close */
+.punc-new-arr-item-sep {
+}
+
+/* , .punc-comma */
+
+.punc-new-fn-arg {
+}
+
+/* ( ) .punc-open .punc-close */
+.punc-new-fn-arg-sep {
+}
+
+/* , .punc-comma */
+.punc-new-fn-block {
+}
+
+/* { } .punc-block .punc-open .punc-close */
+
+.keyword {
+  color: purple;
+}
+
+.keyword-prefix {
+  margin-right: 5px;
+}
+
+.keyword-async {
+}
+
+.keyword-def {
+}
+
+.keyword-fn {
+}
+
+.ast-exp-op:hover:not(:has(.ast-exp-op:hover)) > .ast-exp-content > * {
+  animation: standOut var(--duration-standOut) ease-out forwards, goBack var(--duration-goBack) ease-out forwards;
+}
+
+.ast-exp-op > .ast-exp-content > :nth-child(1) {
+  animation-delay: var(--delay-child1-standOut), var(--delay-child1-goBack) !important;
+}
+
+.ast-exp-op > .ast-exp-content > :nth-child(2) {
+  animation-delay: var(--delay-child2-standOut), var(--delay-child2-goBack) !important;
+}
+
+.ast-exp-op2 > .ast-exp-content > :nth-child(3) {
+  animation-delay: var(--delay-child3-standOut), var(--delay-child3-goBack) !important;
+}
+
+.ast-exp-op3 > .ast-exp-content > :nth-child(3),
+.ast-exp-op3 > .ast-exp-content > :nth-child(4),
+.ast-exp-op3 > .ast-exp-content > :nth-child(5) {
+  animation-delay: var(--delay-child3-standOut), var(--delay-child3-goBack) !important;
+}
+
+@keyframes standOut {
+  100% {
+    transform: translateY(-6px) scale(1.2);
+  }
+}
+
+@keyframes goBack {
+  100% {
+    transform: translateY(0px) scale(1);
+  }
+}
+
+/*============================= CHEAT SHEET CLASSES =============================*/
+/* STATEMENT cs */
+
+/* EXPRESSION cs */
+.left-side:has(.punc-unary:hover) .cs-exp,
+.left-side:has(.punc-unary:hover) .cs-exp-op,
+.left-side:has(.punc-unary:hover) .cs-exp-unary {
+  background-color: var(--highlight-cs-color);
+}
+
+.left-side:has(.punc-binary:hover) .cs-exp,
+.left-side:has(.punc-binary:hover) .cs-exp-op,
+.left-side:has(.punc-binary:hover) .cs-exp-binary {
+  background-color: var(--highlight-cs-color);
+}
+
+.left-side:has(.punc-ternary:hover) .cs-exp,
+.left-side:has(.punc-ternary:hover) .cs-exp-op,
+.left-side:has(.punc-ternary:hover) .cs-exp-ternary {
+  background-color: var(--highlight-cs-color);
+}
+
+.left-side:has(.ast-exp-read-var:hover) .cs-exp,
+.left-side:has(.ast-exp-read-var:hover) .cs-exp-read,
+.left-side:has(.ast-exp-read-var:hover) .cs-exp-read-var,
+.left-side:has(.ast-exp-read-var:hover) .cs-exp-read-var-name {
+  background-color: var(--highlight-cs-color);
+}
+
+.left-side:has(.punc-member-exp:hover) .cs-exp,
+.left-side:has(.punc-member-exp:hover) .cs-exp-read,
+.left-side:has(.punc-member-exp:hover) .cs-exp-read-prop,
+.left-side:has(.punc-member-exp:hover) .cs-exp-read-prop-dynamic-name {
+  background-color: var(--highlight-cs-color);
+}
+
+.left-side:has(.punc-member-name:hover),
+.left-side:has(.ast-exp-read-prop-name:hover) {
+  .cs-exp,
+  .cs-exp-read,
+  .cs-exp-read-prop,
+  .cs-exp-read-prop-static-name {
+    background-color: var(--highlight-cs-color);
+  }
+}
+
+.left-side:has(.punc-call:hover) .cs-exp,
+.left-side:has(.punc-call:hover) .cs-exp-func-call {
+  background-color: var(--highlight-cs-color);
+}
+
+/* DATA cs*/
+
+.left-side:has(.ast-exp-data-num:hover) .cs-data,
+.left-side:has(.ast-exp-data-num:hover) .cs-data-number {
+  background-color: var(--highlight-cs-color);
+}
+
+.left-side:has(.ast-exp-data-str:hover) .cs-data,
+.left-side:has(.ast-exp-data-str:hover) .cs-data-string {
+  background-color: var(--highlight-cs-color);
+}
+
+.left-side:has(.ast-exp-data-bool:hover) .cs-data,
+.left-side:has(.ast-exp-data-bool:hover) .cs-data-boolean {
+  background-color: var(--highlight-cs-color);
+}
+
+.left-side:has(.ast-exp-data-nul:hover) .cs-data,
+.left-side:has(.ast-exp-data-nul:hover) .cs-data-null {
+  background-color: var(--highlight-cs-color);
+}
+
+.left-side:has(.ast-exp-data-undef:hover) .cs-data,
+.left-side:has(.ast-exp-data-undef:hover) .cs-data-undefined {
+  background-color: var(--highlight-cs-color);
+}
+
+.left-side:has(.ast-exp-data-arr:hover) .cs-data,
+.left-side:has(.ast-exp-data-arr:hover) .cs-data-array {
+  background-color: var(--highlight-cs-color);
+}
+
+.left-side:has(.ast-exp-data-obj:hover) .cs-data,
+.left-side:has(.ast-exp-data-obj:hover) .cs-data-object {
+  background-color: var(--highlight-cs-color);
+}
+
+.left-side:has(.ast-exp-data-fn:hover) .cs-data,
+.left-side:has(.ast-exp-data-fn:hover) .cs-data-function {
+  background-color: var(--highlight-cs-color);
+}
+
+/* .left-side:has(.ast-exp-data-fna:hover) .cs-data,
+.left-side:has(.ast-exp-data-fna:hover):not(:hover .me) .cs-data-function-arrow {
+  background-color: var(--highlight-cs-color);
+} */
