@@ -9,6 +9,7 @@ import {
 import CodeEditor from './code-editor/CodeEditor'
 import CheatSheetAccordion from './CheatSheetAccordion'
 import Console from './Console'
+import MemoryModel from './MemoryModel'
 
 const CODE_SAMPLE = `
 2*3+4
@@ -59,7 +60,12 @@ const Sandbox: React.FC = () => {
                         </ResizablePanel>
                         <ResizableHandle withHandle />
                         <ResizablePanel defaultSize={60}>
-                            Three
+                            <div className="h-full flex flex-col">
+                                <h4 className="text-xl font-bold p-2">Memory Model (updates on execution steps)</h4>
+                                <div className="flex-1 overflow-auto p-2">
+                                    <MemoryModel code={CODE_SAMPLE} />
+                                </div>
+                            </div>
                         </ResizablePanel >
                     </ResizablePanelGroup >
                 </ResizablePanel >
