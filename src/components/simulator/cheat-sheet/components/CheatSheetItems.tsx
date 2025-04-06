@@ -7,7 +7,6 @@ interface CheatSheetItemsProps {
 }
 
 const CheatSheetItems: React.FC<CheatSheetItemsProps> = ({ items }) => {
-    console.log(items)
     return (
         <ul className="list-disc pl-5 space-y-1.5 text-slate-800">
             {items.map((item, index) => (
