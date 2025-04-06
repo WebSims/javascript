@@ -40,7 +40,7 @@ const SimulatorContainer: React.FC = () => {
         >
           <ResizablePanel
             className="h-full"
-            defaultSize={65}
+            defaultSize={60}
             minSize={50}
             maxSize={70}
           >
@@ -59,7 +59,7 @@ const SimulatorContainer: React.FC = () => {
               <ResizablePanel
                 defaultSize={30}
                 minSize={isCheatSheetOpen ? 30 : 4}
-                maxSize={isCheatSheetOpen ? 50 : 4}
+                maxSize={isCheatSheetOpen ? 70 : 4}
               >
                 <CheatSheetAccordion onOpenChange={setIsCheatSheetOpen} />
               </ResizablePanel >
