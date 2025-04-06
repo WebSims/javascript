@@ -1,8 +1,9 @@
 /* eslint-disable */
 
-import React from "react"
+import React, { useEffect } from "react"
 import * as hermesParser from "hermes-parser"
 import * as _ from 'lodash'
+import { useSimulatorContext } from "@/hooks/useSimulatorContext"
 
 // import * as ts from "typescript";
 // const ast = ts.createSourceFile("temp.ts", codeStr, ts.ScriptTarget.Latest);
@@ -320,7 +321,7 @@ const NewFnArrow = ({ async, args, code, parent, parens }) => {
     if (code.type == "BlockStatement") {
         content = <>
             <span className="punc punc-block punc-new-fn-block punc-open">&#123;<br /></span>
-            <CodeArea ast={code} parens={parens} parent={parent} />
+            <CodeArea parens={parens} parent={parent} />
             <span className="punc punc-block punc-new-fn-block punc-close"><br />&#125;</span>
         </>
     } else {
@@ -344,7 +345,7 @@ const NewFn = ({ async, name, args, code, parent, parens }) => (
         {name && <span className="ast-exp-fn-name">{name}</span>}
         <FnArgsDef args={args} parens={parens} parent={parent} />
         <span className="punc punc-block punc-new-fn-block punc-open">&#123;<br /></span>
-        <CodeArea ast={code} parens={parens} parent={parent} />
+        <CodeArea parens={parens} parent={parent} />
         <span className="punc punc-block punc-new-fn-block punc-close"><br />&#125;</span>
     </>
 )
@@ -481,20 +482,23 @@ const Call = ({ expr, args, parent, parens }) => {
     </>
 }
 
-const CodeArea: React.FC<CodeAreaProps> = ({ fromAstOf, ast, parent, parens, debug }) => {
+const CodeArea: React.FC<CodeAreaProps> = ({ fromAstOf, parent, parens, debug }) => {
+    const { updateCodeStr, astOfCode } = useSimulatorContext()
+
+    useEffect(() => {
+        updateCodeStr(fromAstOf)
+    }, [fromAstOf])
+
     let isRoot = false
-    if (!ast) {
-        ast = astOf(fromAstOf)
-        console.log(ast)
-    }
+
     if (!parens) {
-        parens = parensSetOf(ast.tokens)
+        parens = parensSetOf(astOfCode.tokens)
         isRoot = true
     }
     if (!parent) {
-        parent = ast
+        parent = astOfCode
     }
-    const statements = ast instanceof Array ? ast : (ast.body ? ast.body : [ast]);
+    const statements = astOfCode instanceof Array ? astOfCode : (astOfCode.body ? astOfCode.body : [astOfCode]);
 
     return (
         <pre>

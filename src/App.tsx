@@ -1,8 +1,11 @@
 import SimulatorContainer from './containers/simulator/SimulatorContainer'
+import { SimulatorProvider } from './contexts/SimulatorContext'
 
 function App() {
   return (
-    <SimulatorContainer />
+    <SimulatorProvider>
+      <SimulatorContainer />
+    </SimulatorProvider>
   )
 }
 
