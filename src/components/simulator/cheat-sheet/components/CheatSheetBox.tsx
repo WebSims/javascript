@@ -4,6 +4,7 @@ import CheatSheetItems from './CheatSheetItems'
 export type CheatSheetItemType = {
     title: string
     items?: CheatSheetItemType[]
+    classN?: string
 }
 
 interface CheatSheetBoxProps {
@@ -37,7 +38,8 @@ const CheatSheetBox: React.FC<CheatSheetBoxProps> = ({ title, path, data }) => {
                     k.startsWith(childPath + '/'))
 
                 const item: CheatSheetItemType = {
-                    title: childTitle
+                    title: childTitle,
+                    classN: 'cs-' + key.replace('/', '-')
                 }
 
                 if (hasChildren) {
@@ -55,7 +57,9 @@ const CheatSheetBox: React.FC<CheatSheetBoxProps> = ({ title, path, data }) => {
 
     return (
         <>
-            <h2 className="text-lg font-bold mb-2">{title}</h2>
+            <h2 className={`text-lg font-bold mb-2 cs-${path}`}>
+                {title}
+            </h2>
             {items.length > 0 && <CheatSheetItems items={items} />}
         </>
     )
