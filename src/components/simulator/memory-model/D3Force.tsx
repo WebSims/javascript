@@ -1,4 +1,4 @@
-import React, { useEffect, useRef, useState } from 'react'
+import React, { useEffect, useRef } from 'react'
 import * as d3 from 'd3'
 
 type MemoryValue = {
@@ -14,7 +14,7 @@ type MemoryState = {
     functions: Record<string, { params: string[], body: string }>
 }
 
-interface MemoryModelDiagramProps {
+interface D3ForceProps {
     memoryState: MemoryState
 }
 
@@ -42,10 +42,9 @@ interface GraphLink {
     type: string
 }
 
-const MemoryModelDiagram: React.FC<MemoryModelDiagramProps> = ({ memoryState }) => {
+const D3Force: React.FC<D3ForceProps> = ({ memoryState }) => {
     const svgRef = useRef<SVGSVGElement>(null)
     const containerRef = useRef<HTMLDivElement>(null)
-    const [zoomLevel, setZoomLevel] = useState(1)
 
     // Update visualization when window resizes
     useEffect(() => {
@@ -146,7 +145,6 @@ const MemoryModelDiagram: React.FC<MemoryModelDiagramProps> = ({ memoryState }) 
             .scaleExtent([0.1, 4])
             .on('zoom', (event) => {
                 mainGroup.attr('transform', event.transform)
-                setZoomLevel(event.transform.k)
             })
 
         // Apply zoom behavior to the SVG
@@ -586,93 +584,8 @@ const MemoryModelDiagram: React.FC<MemoryModelDiagramProps> = ({ memoryState }) 
 
     }, [memoryState])
 
-    // Handle zoom controls
-    const handleZoomIn = () => {
-        if (!svgRef.current) return
-        const svg = d3.select(svgRef.current)
-        const zoom = d3.zoom<SVGSVGElement, unknown>().scaleExtent([0.1, 4])
-        svg.transition().duration(300).call(zoom.scaleBy, 1.2)
-    }
-
-    const handleZoomOut = () => {
-        if (!svgRef.current) return
-        const svg = d3.select(svgRef.current)
-        const zoom = d3.zoom<SVGSVGElement, unknown>().scaleExtent([0.1, 4])
-        svg.transition().duration(300).call(zoom.scaleBy, 0.8)
-    }
-
-    const handleResetZoom = () => {
-        if (!svgRef.current) return
-        const svg = d3.select(svgRef.current)
-        const zoom = d3.zoom<SVGSVGElement, unknown>().scaleExtent([0.1, 4])
-
-        // Re-center the diagram using the same logic as initial render
-        // Create temporary data structure to recompute the bounding box
-        const nodes = d3.selectAll('.node').data() as GraphNode[]
-        if (nodes.length === 0) {
-            // If no nodes to calculate, use default transform
-            svg.transition().duration(300).call(zoom.transform, d3.zoomIdentity.translate(20, 20).scale(1))
-            return
-        }
-
-        // Calculate the bounding box
-        let minX = Infinity, minY = Infinity, maxX = -Infinity, maxY = -Infinity
-        nodes.forEach(node => {
-            if (!node.x || !node.y || !node.width || !node.height) return
-            minX = Math.min(minX, node.x)
-            minY = Math.min(minY, node.y)
-            maxX = Math.max(maxX, node.x + node.width)
-            maxY = Math.max(maxY, node.y + node.height)
-        })
-
-        // Get the SVG dimensions
-        const width = svgRef.current.clientWidth
-        const height = svgRef.current.clientHeight
-
-        // Calculate scale and translation
-        const diagramWidth = maxX - minX
-        const diagramHeight = maxY - minY
-
-        const scaleX = width / (diagramWidth + 80)
-        const scaleY = height / (diagramHeight + 80)
-        const scale = Math.min(1, Math.min(scaleX, scaleY))
-
-        const centerX = (width / 2) - ((minX + diagramWidth / 2) * scale)
-        const centerY = (height / 2) - ((minY + diagramHeight / 2) * scale)
-
-        const transform = d3.zoomIdentity.translate(centerX, centerY).scale(scale)
-        svg.transition().duration(300).call(zoom.transform, transform)
-    }
-
     return (
         <div className="w-full h-full bg-white rounded-md shadow-sm overflow-hidden flex flex-col">
-            <div className="flex justify-between items-center m-3">
-                <h3 className="text-lg font-semibold">Memory Visualization</h3>
-                <div className="flex items-center gap-2">
-                    <button
-                        onClick={handleZoomOut}
-                        className="p-1 rounded-md bg-gray-100 hover:bg-gray-200 transition-colors"
-                        aria-label="Zoom out"
-                    >
-                        <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><circle cx="11" cy="11" r="8"></circle><line x1="21" y1="21" x2="16.65" y2="16.65"></line><line x1="8" y1="11" x2="14" y2="11"></line></svg>
-                    </button>
-                    <span className="text-xs text-gray-500">{Math.round(zoomLevel * 100)}%</span>
-                    <button
-                        onClick={handleZoomIn}
-                        className="p-1 rounded-md bg-gray-100 hover:bg-gray-200 transition-colors"
-                        aria-label="Zoom in"
-                    >
-                        <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><circle cx="11" cy="11" r="8"></circle><line x1="21" y1="21" x2="16.65" y2="16.65"></line><line x1="11" y1="8" x2="11" y2="14"></line><line x1="8" y1="11" x2="14" y2="11"></line></svg>
-                    </button>
-                    <button
-                        onClick={handleResetZoom}
-                        className="p-1 rounded-md bg-gray-100 hover:bg-gray-200 transition-colors"
-                        aria-label="Reset zoom"
-                    >
-                        <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"></path><polyline points="9 22 9 12 15 12 15 22"></polyline></svg>
-                    </button>
-                </div>
-            </div>
             <div ref={containerRef} className="overflow-hidden flex-1 cursor-move" style={{ minHeight: "400px" }}>
                 {Object.keys(memoryState.variables).length > 0 ? (
                     <svg
@@ -727,4 +640,4 @@ const MemoryModelDiagram: React.FC<MemoryModelDiagramProps> = ({ memoryState }) 
     )
 }
 
-export default MemoryModelDiagram 
+export default D3Force 

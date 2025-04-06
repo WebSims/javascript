@@ -95,7 +95,7 @@ const decorations = {
     },
 }
 
-interface CodeEditorProps {
+interface CodeAreaProps {
     fromAstOf: string
 }
 
@@ -320,7 +320,7 @@ const NewFnArrow = ({ async, args, code, parent, parens }) => {
     if (code.type == "BlockStatement") {
         content = <>
             <span className="punc punc-block punc-new-fn-block punc-open">&#123;<br /></span>
-            <CodeEditor ast={code} parens={parens} parent={parent} />
+            <CodeArea ast={code} parens={parens} parent={parent} />
             <span className="punc punc-block punc-new-fn-block punc-close"><br />&#125;</span>
         </>
     } else {
@@ -344,7 +344,7 @@ const NewFn = ({ async, name, args, code, parent, parens }) => (
         {name && <span className="ast-exp-fn-name">{name}</span>}
         <FnArgsDef args={args} parens={parens} parent={parent} />
         <span className="punc punc-block punc-new-fn-block punc-open">&#123;<br /></span>
-        <CodeEditor ast={code} parens={parens} parent={parent} />
+        <CodeArea ast={code} parens={parens} parent={parent} />
         <span className="punc punc-block punc-new-fn-block punc-close"><br />&#125;</span>
     </>
 )
@@ -481,7 +481,7 @@ const Call = ({ expr, args, parent, parens }) => {
     </>
 }
 
-const CodeEditor: React.FC<CodeEditorProps> = ({ fromAstOf, ast, parent, parens, debug }) => {
+const CodeArea: React.FC<CodeAreaProps> = ({ fromAstOf, ast, parent, parens, debug }) => {
     let isRoot = false
     if (!ast) {
         ast = astOf(fromAstOf)
@@ -505,4 +505,4 @@ const CodeEditor: React.FC<CodeEditorProps> = ({ fromAstOf, ast, parent, parens,
     )
 }
 
-export default CodeEditor
+export default CodeArea

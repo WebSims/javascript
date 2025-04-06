@@ -1,6 +1,6 @@
 import React, { useEffect, useState, ReactNode } from 'react'
 import * as hermesParser from 'hermes-parser'
-import MemoryModelDiagram from './MemoryDiagram'
+import D3Force from './D3Force'
 
 interface MemoryModelProps {
     code: string
@@ -27,7 +27,7 @@ const MemoryModel: React.FC<MemoryModelProps> = ({ code }) => {
         functions: {}
     })
     const [error, setError] = useState<string | null>(null)
-    const [activeTab, setActiveTab] = useState<'textual' | 'd3'>('textual')
+    const [activeTab, setActiveTab] = useState<'textual' | 'd3'>('d3')
 
     useEffect(() => {
         try {
@@ -321,7 +321,7 @@ const MemoryModel: React.FC<MemoryModelProps> = ({ code }) => {
                 </div>
             )}
 
-            <div className="flex border-b mb-4">
+            {/* <div className="flex border-b mb-4">
                 <button
                     className={`px-4 py-2 font-medium ${activeTab === 'textual' ? 'border-b-2 border-blue-500 text-blue-600' : 'text-gray-600'}`}
                     onClick={() => setActiveTab('textual')}
@@ -334,7 +334,7 @@ const MemoryModel: React.FC<MemoryModelProps> = ({ code }) => {
                 >
                     Graph View
                 </button>
-            </div>
+            </div> */}
 
             {activeTab === 'textual' ? (
                 <div className="space-y-4">
@@ -344,7 +344,7 @@ const MemoryModel: React.FC<MemoryModelProps> = ({ code }) => {
                     {renderFunctions()}
                 </div>
             ) : (
-                <MemoryModelDiagram memoryState={memoryState} />
+                <D3Force memoryState={memoryState} />
             )}
         </div>
     )

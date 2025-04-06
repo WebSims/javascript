@@ -1,8 +1,8 @@
-import Sandbox from '@/components/sandbox/Sandbox'
+import SimulatorContainer from './containers/simulator/SimulatorContainer'
 
 function App() {
   return (
-    <Sandbox />
+    <SimulatorContainer />
   )
 }
 

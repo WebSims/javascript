@@ -6,7 +6,7 @@ import {
     AccordionItem,
     AccordionTrigger,
 } from "@/components/ui/accordion"
-import CheatSheet from './cheat-sheet/CheatSheet'
+import CheatSheet from '@/components/simulator/cheat-sheet/CheatSheet'
 
 const CheatSheetAccordion: React.FC = () => {
     return (
