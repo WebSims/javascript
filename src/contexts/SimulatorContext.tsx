@@ -12,6 +12,7 @@ type SimulatorContextType = {
     stepForward: () => void
     stepBackward: () => void
     changeStep: (index: number) => void
+    resetSimulation: () => void
     totalSteps: number
 }
 
@@ -77,6 +78,11 @@ export const SimulatorProvider = ({ children }: { children: React.ReactNode }) =
         setCurrentExecStep(execSteps[index])
     }
 
+    const resetSimulation = () => {
+        setCurrentExecStep(execSteps[0])
+        togglePlaying(false)
+    }
+
     useEffect(() => {
         let interval: NodeJS.Timeout
 
@@ -108,6 +114,7 @@ export const SimulatorProvider = ({ children }: { children: React.ReactNode }) =
                 stepForward,
                 stepBackward,
                 changeStep,
+                resetSimulation,
                 totalSteps
             }}
         >

@@ -1,5 +1,5 @@
 import React from 'react'
-import { PlayIcon, PauseIcon, SkipBackIcon, SkipForwardIcon } from 'lucide-react'
+import { PlayIcon, PauseIcon, SkipBackIcon, SkipForwardIcon, RotateCcwIcon } from 'lucide-react'
 import { Slider } from "@/components/ui/slider"
 import { useSimulatorContext } from '@/hooks/useSimulatorContext'
 
@@ -11,6 +11,7 @@ const ExecutionBar = () => {
         stepForward,
         stepBackward,
         changeStep,
+        resetSimulation,
         totalSteps
     } = useSimulatorContext()
 
@@ -18,8 +19,17 @@ const ExecutionBar = () => {
         <div className="h-12 bg-gray-100 px-4 flex items-center gap-4 shadow-sm">
             <div className="flex items-center gap-2">
                 <button
+                    onClick={resetSimulation}
+                    className="p-1.5 rounded-full hover:bg-gray-200 transition-colors"
+                    aria-label="Reset simulation"
+                >
+                    <RotateCcwIcon size={18} />
+                </button>
+
+                <button
                     onClick={stepBackward}
                     className="p-1.5 rounded-full hover:bg-gray-200 transition-colors"
+                    aria-label="Step backward"
                 >
                     <SkipBackIcon size={18} />
                 </button>
@@ -27,6 +37,7 @@ const ExecutionBar = () => {
                 <button
                     onClick={() => togglePlaying()}
                     className="p-1.5 rounded-full hover:bg-gray-200 transition-colors"
+                    aria-label="Play or pause"
                 >
                     {isPlaying ? <PauseIcon size={18} /> : <PlayIcon size={18} />}
                 </button>
@@ -34,6 +45,7 @@ const ExecutionBar = () => {
                 <button
                     onClick={stepForward}
                     className="p-1.5 rounded-full hover:bg-gray-200 transition-colors"
+                    aria-label="Step forward"
                 >
                     <SkipForwardIcon size={18} />
                 </button>
