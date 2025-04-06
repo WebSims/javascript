@@ -1,4 +1,4 @@
-import React from 'react'
+import React, { useState } from 'react'
 
 import {
   ResizableHandle,
@@ -29,6 +29,8 @@ const CODE_SAMPLE = `
 `
 
 const SimulatorContainer: React.FC = () => {
+  const [isCheatSheetOpen, setIsCheatSheetOpen] = useState(true)
+
   return (
     <div className="h-screen">
       <ExecutionBar />
@@ -39,8 +41,10 @@ const SimulatorContainer: React.FC = () => {
           <ResizablePanel
             className="h-full"
             defaultSize={65}
+            minSize={50}
+            maxSize={70}
           >
-            <div className="h-full flex flex-col left-side">
+            {/* <div className="h-full flex flex-col left-side">
               <h4 className="text-xl font-bold p-2">Code Editor</h4>
               <div className="flex-1 overflow-auto p-2">
                 <CodeArea fromAstOf={CODE_SAMPLE} />
@@ -48,7 +52,27 @@ const SimulatorContainer: React.FC = () => {
               <div className="mt-auto">
                 <CheatSheetAccordion />
               </div>
-            </div>
+            </div> */}
+            <ResizablePanelGroup direction="vertical">
+              <ResizablePanel
+                defaultSize={70}
+              >
+                <div className="h-full flex flex-col">
+                  <h4 className="text-xl font-bold p-2">Console (Outputs of code execution)</h4>
+                  <div className="flex-1 overflow-auto p-2">
+                    <CodeArea fromAstOf={CODE_SAMPLE} />
+                  </div>
+                </div>
+              </ResizablePanel>
+              <ResizableHandle withHandle />
+              <ResizablePanel
+                defaultSize={30}
+                minSize={isCheatSheetOpen ? 30 : 4}
+                maxSize={isCheatSheetOpen ? 50 : 4}
+              >
+                <CheatSheetAccordion onOpenChange={setIsCheatSheetOpen} />
+              </ResizablePanel >
+            </ResizablePanelGroup >
           </ResizablePanel>
           <ResizableHandle withHandle />
           <ResizablePanel defaultSize={35}>
