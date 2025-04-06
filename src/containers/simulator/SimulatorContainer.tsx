@@ -44,16 +44,7 @@ const SimulatorContainer: React.FC = () => {
             minSize={50}
             maxSize={70}
           >
-            {/* <div className="h-full flex flex-col left-side">
-              <h4 className="text-xl font-bold p-2">Code Editor</h4>
-              <div className="flex-1 overflow-auto p-2">
-                <CodeArea fromAstOf={CODE_SAMPLE} />
-              </div>
-              <div className="mt-auto">
-                <CheatSheetAccordion />
-              </div>
-            </div> */}
-            <ResizablePanelGroup direction="vertical">
+            <ResizablePanelGroup direction="vertical" className='left-side'>
               <ResizablePanel
                 defaultSize={70}
               >
