@@ -11,8 +11,10 @@ import CheatSheetAccordion from './components/CheatSheetAccordion'
 import Console from '@/components/simulator/console-output/ConsoleOutput'
 import MemoryModel from '@/components/simulator/memory-model/MemoryModel'
 import ExecutionBar from '@/components/simulator/execution-bar/ExecutionBar'
+import NewCodeArea from '@/components/simulator/code-area/NewCodeArea'
 
 const CODE_SAMPLE = `
+((1 + 2));
 2*3+4
   2*(3+4
     );
@@ -51,6 +53,7 @@ const SimulatorContainer: React.FC = () => {
                 <div className="h-full flex flex-col">
                   <h4 className="text-xl font-bold p-2">Console (Outputs of code execution)</h4>
                   <div className="flex-1 overflow-auto p-2">
+                    {/* <NewCodeArea fromAstOf={CODE_SAMPLE} /> */}
                     <CodeArea fromAstOf={CODE_SAMPLE} />
                   </div>
                 </div>
