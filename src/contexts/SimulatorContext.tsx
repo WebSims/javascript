@@ -1,5 +1,6 @@
 import { createContext, useState, useEffect, useRef } from "react"
 import { astOf } from "@/utils/ast"
+import { cheatSheetHighlighter } from "@/utils/cheatSheetHighlighter"
 import { ESNode } from "hermes-parser"
 import * as ts from "typescript"
 
@@ -50,55 +51,8 @@ export const SimulatorProvider = ({ children }: { children: React.ReactNode }) =
     const cheatSheetRef = useRef<HTMLDivElement>(null)
 
     useEffect(() => {
-        if (!codeAreaRef.current || !cheatSheetRef.current) return
-
-        const codeArea = codeAreaRef.current
-        const cheatSheet = cheatSheetRef.current
-
-        const handleMouseEnter = (e: MouseEvent) => {
-            const element = (e.target as HTMLElement)?.closest('[data-cheat-sheet-id]')
-            if (!element) return
-
-            const cheatSheetId = (element as HTMLElement).dataset.cheatSheetId
-            if (!cheatSheetId) return
-
-            const paths: string[] = []
-            let currentPath = ''
-
-            cheatSheetId.split('-').forEach((part: string) => {
-                currentPath = currentPath ? `${currentPath}-${part}` : part
-                paths.push(currentPath)
-            })
-
-            const lastPath = paths[paths.length - 1]
-
-            paths.forEach(path => {
-                const element = cheatSheet.querySelector(`#${path}`)
-                if (!element) return
-
-                element.classList.add('bg-red-300', 'transition-colors', 'duration-300')
-
-                if (path === lastPath) {
-                    element.scrollIntoView({ behavior: 'smooth', block: 'center' })
-                }
-            })
-        }
-
-        const handleMouseLeave = () => {
-            const highlightedElements = cheatSheet.querySelectorAll('.bg-red-300')
-            highlightedElements.forEach((element) => {
-                element.classList.remove('bg-red-300')
-                element.classList.add('bg-orange-0')
-            })
-        }
-
-        codeArea.addEventListener('mouseover', handleMouseEnter)
-        codeArea.addEventListener('mouseout', handleMouseLeave)
-
-        return () => {
-            codeArea.removeEventListener('mouseover', handleMouseEnter)
-            codeArea.removeEventListener('mouseout', handleMouseLeave)
-        }
+        const cleanup = cheatSheetHighlighter(codeAreaRef, cheatSheetRef)
+        return cleanup
     }, [])
 
     const totalSteps = execSteps.length
