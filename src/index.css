@@ -142,14 +142,6 @@
   background-color: rgba(0, 0, 0, 0.1);
 }
 
-.ast-st-unk {
-  background-color: orange;
-}
-
-.ast-st-exp {
-  /* background-color: rgba(0, 238, 255, 0.34); */
-}
-
 .ast-exp {
   border: 1px solid rgba(0 0 0 / 5%);
   border-radius: 5px;
@@ -166,54 +158,6 @@
   border: 1px solid rgba(0 0 0 / 50%);
 }
 
-.ast-exp-unk {
-  background-color: orange;
-}
-
-.ast-exp-data-literal {
-  color: blue;
-}
-
-.ast-exp-data-bool {
-}
-
-.ast-exp-data-num {
-}
-
-.ast-exp-data-str {
-  color: gray;
-}
-
-.ast-exp-data-nul {
-}
-
-.ast-exp-data-undef {
-}
-
-.ast-exp-data-arr {
-}
-
-.ast-exp-data-obj {
-}
-
-.ast-exp-data-fn {
-}
-
-.ast-exp-data-fna {
-}
-
-.ast-exp-op {
-}
-
-.ast-exp-op1 {
-}
-
-.ast-exp-op2 {
-}
-
-.ast-exp-op3 {
-}
-
 .ast-noundef {
   border-color: red !important;
 }
@@ -221,22 +165,7 @@
 .ast-exp-read {
 }
 
-.ast-exp-read-var {
-}
-
-.ast-exp-read-prop {
-}
-
-.ast-exp-read-prop-name {
-}
-
-.ast-exp-read-expr {
-}
-
 /* // WRITE */
-
-.ast-exp-call {
-}
 
 .punc-exp-group {
 }
@@ -256,26 +185,6 @@
 }
 
 .punc-op {
-}
-
-.punc-unary {
-}
-
-/* .punc-op */
-.punc-binary {
-}
-
-/* .punc-op */
-.punc-ternary {
-}
-
-/* .punc-op */
-
-.punc-call {
-}
-
-/* ( ) .punc-open .punc-close */
-.punc-call-arg-sep {
 }
 
 /* , .punc-comma */
@@ -382,101 +291,3 @@
     transform: translateY(0px) scale(1);
   }
 }
-
-/*============================= CHEAT SHEET CLASSES =============================*/
-/* STATEMENT cs */
-
-/* EXPRESSION cs */
-.left-side:has(.punc-unary:hover) .cs-exp,
-.left-side:has(.punc-unary:hover) .cs-exp-op,
-.left-side:has(.punc-unary:hover) .cs-exp-unary {
-  background-color: var(--highlight-cs-color);
-}
-
-.left-side:has(.punc-binary:hover) .cs-exp,
-.left-side:has(.punc-binary:hover) .cs-exp-op,
-.left-side:has(.punc-binary:hover) .cs-exp-binary {
-  background-color: var(--highlight-cs-color);
-}
-
-.left-side:has(.punc-ternary:hover) .cs-exp,
-.left-side:has(.punc-ternary:hover) .cs-exp-op,
-.left-side:has(.punc-ternary:hover) .cs-exp-ternary {
-  background-color: var(--highlight-cs-color);
-}
-
-.left-side:has(.ast-exp-read-var:hover) .cs-exp,
-.left-side:has(.ast-exp-read-var:hover) .cs-exp-read,
-.left-side:has(.ast-exp-read-var:hover) .cs-exp-read-var,
-.left-side:has(.ast-exp-read-var:hover) .cs-exp-read-var-name {
-  background-color: var(--highlight-cs-color);
-}
-
-.left-side:has(.punc-member-exp:hover) .cs-exp,
-.left-side:has(.punc-member-exp:hover) .cs-exp-read,
-.left-side:has(.punc-member-exp:hover) .cs-exp-read-prop,
-.left-side:has(.punc-member-exp:hover) .cs-exp-read-prop-dynamic-name {
-  background-color: var(--highlight-cs-color);
-}
-
-.left-side:has(.punc-member-name:hover),
-.left-side:has(.ast-exp-read-prop-name:hover) {
-  .cs-exp,
-  .cs-exp-read,
-  .cs-exp-read-prop,
-  .cs-exp-read-prop-static-name {
-    background-color: var(--highlight-cs-color);
-  }
-}
-
-.left-side:has(.punc-call:hover) .cs-exp,
-.left-side:has(.punc-call:hover) .cs-exp-func-call {
-  background-color: var(--highlight-cs-color);
-}
-
-/* DATA cs*/
-
-.left-side:has(.ast-exp-data-num:hover) .cs-data,
-.left-side:has(.ast-exp-data-num:hover) .cs-data-number {
-  background-color: var(--highlight-cs-color);
-}
-
-.left-side:has(.ast-exp-data-str:hover) .cs-data,
-.left-side:has(.ast-exp-data-str:hover) .cs-data-string {
-  background-color: var(--highlight-cs-color);
-}
-
-.left-side:has(.ast-exp-data-bool:hover) .cs-data,
-.left-side:has(.ast-exp-data-bool:hover) .cs-data-boolean {
-  background-color: var(--highlight-cs-color);
-}
-
-.left-side:has(.ast-exp-data-nul:hover) .cs-data,
-.left-side:has(.ast-exp-data-nul:hover) .cs-data-null {
-  background-color: var(--highlight-cs-color);
-}
-
-.left-side:has(.ast-exp-data-undef:hover) .cs-data,
-.left-side:has(.ast-exp-data-undef:hover) .cs-data-undefined {
-  background-color: var(--highlight-cs-color);
-}
-
-.left-side:has(.ast-exp-data-arr:hover) .cs-data,
-.left-side:has(.ast-exp-data-arr:hover) .cs-data-array {
-  background-color: var(--highlight-cs-color);
-}
-
-.left-side:has(.ast-exp-data-obj:hover) .cs-data,
-.left-side:has(.ast-exp-data-obj:hover) .cs-data-object {
-  background-color: var(--highlight-cs-color);
-}
-
-.left-side:has(.ast-exp-data-fn:hover) .cs-data,
-.left-side:has(.ast-exp-data-fn:hover) .cs-data-function {
-  background-color: var(--highlight-cs-color);
-}
-
-/* .left-side:has(.ast-exp-data-fna:hover) .cs-data,
-.left-side:has(.ast-exp-data-fna:hover):not(:hover .me) .cs-data-function-arrow {
-  background-color: var(--highlight-cs-color);
-} */

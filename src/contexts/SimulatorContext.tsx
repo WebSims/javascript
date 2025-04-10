@@ -76,7 +76,7 @@ export const SimulatorProvider = ({ children }: { children: React.ReactNode }) =
                 const element = cheatSheet.querySelector(`#${path}`)
                 if (!element) return
 
-                element.classList.add('bg-red-300', 'transition-colors', 'duration-200')
+                element.classList.add('bg-red-300', 'transition-colors', 'duration-300')
 
                 if (path === lastPath) {
                     element.scrollIntoView({ behavior: 'smooth', block: 'center' })
@@ -87,7 +87,8 @@ export const SimulatorProvider = ({ children }: { children: React.ReactNode }) =
         const handleMouseLeave = () => {
             const highlightedElements = cheatSheet.querySelectorAll('.bg-red-300')
             highlightedElements.forEach((element) => {
-                element.classList.remove('bg-red-300', 'transition-colors', 'duration-200')
+                element.classList.remove('bg-red-300')
+                element.classList.add('bg-orange-0')
             })
         }
 

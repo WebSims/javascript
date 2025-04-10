@@ -55,44 +55,44 @@ const colorPallete = colorPalletes[2]
 const decorations = {
     statement: {
         classN: "ast-st",
-        expression: { tooltip: "Expression Evaluation Statement", cheatSheetId: "st-exp", classN: "ast-st-exp" },
-        declaration: { tooltip: "Variable declaration Statement", cheatSheetId: "st-dec", classN: "ast-st-dec" },
-        UNKNOWN: { tooltip: "UNKNOWN Statement", classN: "ast-st-unk" },
+        expression: { tooltip: "Expression Evaluation Statement", cheatSheetId: "st-exp", classN: "" },
+        declaration: { tooltip: "Variable declaration Statement", cheatSheetId: "st-dec", classN: "" },
+        UNKNOWN: { tooltip: "UNKNOWN Statement", classN: "bg-orange-500" },
     },
     expression: {
         classN: "ast-exp",
         data: {
             classN: "ast-exp-data",
-            boolean: { tooltip: "Data: Literal (boolean)", cheatSheetId: "data-boolean", classN: "ast-exp-data-literal ast-exp-data-bool" },
-            numeric: { tooltip: "Data: Literal (number)", cheatSheetId: "data-number", classN: "ast-exp-data-literal ast-exp-data-num" },
-            string: { tooltip: "Data: Literal (string)", cheatSheetId: "data-string", classN: "ast-exp-data-literal ast-exp-data-str" },
-            null: { tooltip: "Data: Literal (null)", cheatSheetId: "data-null", classN: "ast-exp-data-literal ast-exp-data-nul" },
-            undefined: { tooltip: "Data: Literal (undefined)", cheatSheetId: "data-undefined", classN: "ast-exp-data-literal ast-exp-data-undef" },
-            arr: { tooltip: "Data: NEW array", cheatSheetId: "data-array", classN: "ast-exp-data-new ast-exp-data-arr" },
-            obj: { tooltip: "Data: NEW object", cheatSheetId: "data-object", classN: "ast-exp-data-new ast-exp-data-obj" },
-            fn: { tooltip: "Data: NEW anonymous function", cheatSheetId: "data-function", classN: "ast-exp-data-new ast-exp-data-fn" },
-            fnArr: { tooltip: "Data: NEW arrow function", cheatSheetId: "data-arrow", classN: "ast-exp-data-new ast-exp-data-fna" },
+            boolean: { tooltip: "Data: Literal (boolean)", cheatSheetId: "data-boolean", classN: "text-blue-500" },
+            numeric: { tooltip: "Data: Literal (number)", cheatSheetId: "data-number", classN: "text-blue-500" },
+            string: { tooltip: "Data: Literal (string)", cheatSheetId: "data-string", classN: "text-blue-500" },
+            null: { tooltip: "Data: Literal (null)", cheatSheetId: "data-null", classN: "text-blue-500" },
+            undefined: { tooltip: "Data: Literal (undefined)", cheatSheetId: "data-undefined", classN: "text-blue-500" },
+            arr: { tooltip: "Data: NEW array", cheatSheetId: "data-array", classN: "" },
+            obj: { tooltip: "Data: NEW object", cheatSheetId: "data-object", classN: "" },
+            fn: { tooltip: "Data: NEW anonymous function", cheatSheetId: "data-function", classN: "" },
+            fnArr: { tooltip: "Data: NEW arrow function", cheatSheetId: "data-arrow", classN: "" },
         },
         read: {
             classN: "ast-exp-read",
-            var: { tooltip: "Read variable", cheatSheetId: "exp-read-var", classN: "ast-exp-read-var", color: colorPallete[4] },
-            prop: { tooltip: "Read property of object", cheatSheetId: "exp-read-prop", classN: "ast-exp-read-prop", color: colorPallete[3] },
-            expr: { tooltip: "Read property of object (by expression)", classN: "ast-exp-read-expr", color: colorPallete[1] },
+            var: { tooltip: "Read variable", cheatSheetId: "exp-read-var", classN: "", color: colorPallete[4] },
+            prop: { tooltip: "Read property of object", cheatSheetId: "exp-read-prop", classN: "", color: colorPallete[3] },
+            expr: { tooltip: "Read property of object (by expression)", color: colorPallete[1] },
         },
         write: {
             classN: "ast-exp-write",
-            var: { tooltip: "Set variable", cheatSheetId: "write-variable", classN: "ast-exp-write-var" },
-            prop: { tooltip: "Set property of object", cheatSheetId: "write-property", classN: "ast-exp-write-prop" },
-            expr: { tooltip: "Set property of object (by expression)", cheatSheetId: "write-property-by-expression", classN: "ast-exp-write-expr" },
+            var: { tooltip: "Set variable", classN: "" },
+            prop: { tooltip: "Set property of object", classN: "" },
+            expr: { tooltip: "Set property of object (by expression)", classN: "" },
         },
         operator: {
             classN: "ast-exp-op",
-            unary: { tooltip: "Operation (Unary Operator)", cheatSheetId: "exp-op-unary", classN: "ast-exp-op1" },
-            binary: { tooltip: "Operation (Binary Operator)", cheatSheetId: "exp-op-binary", classN: "ast-exp-op2" },
-            ternary: { tooltip: "Operation (Ternary Operator)", cheatSheetId: "exp-op-ternary", classN: "ast-exp-op3" },
+            unary: { tooltip: "Operation (Unary Operator)", cheatSheetId: "exp-op-unary", classN: "" },
+            binary: { tooltip: "Operation (Binary Operator)", cheatSheetId: "exp-op-binary", classN: "" },
+            ternary: { tooltip: "Operation (Ternary Operator)", cheatSheetId: "exp-op-ternary", classN: "" },
         },
-        call: { tooltip: "Function call", cheatSheetId: "exp-func", classN: "ast-exp-call" },
-        UNKNOWN: { tooltip: "UNKNOWN Expression", classN: "ast-exp-unk" },
+        call: { tooltip: "Function call", cheatSheetId: "exp-func", classN: "" },
+        UNKNOWN: { tooltip: "UNKNOWN Expression", classN: "bg-orange-500" },
     },
 }
 
@@ -267,7 +267,7 @@ const Expression = ({ fromAstOf, expr, parent, parens }) => {
         {expr.parenthized &&
             <span className="punc punc-exp-group punc-open">(</span>
         }
-        {component}
+        <span className="ast-exp-content">{component}</span>
         {expr.parenthized &&
             <span className="punc punc-exp-group punc-close">)</span>
         }
@@ -297,10 +297,10 @@ const NewObj = ({ props, parent, parens }) => {
             props.map((prop, i) => {
                 let key
                 if (prop.key.type == "Identifier") {
-                    key = <span className="ast-exp-var-name ast-exp-read-var-name">{prop.key.name}</span>
+                    key = <span>{prop.key.name}</span>
                 }
                 if (prop.key.type == "Literal") {
-                    key = <span className="ast-exp-data-literal ast-exp-data-str">{prop.key.raw}</span>
+                    key = <span className="text-blue-500">{prop.key.raw}</span>
                 }
                 return <span key={i} className="ast-obj-prop ">
                     {key}
@@ -359,7 +359,7 @@ const FnArgsDef = ({ args, parent, parens }) => (
 
             // Identifier name:string
             if (arg.type == "Identifier") {
-                component = <span className="ast-exp-var-name ast-exp-write-var-name">{arg.name}</span>
+                component = <span>{arg.name}</span>
             }
 
             // AssignmentPattern left:Identifier right:exp
@@ -379,7 +379,7 @@ const FnArgsDef = ({ args, parent, parens }) => (
 )
 
 const ReadVar = ({ name }) => (
-    <span className="ast-exp-var-name ast-exp-read-var-name">{name}</span>
+    <span>{name}</span>
 )
 
 const ReadProp = ({ name, of, parent, parens }) => (
@@ -388,7 +388,7 @@ const ReadProp = ({ name, of, parent, parens }) => (
             <Expression expr={of} parens={parens} parent={parent} />
         </span>
         <span className="punc punc-member-name">.</span>
-        <span className="ast-exp-read-prop ast-exp-read-prop-name">{name}</span>
+        <span>{name}</span>
     </>
 )
 
@@ -405,7 +405,7 @@ const ReadIndex = ({ expr, of, parent, parens }) => (
 
 const WriteVar = ({ name, setBy, setTo, parent, parens }) => (
     <>
-        <span className="ast-exp-var-name ast-exp-write-var-name">{name}</span>
+        <span>{name}</span>
         <span className="punc punc-ass">&nbsp;{setBy}&nbsp;</span>
         <Expression expr={setTo} parens={parens} parent={parent} />
     </>
@@ -417,7 +417,7 @@ const WriteProp = ({ name, of, setBy, setTo, parent, parens }) => (
         <Expression expr={of} parens={parens} parent={parent} />
         {/* </span> */}
         <span className="punc punc-member-name">.</span>
-        <span className="ast-exp-write-prop-name">{name}</span>
+        <span>{name}</span>
         <span className="punc punc-ass">&nbsp;{setBy}&nbsp;</span>
         <Expression expr={setTo} parens={parens} parent={parent} />
     </>
@@ -439,7 +439,7 @@ const WriteIndex = ({ expr, of, setBy, setTo, parent, parens }) => (
 const OperatorUnary = ({ operator, operand, parent, parens }) => {
     return (
         <>
-            <span className="punc punc-op punc-unary">{operator}&nbsp;</span>
+            <span className="punc punc-op">{operator}&nbsp;</span>
             <Expression expr={operand} parens={parens} parent={parent} />
         </>
     )
@@ -451,7 +451,7 @@ const OperatorBinary = ({ operator, left, right, parent, parens }) => {
     return (
         <>
             <Expression expr={left} parens={parens} parent={parent} />
-            <span className="punc punc-op punc-binary">&nbsp;{operator}&nbsp;</span>
+            <span className="punc punc-op">&nbsp;{operator}&nbsp;</span>
             <Expression expr={right} parens={parens} parent={parent} />
         </>
     )
@@ -461,9 +461,9 @@ const OperatorTernary = ({ cond, truthy, falsy, parent, parens }) => {
     return (
         <>
             <Expression expr={cond} parens={parens} parent={parent} />
-            <span className="punc punc-op punc-ternary">?</span>
+            <span className="punc punc-op">?</span>
             <Expression expr={truthy} parens={parens} parent={parent} />
-            <span className="punc punc-op punc-ternary">:</span>
+            <span className="punc punc-op">:</span>
             <Expression expr={falsy} parens={parens} parent={parent} />
         </>
     )
@@ -472,16 +472,16 @@ const OperatorTernary = ({ cond, truthy, falsy, parent, parens }) => {
 const Call = ({ expr, args, parent, parens }) => {
     return <>
         <Expression expr={expr} parens={parens} parent={parent} />
-        <span className="punc punc-call punc-open">(</span>
+        <span className="punc punc-open">(</span>
         {args.map((arg, i) => {
             return <>
                 <Expression key={i} expr={arg} parens={parens} parent={parent} />
                 {i < args.length - 1 &&
-                    <span className="punc punc-comma punc-call-arg-sep">,</span>
+                    <span className="punc punc-comma">,</span>
                 }
             </>
         })}
-        <span className="punc punc-call punc-close">)</span>
+        <span className="punc punc-close">)</span>
     </>
 }
 

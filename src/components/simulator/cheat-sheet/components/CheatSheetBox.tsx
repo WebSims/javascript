@@ -58,8 +58,8 @@ const CheatSheetBox: React.FC<CheatSheetBoxProps> = ({ title, path, data }) => {
 
     return (
         <div className="h-full flex flex-col">
-            <h2 className="text-lg font-bold mb-2">
-                <span id={path} className="p-1 rounded-md inline-block">{title}</span>
+            <h2 className="text-lg font-bold mb-1">
+                <span id={path} className="py-0.5 px-1.5 rounded-md inline-block">{title}</span>
             </h2>
             {items.length > 0 && (
                 <div className="h-full overflow-y-auto pb-9">
