@@ -3,7 +3,7 @@ import ts from "typescript"
 
 export const astOf = (
     codeStr: string,
-    parser: 'hermesParser' | 'typescript' = 'typescript'
+    parser: 'hermesParser' | 'typescript' = 'hermesParser'
 ) => {
     if (parser === 'hermesParser') {
         return hermesParser(codeStr, { tokens: true })
