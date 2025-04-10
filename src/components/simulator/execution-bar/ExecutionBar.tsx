@@ -1,7 +1,7 @@
 import React from 'react'
 import { PlayIcon, PauseIcon, SkipBackIcon, SkipForwardIcon, RotateCcwIcon } from 'lucide-react'
 import { Slider } from "@/components/ui/slider"
-import { useSimulatorContext } from '@/hooks/useSimulatorContext'
+import { useSimulatorStore } from '@/hooks/useSimulatorStore'
 
 const ExecutionBar = () => {
     const {
@@ -13,7 +13,7 @@ const ExecutionBar = () => {
         changeStep,
         resetSimulation,
         totalSteps
-    } = useSimulatorContext()
+    } = useSimulatorStore()
 
     return (
         <div className="h-12 bg-gray-100 px-4 flex items-center gap-4 shadow-sm">

@@ -1,5 +1,5 @@
 import React, { useEffect } from 'react'
-import { useSimulatorContext } from '@/hooks/useSimulatorContext'
+import { useSimulatorStore } from '@/hooks/useSimulatorStore'
 import ts from 'typescript'
 
 interface NewCodeAreaProps {
@@ -7,7 +7,7 @@ interface NewCodeAreaProps {
 }
 
 const NewCodeArea: React.FC<NewCodeAreaProps> = ({ fromAstOf }) => {
-    const { updateCodeStr, astOfCode } = useSimulatorContext()
+    const { updateCodeStr, astOfCode } = useSimulatorStore()
 
     useEffect(() => {
         updateCodeStr(fromAstOf)

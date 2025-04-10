@@ -1,10 +1,10 @@
 import { useContext } from "react"
 import SimulatorContext from "@/contexts/SimulatorContext"
 
-export const useSimulatorContext = () => {
+export const useSimulatorStore = () => {
     const context = useContext(SimulatorContext)
     if (!context) {
-        throw new Error("useSimulatorContext must be used within a SimulatorProvider")
+        throw new Error("useSimulatorStore must be used within a SimulatorProvider")
     }
     return context
 }
