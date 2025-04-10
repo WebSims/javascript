@@ -2,6 +2,7 @@ import React from 'react'
 import CheatSheetItems from './CheatSheetItems'
 
 export type CheatSheetItemType = {
+    id: string
     title: string
     items?: CheatSheetItemType[]
     classN?: string
@@ -38,8 +39,8 @@ const CheatSheetBox: React.FC<CheatSheetBoxProps> = ({ title, path, data }) => {
                     k.startsWith(childPath + '/'))
 
                 const item: CheatSheetItemType = {
-                    title: childTitle,
-                    classN: 'cs-' + key.replace('/', '-')
+                    id: key.replace(/\//g, '-'),
+                    title: childTitle
                 }
 
                 if (hasChildren) {
@@ -56,12 +57,16 @@ const CheatSheetBox: React.FC<CheatSheetBoxProps> = ({ title, path, data }) => {
     const items = getDescendantItems(path)
 
     return (
-        <>
-            <h2 className={`text-lg font-bold mb-2 cs-${path}`}>
-                {title}
+        <div className="h-full flex flex-col">
+            <h2 className="text-lg font-bold mb-2">
+                <span id={path} className="p-1 rounded-md inline-block">{title}</span>
             </h2>
-            {items.length > 0 && <CheatSheetItems items={items} />}
-        </>
+            {items.length > 0 && (
+                <div className="h-full overflow-y-auto pb-9">
+                    <CheatSheetItems items={items} />
+                </div>
+            )}
+        </div>
     )
 }
 

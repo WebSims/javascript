@@ -1,11 +1,14 @@
-import { createContext, useState, useEffect } from "react"
+import { createContext, useState, useEffect, useRef } from "react"
 import { astOf } from "@/utils/ast"
 import { ESNode } from "hermes-parser"
+import * as ts from "typescript"
+
 type SimulatorContextType = {
     codeStr: string
     updateCodeStr: (codeStr: string) => void
-    astOfCode: ESNode | null
+    astOfCode: ESNode | ts.SourceFile | null
     execSteps: ExecStep[]
+    setExecSteps: React.Dispatch<React.SetStateAction<ExecStep[]>>
     currentExecStep: ExecStep | null
     isPlaying: boolean
     togglePlaying: (state?: boolean) => void
@@ -14,6 +17,9 @@ type SimulatorContextType = {
     changeStep: (index: number) => void
     resetSimulation: () => void
     totalSteps: number
+    codeAreaRef: React.RefObject<HTMLDivElement>
+    cheatSheetRef: React.RefObject<HTMLDivElement>
+    setSpeed: (speed: number) => void
 }
 
 type ExecStep = {
@@ -28,7 +34,7 @@ const SimulatorContext = createContext<SimulatorContextType | undefined>(undefin
 
 export const SimulatorProvider = ({ children }: { children: React.ReactNode }) => {
     const [codeStr, setCodeStr] = useState<string>("")
-    const [astOfCode, setAstOfCode] = useState<ESNode | null>(astOf(codeStr))
+    const [astOfCode, setAstOfCode] = useState<ESNode | ts.SourceFile | null>(astOf(codeStr))
     const [execSteps, setExecSteps] = useState<ExecStep[]>(Array.from({ length: 100 }, (_, i) => ({
         index: i,
         code: "",
@@ -39,6 +45,60 @@ export const SimulatorProvider = ({ children }: { children: React.ReactNode }) =
     const [currentExecStep, setCurrentExecStep] = useState<ExecStep | null>(null)
     const [isPlaying, setIsPlaying] = useState(false)
     const [speed, setSpeed] = useState(1)
+
+    const codeAreaRef = useRef<HTMLDivElement>(null)
+    const cheatSheetRef = useRef<HTMLDivElement>(null)
+
+    useEffect(() => {
+        if (!codeAreaRef.current || !cheatSheetRef.current) return
+
+        const codeArea = codeAreaRef.current
+        const cheatSheet = cheatSheetRef.current
+
+        const handleMouseEnter = (e: MouseEvent) => {
+            const element = (e.target as HTMLElement)?.closest('[data-cheat-sheet-id]')
+            if (!element) return
+
+            const cheatSheetId = (element as HTMLElement).dataset.cheatSheetId
+            if (!cheatSheetId) return
+
+            const paths: string[] = []
+            let currentPath = ''
+
+            cheatSheetId.split('-').forEach((part: string) => {
+                currentPath = currentPath ? `${currentPath}-${part}` : part
+                paths.push(currentPath)
+            })
+
+            const lastPath = paths[paths.length - 1]
+
+            paths.forEach(path => {
+                const element = cheatSheet.querySelector(`#${path}`)
+                if (!element) return
+
+                element.classList.add('bg-red-300', 'transition-colors', 'duration-200')
+
+                if (path === lastPath) {
+                    element.scrollIntoView({ behavior: 'smooth', block: 'center' })
+                }
+            })
+        }
+
+        const handleMouseLeave = () => {
+            const highlightedElements = cheatSheet.querySelectorAll('.bg-red-300')
+            highlightedElements.forEach((element) => {
+                element.classList.remove('bg-red-300', 'transition-colors', 'duration-200')
+            })
+        }
+
+        codeArea.addEventListener('mouseover', handleMouseEnter)
+        codeArea.addEventListener('mouseout', handleMouseLeave)
+
+        return () => {
+            codeArea.removeEventListener('mouseover', handleMouseEnter)
+            codeArea.removeEventListener('mouseout', handleMouseLeave)
+        }
+    }, [])
 
     const totalSteps = execSteps.length
 
@@ -108,6 +168,7 @@ export const SimulatorProvider = ({ children }: { children: React.ReactNode }) =
                 updateCodeStr,
                 astOfCode,
                 execSteps,
+                setExecSteps,
                 currentExecStep,
                 isPlaying,
                 togglePlaying,
@@ -115,7 +176,10 @@ export const SimulatorProvider = ({ children }: { children: React.ReactNode }) =
                 stepBackward,
                 changeStep,
                 resetSimulation,
-                totalSteps
+                totalSteps,
+                codeAreaRef,
+                cheatSheetRef,
+                setSpeed
             }}
         >
             {children}

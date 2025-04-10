@@ -3,6 +3,7 @@ import { ChevronDown, ChevronUp } from 'lucide-react'
 
 import CheatSheet from '@/components/simulator/cheat-sheet/CheatSheet'
 import { Button } from '@/components/ui/button'
+import { useSimulatorStore } from '@/hooks/useSimulatorStore'
 
 interface CheatSheetAccordionProps {
     open?: boolean
@@ -10,6 +11,7 @@ interface CheatSheetAccordionProps {
 }
 
 const CheatSheetAccordion: React.FC<CheatSheetAccordionProps> = ({ open = true, onOpenChange }) => {
+    const { cheatSheetRef } = useSimulatorStore()
     const [isOpen, setIsOpen] = useState<boolean>(open)
 
     const handleOpenChange = (value: boolean) => {
@@ -27,7 +29,11 @@ const CheatSheetAccordion: React.FC<CheatSheetAccordionProps> = ({ open = true, 
             >
                 {isOpen ? <ChevronUp className='scale-125' /> : <ChevronDown className='scale-125' />}
             </Button>
-            {isOpen && <CheatSheet />}
+            {isOpen && (
+                <div className='h-[calc(100%-36px)]'>
+                    <CheatSheet ref={cheatSheetRef} />
+                </div>
+            )}
         </div>
     )
 }

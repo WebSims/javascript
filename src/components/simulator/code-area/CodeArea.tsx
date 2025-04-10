@@ -3,7 +3,7 @@
 import React, { useEffect } from "react"
 import * as hermesParser from "hermes-parser"
 import * as _ from 'lodash'
-import { useSimulatorContext } from "@/hooks/useSimulatorContext"
+import { useSimulatorStore } from "@/hooks/useSimulatorStore"
 
 // import * as ts from "typescript";
 // const ast = ts.createSourceFile("temp.ts", codeStr, ts.ScriptTarget.Latest);
@@ -55,43 +55,43 @@ const colorPallete = colorPalletes[2]
 const decorations = {
     statement: {
         classN: "ast-st",
-        expression: { tooltip: "Expression Evaluation Statement", classN: "ast-st-exp" },
-        declaration: { tooltip: "Variable declaration Statement", classN: "ast-st-dec" },
+        expression: { tooltip: "Expression Evaluation Statement", cheatSheetId: "st-exp", classN: "ast-st-exp" },
+        declaration: { tooltip: "Variable declaration Statement", cheatSheetId: "st-dec", classN: "ast-st-dec" },
         UNKNOWN: { tooltip: "UNKNOWN Statement", classN: "ast-st-unk" },
     },
     expression: {
         classN: "ast-exp",
         data: {
             classN: "ast-exp-data",
-            boolean: { tooltip: "Data: Literal (boolean)", classN: "ast-exp-data-literal ast-exp-data-bool" },
-            numeric: { tooltip: "Data: Literal (number)", classN: "ast-exp-data-literal ast-exp-data-num" },
-            string: { tooltip: "Data: Literal (string)", classN: "ast-exp-data-literal ast-exp-data-str" },
-            null: { tooltip: "Data: Literal (null)", classN: "ast-exp-data-literal ast-exp-data-nul" },
-            undefined: { tooltip: "Data: Literal (undefined)", classN: "ast-exp-data-literal ast-exp-data-undef" },
-            arr: { tooltip: "Data: NEW array", classN: "ast-exp-data-new ast-exp-data-arr" },
-            obj: { tooltip: "Data: NEW object", classN: "ast-exp-data-new ast-exp-data-obj" },
-            fn: { tooltip: "Data: NEW anonymous function", classN: "ast-exp-data-new ast-exp-data-fn" },
-            fnArr: { tooltip: "Data: NEW arrow function", classN: "ast-exp-data-new ast-exp-data-fna" },
+            boolean: { tooltip: "Data: Literal (boolean)", cheatSheetId: "data-boolean", classN: "ast-exp-data-literal ast-exp-data-bool" },
+            numeric: { tooltip: "Data: Literal (number)", cheatSheetId: "data-number", classN: "ast-exp-data-literal ast-exp-data-num" },
+            string: { tooltip: "Data: Literal (string)", cheatSheetId: "data-string", classN: "ast-exp-data-literal ast-exp-data-str" },
+            null: { tooltip: "Data: Literal (null)", cheatSheetId: "data-null", classN: "ast-exp-data-literal ast-exp-data-nul" },
+            undefined: { tooltip: "Data: Literal (undefined)", cheatSheetId: "data-undefined", classN: "ast-exp-data-literal ast-exp-data-undef" },
+            arr: { tooltip: "Data: NEW array", cheatSheetId: "data-array", classN: "ast-exp-data-new ast-exp-data-arr" },
+            obj: { tooltip: "Data: NEW object", cheatSheetId: "data-object", classN: "ast-exp-data-new ast-exp-data-obj" },
+            fn: { tooltip: "Data: NEW anonymous function", cheatSheetId: "data-function", classN: "ast-exp-data-new ast-exp-data-fn" },
+            fnArr: { tooltip: "Data: NEW arrow function", cheatSheetId: "data-arrow", classN: "ast-exp-data-new ast-exp-data-fna" },
         },
         read: {
             classN: "ast-exp-read",
-            var: { tooltip: "Read variable", classN: "ast-exp-read-var", color: colorPallete[4] },
-            prop: { tooltip: "Read property of object", classN: "ast-exp-read-prop", color: colorPallete[3] },
+            var: { tooltip: "Read variable", cheatSheetId: "exp-read-var", classN: "ast-exp-read-var", color: colorPallete[4] },
+            prop: { tooltip: "Read property of object", cheatSheetId: "exp-read-prop", classN: "ast-exp-read-prop", color: colorPallete[3] },
             expr: { tooltip: "Read property of object (by expression)", classN: "ast-exp-read-expr", color: colorPallete[1] },
         },
         write: {
             classN: "ast-exp-write",
-            var: { tooltip: "Set variable", classN: "ast-exp-write-var" },
-            prop: { tooltip: "Set property of object", classN: "ast-exp-write-prop" },
-            expr: { tooltip: "Set property of object (by expression)", classN: "ast-exp-write-expr" },
+            var: { tooltip: "Set variable", cheatSheetId: "write-variable", classN: "ast-exp-write-var" },
+            prop: { tooltip: "Set property of object", cheatSheetId: "write-property", classN: "ast-exp-write-prop" },
+            expr: { tooltip: "Set property of object (by expression)", cheatSheetId: "write-property-by-expression", classN: "ast-exp-write-expr" },
         },
         operator: {
             classN: "ast-exp-op",
-            unary: { tooltip: "Operation (Unary Operator)", classN: "ast-exp-op1" },
-            binary: { tooltip: "Operation (Binary Operator)", classN: "ast-exp-op2" },
-            ternary: { tooltip: "Operation (Ternary Operator)", classN: "ast-exp-op3" },
+            unary: { tooltip: "Operation (Unary Operator)", cheatSheetId: "exp-op-unary", classN: "ast-exp-op1" },
+            binary: { tooltip: "Operation (Binary Operator)", cheatSheetId: "exp-op-binary", classN: "ast-exp-op2" },
+            ternary: { tooltip: "Operation (Ternary Operator)", cheatSheetId: "exp-op-ternary", classN: "ast-exp-op3" },
         },
-        call: { tooltip: "Function call", classN: "ast-exp-call" },
+        call: { tooltip: "Function call", cheatSheetId: "exp-func", classN: "ast-exp-call" },
         UNKNOWN: { tooltip: "UNKNOWN Expression", classN: "ast-exp-unk" },
     },
 }
@@ -259,14 +259,15 @@ const Expression = ({ fromAstOf, expr, parent, parens }) => {
     const decoratorObject = _.get(decorations, expr.category || "expression.UNKNOWN")
     const title = decoratorObject.tooltip
     const color = decoratorObject.color
+    const cheatSheetId = decoratorObject.cheatSheetId
     const className = (expr.category || "statement.UNKNOWN").split('.').map((__, i, all) =>
         _.get(decorations, all.slice(0, i + 1).join('.')).classN || ''
     ).join(' ')
-    return <span className={className} title={title} style={{ color: color }}>
+    return <span data-cheat-sheet-id={cheatSheetId} className={className} title={title} style={{ color: color }}>
         {expr.parenthized &&
             <span className="punc punc-exp-group punc-open">(</span>
         }
-        <span className="ast-exp-content">{component}</span>
+        {component}
         {expr.parenthized &&
             <span className="punc punc-exp-group punc-close">)</span>
         }
@@ -445,6 +446,8 @@ const OperatorUnary = ({ operator, operand, parent, parens }) => {
 }
 
 const OperatorBinary = ({ operator, left, right, parent, parens }) => {
+    const decoratorObject = _.get(decorations, parent.category || "expression.UNKNOWN")
+
     return (
         <>
             <Expression expr={left} parens={parens} parent={parent} />
@@ -483,7 +486,7 @@ const Call = ({ expr, args, parent, parens }) => {
 }
 
 const CodeArea: React.FC<CodeAreaProps> = ({ fromAstOf, parent, parens, debug }) => {
-    const { updateCodeStr, astOfCode } = useSimulatorContext()
+    const { updateCodeStr, astOfCode, codeAreaRef } = useSimulatorStore()
 
     useEffect(() => {
         updateCodeStr(fromAstOf)
@@ -501,7 +504,7 @@ const CodeArea: React.FC<CodeAreaProps> = ({ fromAstOf, parent, parens, debug })
     const statements = astOfCode instanceof Array ? astOfCode : (astOfCode.body ? astOfCode.body : [astOfCode]);
 
     return (
-        <pre>
+        <pre ref={codeAreaRef} >
             {statements.map((statement, i) =>
                 <Statement key={i} st={statement} parent={parent} parens={parens} />
             )}
