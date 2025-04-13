@@ -14,6 +14,16 @@ import ExecutionBar from '@/components/simulator/execution-bar/ExecutionBar'
 import NewCodeArea from '@/components/simulator/code-area/NewCodeArea'
 
 const CODE_SAMPLE = `
+let a;
+const b = 1;
+function greet(name) { 
+ const first = "Hello, ";
+ return first + name
+ };
+ const arrowFn = (x) => {
+  const y = x * x
+  return y
+ }
 ((1 + 2));
 2*3+4
   2*(3+4
