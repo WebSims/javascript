@@ -88,9 +88,9 @@ const decorations = {
         },
         operator: {
             classN: "ast-exp-op",
-            unary: { tooltip: "Operation (Unary Operator)", cheatSheetId: "exp-op-unary", classN: "" },
-            binary: { tooltip: "Operation (Binary Operator)", cheatSheetId: "exp-op-binary", classN: "" },
-            ternary: { tooltip: "Operation (Ternary Operator)", cheatSheetId: "exp-op-ternary", classN: "" },
+            unary: { tooltip: "Operation (Unary Operator)", cheatSheetId: "exp-op-unary", classN: "ast-exp-op1" },
+            binary: { tooltip: "Operation (Binary Operator)", cheatSheetId: "exp-op-binary", classN: "ast-exp-op2" },
+            ternary: { tooltip: "Operation (Ternary Operator)", cheatSheetId: "exp-op-ternary", classN: "ast-exp-op3" },
         },
         call: { tooltip: "Function call", cheatSheetId: "exp-func", classN: "" },
         UNKNOWN: { tooltip: "UNKNOWN Expression", classN: "bg-orange-500" },

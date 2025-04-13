@@ -258,6 +258,18 @@
 .keyword-fn {
 }
 
+.ast-exp-op {
+}
+
+.ast-exp-op1 {
+}
+
+.ast-exp-op2 {
+}
+
+.ast-exp-op3 {
+}
+
 .ast-exp-op:hover:not(:has(.ast-exp-op:hover)) > .ast-exp-content > * {
   animation: standOut var(--duration-standOut) ease-out forwards, goBack var(--duration-goBack) ease-out forwards;
 }
