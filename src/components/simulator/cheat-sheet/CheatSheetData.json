@@ -44,8 +44,9 @@
     "data/string": "String",
     "data/null": "Null",
     "data/undefined": "Undefined",
-    "data/object": "Object",
-    "data/array": "Array",
-    "data/function": "Function",
-    "data/arrow": "Arrow Function"
+    "data/object": "New Object",
+    "data/array": "New Array",
+    "data/function": "New Anonymous Function",
+    "data/arrow": "New Arrow Function",
+    "data/class": "New Class"
 }
