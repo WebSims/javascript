@@ -54,14 +54,14 @@ const colorPallete = colorPalletes[2]
 
 const decorations = {
     statement: {
-        classN: "ast-st",
+        classN: "bg-gray-50 rounded-md p-2 group/statement",
         expression: { tooltip: "Expression Evaluation Statement", cheatSheetId: "st-exp", classN: "" },
         declaration: { tooltip: "Variable declaration Statement", cheatSheetId: "st-dec", classN: "" },
         return: { tooltip: "Return Statement", cheatSheetId: "st-flow-return", classN: "" },
-        UNKNOWN: { tooltip: "UNKNOWN Statement", classN: "bg-orange-500" },
+        UNKNOWN: { tooltip: "UNKNOWN Statement", classN: "bg-orange-400 hover:bg-orange-500" },
     },
     expression: {
-        classN: "ast-exp",
+        classN: "ast-exp inline-block align-middle",
         data: {
             classN: "ast-exp-data",
             boolean: { tooltip: "Data: Literal (boolean)", cheatSheetId: "data-boolean", classN: "text-blue-500" },
@@ -93,7 +93,7 @@ const decorations = {
             ternary: { tooltip: "Operation (Ternary Operator)", cheatSheetId: "exp-op-ternary", classN: "ast-exp-op3" },
         },
         call: { tooltip: "Function call", cheatSheetId: "exp-func", classN: "" },
-        UNKNOWN: { tooltip: "UNKNOWN Expression", classN: "bg-orange-500" },
+        UNKNOWN: { tooltip: "UNKNOWN Expression", classN: "bg-orange-400 hover:bg-orange-500" },
     },
 }
 
@@ -153,7 +153,11 @@ const Statement = ({ st, parent, parens }) => {
         _.get(decorations, all.slice(0, i + 1).join('.')).classN || ''
     ).join(' ')
 
-    return <div data-cheat-sheet-id={cheatSheetId} className={className} title={title}>{component}</div>
+    return <div
+        data-cheat-sheet-id={cheatSheetId}
+        className={`${className} [&:has(:hover)]:bg-gray-50 hover:bg-gray-100`}
+        title={title}
+    >{component}</div>
 }
 
 const Def = ({ defBy, name, setBy, setTo, parens, parent }) => {
@@ -301,11 +305,11 @@ const Expression = ({ fromAstOf, expr, parent, parens }: { fromAstOf?: any, expr
     ).join(' ')
     return <span data-cheat-sheet-id={cheatSheetId} className={className} title={title} style={{ color: color }}>
         {expr.parenthized &&
-            <span className="punc punc-exp-group punc-open">(</span>
+            <span className="text-2xl align-middle font-bold">(</span>
         }
         <span className="ast-exp-content">{component}</span>
         {expr.parenthized &&
-            <span className="punc punc-exp-group punc-close">)</span>
+            <span className="text-2xl align-middle font-bold">)</span>
         }
     </span>
 }
@@ -313,14 +317,14 @@ const Expression = ({ fromAstOf, expr, parent, parens }: { fromAstOf?: any, expr
 const NewArr = ({ items, parent, parens }) => {
     // TODO: in loop, set parent of sub expressions (each item)
     return <span className="data new arr">
-        <span className="punc punc-new-arr punc-open">[</span>
+        <span className="text-2xl align-middle font-bold mr-1">[</span>
         {items[0] && items.map((item, i) => {
             return <span key={i} className="ast-arr-item">
                 <Expression expr={item} parens={parens} parent={parent} />
-                {i < items.length - 1 && <span className="punc punc-new-arr-item-sep punc-comma">,&nbsp;</span>}
+                {i < items.length - 1 && <span className="text-2xl align-middle font-bold">,&nbsp;</span>}
             </span>
         })}
-        <span className="punc punc-new-arr punc-close">]</span>
+        <span className="text-2xl align-middle font-bold ml-1">]</span>
     </span>
 }
 
@@ -328,28 +332,28 @@ const NewObj = ({ props, parent, parens }) => {
     // TODO: in loop, set parent of sub expressions ( each computed name and each value)
     // Property key:expr value:expr computed:bool method:bool shorthand:bool
     return <span className="data new obj">
-        <span className="punc punc-new-obj punc-open">&#123;</span>
+        <span className="text-2xl align-middle font-bold mr-1">&#123;</span>
         {
             props.map((prop, i) => {
                 let key
                 if (prop.key.type == "Identifier") {
-                    key = <span>{prop.key.name}</span>
+                    key = <span className="align-middle">{prop.key.name}</span>
                 }
                 if (prop.key.type == "Literal") {
                     key = <span className="text-blue-500">{prop.key.raw}</span>
                 }
                 return <span key={i} className="ast-obj-prop ">
                     {key}
-                    <span className="punc punc-colon punc-new-obj-prop-sep">:&nbsp;</span>
+                    <span className="text-xl align-middle font-bold">:&nbsp;</span>
                     <Expression expr={prop.value} parens={parens} parent={parent} />
                     {i < props.length - 1 &&
-                        <span className="punc punc-comma punc-new-obj-prop-sep">,&nbsp;</span>
+                        <span className="text-2xl align-middle font-bold">,&nbsp;</span>
                     }
                 </span>
             }
             )
         }
-        <span className="punc punc-new-obj punc-close">&#125;</span>
+        <span className="text-2xl align-middle font-bold ml-1">&#125;</span>
     </span>
 }
 
@@ -357,15 +361,15 @@ const NewFnArrow = ({ async, args, code, parent, parens }) => {
     let content;
     if (code.type == "BlockStatement") {
         content = <>
-            <span className="punc punc-block punc-new-fn-block punc-open">&#123;<br /></span>
+            <span className="text-2xl align-middle font-bold">&#123;<br /></span>
             {code.body && code.body.length > 0 &&
-                <div className="ml-4">
+                <div className="ml-4 space-y-2">
                     {code.body.map((statement, i) =>
                         <Statement key={i} st={statement} parent={parent} parens={parens} />
                     )}
                 </div>
             }
-            <span className="punc punc-block punc-new-fn-block punc-close"><br />&#125;</span>
+            <span className="text-2xl align-middle font-bold">&#125;</span>
         </>
     } else {
         content = <Expression expr={code} parens={parens} parent={parent} />
@@ -375,7 +379,7 @@ const NewFnArrow = ({ async, args, code, parent, parens }) => {
             {async && <span className="keyword keyword-prefix keyword-async">async</span>}
             {/* {name && <span className="ast-exp-fn-name">{name}</span>} */}
             <FnArgsDef args={args} parens={parens} parent={parent} />
-            <span className="punc punc-arrow">&nbsp;=&gt;&nbsp;</span>
+            <span className="text-2xl align-middle font-bold">&nbsp;=&gt;&nbsp;</span>
             {content}
         </>
     )
@@ -388,24 +392,22 @@ const NewFn = ({ async, name, args, code, parent, parens }) => {
             <span className="keyword keyword-prefix keyword-fn">function</span>
             {name && <span className="ast-exp-fn-name">{name}</span>}
             <FnArgsDef args={args} parens={parens} parent={parent} />
-            <span className="punc punc-block punc-new-fn-block punc-open">&#123;</span>
-            <br />
+            <span className="text-2xl align-middle font-bold">&#123;</span>
             {code.body && code.body.length > 0 &&
-                <div className="ml-4">
+                <div className="ml-4 space-y-1">
                     {code.body.map((statement, i) =>
                         <Statement key={i} st={statement} parent={parent} parens={parens} />
                     )}
                 </div>
             }
-            <br />
-            <span className="punc punc-block punc-new-fn-block punc-close">&#125;</span>
+            <span className="text-2xl align-middle font-bold">&#125;</span>
         </>
     )
 }
 
 const FnArgsDef = ({ args, parent, parens }) => (
     <>
-        <span className="punc punc-new-fn-arg punc-open">(</span>
+        <span className="text-2xl align-middle font-bold">(</span>
         {args.map((arg, i) => {
             let component
 
@@ -422,11 +424,11 @@ const FnArgsDef = ({ args, parent, parens }) => (
             return <span key={i} className="ast-fn-def-arg">
                 {component}
                 {i < args.length - 1 &&
-                    <span className="punc punc-comma punc-new-fn-arg-sep">,&nbsp;</span>
+                    <span className="text-2xl align-middle font-bold">,&nbsp;</span>
                 }
             </span>
         })}
-        <span className="punc punc-new-fn-arg punc-close">)</span>
+        <span className="text-2xl align-middle font-bold">)</span>
     </>
 )
 
@@ -439,7 +441,7 @@ const ReadProp = ({ name, of, parent, parens }) => (
         <span className="ast-noundef">
             <Expression expr={of} parens={parens} parent={parent} />
         </span>
-        <span className="punc punc-member-name">.</span>
+        <span className="text-2xl align-middle font-bold">.</span>
         <span>{name}</span>
     </>
 )
@@ -449,16 +451,16 @@ const ReadIndex = ({ expr, of, parent, parens }) => (
         <span className="ast-noundef">
             <Expression expr={of} parens={parens} parent={parent} />
         </span>
-        <span className="punc punc-member-exp punc-open">[</span>
+        <span className="text-2xl align-middle font-bold">[</span>
         <Expression expr={expr} parens={parens} parent={parent} />
-        <span className="punc punc-member-exp punc-close">]</span>
+        <span className="text-2xl align-middle font-bold">]</span>
     </>
 )
 
 const WriteVar = ({ name, setBy, setTo, parent, parens }) => (
     <>
         <span>{name}</span>
-        <span className="punc punc-ass">&nbsp;{setBy}&nbsp;</span>
+        <span className="text-2xl mx-1 align-middle font-bold">&nbsp;{setBy}&nbsp;</span>
         <Expression expr={setTo} parens={parens} parent={parent} />
     </>
 )
@@ -468,9 +470,9 @@ const WriteProp = ({ name, of, setBy, setTo, parent, parens }) => (
         {/* <span className="ast-noundef"> */}
         <Expression expr={of} parens={parens} parent={parent} />
         {/* </span> */}
-        <span className="punc punc-member-name">.</span>
+        <span className="text-2xl align-middle font-bold">.</span>
         <span>{name}</span>
-        <span className="punc punc-ass">&nbsp;{setBy}&nbsp;</span>
+        <span className="text-2xl mx-1 ">&nbsp;{setBy}&nbsp;</span>
         <Expression expr={setTo} parens={parens} parent={parent} />
     </>
 )
@@ -480,10 +482,10 @@ const WriteIndex = ({ expr, of, setBy, setTo, parent, parens }) => (
         {/* <span className="ast-noundef"> */}
         <Expression expr={of} parens={parens} parent={parent} />
         {/* </span> */}
-        <span className="punc punc-member-exp punc-open">[</span>
+        <span className="text-2xl align-middle font-bold">[</span>
         <Expression expr={expr} parens={parens} parent={parent} />
-        <span className="punc punc-member-exp punc-close">]</span>
-        <span className="punc punc-ass">&nbsp;{setBy}&nbsp;</span>
+        <span className="text-2xl align-middle font-bold">]</span>
+        <span className="text-2xl mx-1 ">&nbsp;{setBy}&nbsp;</span>
         <Expression expr={setTo} parens={parens} parent={parent} />
     </>
 )
@@ -491,7 +493,7 @@ const WriteIndex = ({ expr, of, setBy, setTo, parent, parens }) => (
 const OperatorUnary = ({ operator, operand, parent, parens }) => {
     return (
         <>
-            <span className="punc punc-op">{operator}&nbsp;</span>
+            <span className="text-2xl align-middle mx-1 font-bold">{operator}&nbsp;</span>
             <Expression expr={operand} parens={parens} parent={parent} />
         </>
     )
@@ -503,7 +505,7 @@ const OperatorBinary = ({ operator, left, right, parent, parens }) => {
     return (
         <>
             <Expression expr={left} parens={parens} parent={parent} />
-            <span className="punc punc-op">&nbsp;{operator}&nbsp;</span>
+            <span className="text-2xl align-middle mx-1 font-bold">&nbsp;{operator}&nbsp;</span>
             <Expression expr={right} parens={parens} parent={parent} />
         </>
     )
@@ -513,9 +515,9 @@ const OperatorTernary = ({ cond, truthy, falsy, parent, parens }) => {
     return (
         <>
             <Expression expr={cond} parens={parens} parent={parent} />
-            <span className="punc punc-op">?</span>
+            <span className="text-2xl align-middle mx-1 font-bold">?</span>
             <Expression expr={truthy} parens={parens} parent={parent} />
-            <span className="punc punc-op">:</span>
+            <span className="text-2xl align-middle mx-1 font-bold">:</span>
             <Expression expr={falsy} parens={parens} parent={parent} />
         </>
     )
@@ -524,16 +526,16 @@ const OperatorTernary = ({ cond, truthy, falsy, parent, parens }) => {
 const Call = ({ expr, args, parent, parens }) => {
     return <>
         <Expression expr={expr} parens={parens} parent={parent} />
-        <span className="punc punc-open">(</span>
+        <span className="text-2xl align-middle font-bold">(</span>
         {args.map((arg, i) => {
             return <>
                 <Expression key={i} expr={arg} parens={parens} parent={parent} />
                 {i < args.length - 1 &&
-                    <span className="punc punc-comma">,</span>
+                    <span className="text-2xl align-middle font-bold">,</span>
                 }
             </>
         })}
-        <span className="punc punc-close">)</span>
+        <span className="text-2xl align-middle font-bold">)</span>
     </>
 }
 
@@ -576,7 +578,7 @@ const CodeArea: React.FC<CodeAreaProps> = ({ fromAstOf, parent, parens, debug })
     const statements = astOfCode instanceof Array ? astOfCode : (astOfCode.body ? astOfCode.body : [astOfCode]);
 
     return (
-        <pre ref={codeAreaRef} >
+        <pre ref={codeAreaRef} className="space-y-1">
             {statements.map((statement, i) =>
                 <Statement key={i} st={statement} parent={parent} parens={parens} />
             )}

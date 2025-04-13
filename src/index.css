@@ -92,29 +92,7 @@
   font-weight: bold;
 }
 
-.punc {
-  font-size: 1.5em;
-  font-weight: 900;
-  margin-left: 5px;
-  margin-right: 5px;
-}
-
-.punc-comma {
-  margin-left: 0px;
-}
-
-.punc-open,
-.punc-close {
-  margin-left: 0px;
-  margin-right: 0px;
-}
-
-.punc-member-name,
-.punc-member-exp {
-  transform: translateY(-2px);
-}
-
-.ast-st {
+/* .ast-st {
   background-color: rgba(0, 0, 0, 0.07);
   padding: 10px 10px;
 }
@@ -140,7 +118,7 @@
 
 .ast-st:hover {
   background-color: rgba(0, 0, 0, 0.1);
-}
+} */
 
 .ast-exp {
   border: 1px solid rgba(0 0 0 / 5%);
@@ -165,82 +143,6 @@
 .ast-exp-read {
 }
 
-/* // WRITE */
-
-.punc-exp-group {
-}
-
-/* ( ) .punc-open .punc-close */
-
-.punc-member-name {
-}
-
-/* . */
-.punc-member-exp {
-}
-
-/* [ ] .punc-open .punc-close */
-
-.punc-ass {
-}
-
-.punc-op {
-}
-
-/* , .punc-comma */
-
-.punc-arrow {
-}
-
-/* => .punc-comma */
-.punc-block {
-}
-
-.punc-block-start {
-}
-
-.punc-block-end {
-}
-
-.punc-new-obj {
-}
-
-/* { } .punc-open .punc-close */
-.punc-new-obj-prop-exp {
-}
-
-/* [ ] .punc-open .punc-close */
-.punc-new-obj-keyval-sep {
-}
-
-/* : */
-.punc-new-obj-prop-sep {
-}
-
-/* , .punc-comma */
-
-.punc-new-arr {
-}
-
-/* [ ] .punc-open .punc-close */
-.punc-new-arr-item-sep {
-}
-
-/* , .punc-comma */
-
-.punc-new-fn-arg {
-}
-
-/* ( ) .punc-open .punc-close */
-.punc-new-fn-arg-sep {
-}
-
-/* , .punc-comma */
-.punc-new-fn-block {
-}
-
-/* { } .punc-block .punc-open .punc-close */
-
 .keyword {
   color: purple;
 }
@@ -258,6 +160,9 @@
 .keyword-fn {
 }
 
+.ast-exp-content {
+}
+
 .ast-exp-op {
 }
 
@@ -271,6 +176,8 @@
 }
 
 .ast-exp-op:hover:not(:has(.ast-exp-op:hover)) > .ast-exp-content > * {
+  display: inline-block;
+
   animation: standOut var(--duration-standOut) ease-out forwards, goBack var(--duration-goBack) ease-out forwards;
 }
 
