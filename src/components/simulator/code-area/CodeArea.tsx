@@ -97,7 +97,10 @@ const decorations = {
 }
 
 interface CodeAreaProps {
-    fromAstOf: string
+    fromAstOf?: string
+    parent?: any
+    parens?: any
+    debug?: boolean
 }
 
 const Statement = ({ st, parent, parens }) => {
@@ -115,7 +118,7 @@ const Statement = ({ st, parent, parens }) => {
             component = <Def defBy={kind} name={id.name} setBy="=" setTo={init} parens={parens} parent={st} />
         } else {
             cheatSheetId = 'st-dec-var'
-            component = <Def defBy={kind} name={id.name} setBy="" parens={parens} parent={st} />
+            component = <Def defBy={kind} name={id.name} setBy="" setTo={init} parens={parens} parent={st} />
         }
     }
 
@@ -128,6 +131,13 @@ const Statement = ({ st, parent, parens }) => {
             "UnaryExpression" // need further check for void/delete
         ].includes(st.expression.type) ? 'st-exp-useful' : 'st-exp-useless'
         component = <Expression expr={st.expression} parens={parens} parent={st} />
+    }
+
+    // FunctionDeclaration async:bool id:Identifier params:[] body:{BlockStatement body:[st]}
+    if (st.type == "FunctionDeclaration") {
+        st.category = "statement.declaration"
+        cheatSheetId = 'st-dec-func'
+        component = <NewFn async={st.async} name={st.id.name} args={st.params} code={st.body} parens={parens} parent={st} />
     }
 
     const title = _.get(decorations, st.category || "statement.UNKNOWN").tooltip
@@ -191,7 +201,7 @@ const Expression = ({ fromAstOf, expr, parent, parens }) => {
     // ArrowFunctionExpression params:[] body:expr|{BlockStatement body:[st]} async:bool expression:bool
     if (expr.type == "ArrowFunctionExpression") {
         expr.category = "expression.data.fnArr"
-        component = <NewFnArrow args={expr.params} code={expr.body} parens={parens} parent={expr} />
+        component = <NewFnArrow async={expr.async || false} args={expr.params} code={expr.body} parens={parens} parent={expr} />
     }
 
     // Identifier name:string
@@ -340,7 +350,13 @@ const NewFnArrow = ({ async, args, code, parent, parens }) => {
     if (code.type == "BlockStatement") {
         content = <>
             <span className="punc punc-block punc-new-fn-block punc-open">&#123;<br /></span>
-            <CodeArea parens={parens} parent={parent} />
+            {code.body && code.body.length > 0 &&
+                <div className="ml-4">
+                    {code.body.map((statement, i) =>
+                        <Statement key={i} st={statement} parent={parent} parens={parens} />
+                    )}
+                </div>
+            }
             <span className="punc punc-block punc-new-fn-block punc-close"><br />&#125;</span>
         </>
     } else {
@@ -357,17 +373,26 @@ const NewFnArrow = ({ async, args, code, parent, parens }) => {
     )
 }
 
-const NewFn = ({ async, name, args, code, parent, parens }) => (
-    <>
-        {async && <span className="keyword keyword-prefix keyword-async">async</span>}
-        <span className="keyword keyword-prefix keyword-fn">function</span>
-        {name && <span className="ast-exp-fn-name">{name}</span>}
-        <FnArgsDef args={args} parens={parens} parent={parent} />
-        <span className="punc punc-block punc-new-fn-block punc-open">&#123;<br /></span>
-        <CodeArea parens={parens} parent={parent} />
-        <span className="punc punc-block punc-new-fn-block punc-close"><br />&#125;</span>
-    </>
-)
+const NewFn = ({ async, name, args, code, parent, parens }) => {
+    console.log(parent)
+    return (
+        <>
+            {async && <span className="keyword keyword-prefix keyword-async">async</span>}
+            <span className="keyword keyword-prefix keyword-fn">function</span>
+            {name && <span className="ast-exp-fn-name">{name}</span>}
+            <FnArgsDef args={args} parens={parens} parent={parent} />
+            <span className="punc punc-block punc-new-fn-block punc-open">&#123;<br /></span>
+            {code.body && code.body.length > 0 &&
+                <div className="ml-4">
+                    {code.body.map((statement, i) =>
+                        <Statement key={i} st={statement} parent={parent} parens={parens} />
+                    )}
+                </div>
+            }
+            <span className="punc punc-block punc-new-fn-block punc-close"><br />&#125;</span>
+        </>
+    )
+}
 
 const FnArgsDef = ({ args, parent, parens }) => (
     <>
@@ -507,7 +532,9 @@ const CodeArea: React.FC<CodeAreaProps> = ({ fromAstOf, parent, parens, debug })
     const { updateCodeStr, astOfCode, codeAreaRef } = useSimulatorStore()
 
     useEffect(() => {
-        updateCodeStr(fromAstOf)
+        if (fromAstOf) {
+            updateCodeStr(fromAstOf)
+        }
     }, [fromAstOf])
 
     let isRoot = false
@@ -519,6 +546,12 @@ const CodeArea: React.FC<CodeAreaProps> = ({ fromAstOf, parent, parens, debug })
     if (!parent) {
         parent = astOfCode
     }
+
+    // Handle case when astOfCode is null
+    if (!astOfCode) {
+        return <pre ref={codeAreaRef}><span className="text-red-500">No code available</span></pre>
+    }
+
     const statements = astOfCode instanceof Array ? astOfCode : (astOfCode.body ? astOfCode.body : [astOfCode]);
 
     return (
