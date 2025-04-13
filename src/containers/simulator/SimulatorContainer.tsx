@@ -61,7 +61,7 @@ const SimulatorContainer: React.FC = () => {
                 defaultSize={70}
               >
                 <div className="h-full flex flex-col">
-                  <h4 className="text-xl font-bold p-2">Console (Outputs of code execution)</h4>
+                  <h4 className="text-xl font-bold p-2">Code Editor</h4>
                   <div className="flex-1 overflow-auto p-2">
                     {/* <NewCodeArea fromAstOf={CODE_SAMPLE} /> */}
                     <CodeArea fromAstOf={CODE_SAMPLE} />
