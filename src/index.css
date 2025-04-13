@@ -82,16 +82,6 @@
   --delay-child3-goBack: calc(var(--delay-child3-standOut) + var(--duration-standOut) + var(--duration-wait));
 }
 
-.ast {
-  background-color: #f5f5f5;
-  border-radius: 20px;
-  margin: 20px;
-  padding: 10px;
-  /* letter-spacing: 0.2rem; */
-  font-family: 'Courier New', Courier, monospace;
-  font-weight: bold;
-}
-
 /* .ast-st {
   background-color: rgba(0, 0, 0, 0.07);
   padding: 10px 10px;

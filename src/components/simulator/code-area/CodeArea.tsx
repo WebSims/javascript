@@ -54,10 +54,11 @@ const colorPallete = colorPalletes[2]
 
 const decorations = {
     statement: {
-        classN: "bg-gray-50 rounded-md p-2 group/statement",
+        classN: "bg-gray-50 rounded-md p-2 [&:has(div:hover)]:bg-gray-50 hover:bg-gray-100",
         expression: { tooltip: "Expression Evaluation Statement", cheatSheetId: "st-exp", classN: "" },
         declaration: { tooltip: "Variable declaration Statement", cheatSheetId: "st-dec", classN: "" },
         return: { tooltip: "Return Statement", cheatSheetId: "st-flow-return", classN: "" },
+        class: { tooltip: "Class Declaration", cheatSheetId: "st-dec-class", classN: "bg-gray-50" },
         UNKNOWN: { tooltip: "UNKNOWN Statement", classN: "bg-orange-400 hover:bg-orange-500" },
     },
     expression: {
@@ -95,6 +96,12 @@ const decorations = {
         call: { tooltip: "Function call", cheatSheetId: "exp-func", classN: "" },
         UNKNOWN: { tooltip: "UNKNOWN Expression", classN: "bg-orange-400 hover:bg-orange-500" },
     },
+    class: {
+        classN: "bg-gray-50 rounded-md p-2 [&:has(div:hover)]:bg-gray-50 hover:bg-gray-100",
+        property: { tooltip: "Class Property", cheatSheetId: "class-property", classN: "" },
+        method: { tooltip: "Class Method", cheatSheetId: "class-method", classN: "" },
+        UNKNOWN: { tooltip: "UNKNOWN Class", classN: "bg-orange-400 hover:bg-orange-500" },
+    }
 }
 
 interface CodeAreaProps {
@@ -141,6 +148,13 @@ const Statement = ({ st, parent, parens }) => {
         component = <NewFn async={st.async} name={st.id.name} args={st.params} code={st.body} parens={parens} parent={st} />
     }
 
+    // ClassDeclaration id:Identifier superClass:Identifier|null body:{ClassBody body:[MethodDefinition|PropertyDefinition]}
+    if (st.type == "ClassDeclaration") {
+        st.category = "statement.class"
+        cheatSheetId = 'st-dec-class'
+        component = <NewClass name={st.id.name} superClass={st.superClass} body={st.body} parens={parens} parent={st} />
+    }
+
     // ReturnStatement argument:expr
     if (st.type == "ReturnStatement") {
         st.category = "statement.return"
@@ -155,7 +169,7 @@ const Statement = ({ st, parent, parens }) => {
 
     return <div
         data-cheat-sheet-id={cheatSheetId}
-        className={`${className} [&:has(:hover)]:bg-gray-50 hover:bg-gray-100`}
+        className={`${className}`}
         title={title}
     >{component}</div>
 }
@@ -550,6 +564,200 @@ const ReturnStatement = ({ expr, parens, parent }) => (
         )}
     </>
 )
+
+const NewClass = ({ name, superClass, body, parens, parent }) => {
+    return (
+        <>
+            <span className="keyword keyword-prefix keyword-class text-purple-600 font-medium">class</span>
+            <span className="ast-class-name mx-1 font-bold">{name}</span>
+            {superClass && (
+                <>
+                    <span className="keyword keyword-extends mx-1 text-purple-600 font-medium">extends</span>
+                    <Expression expr={superClass} parens={parens} parent={parent} />
+                </>
+            )}
+            <span className="text-2xl align-middle font-bold ml-1">&#123;</span>
+            {body.body && body.body.length > 0 && (
+                <div className="ml-4 space-y-1">
+                    {body.body.map((member, i) => (
+                        <ClassMember key={i} member={member} parens={parens} parent={parent} />
+                    ))}
+                </div>
+            )}
+            <span className="text-2xl align-middle font-bold">&#125;</span>
+        </>
+    )
+}
+
+const MethodDefinition = ({ member, parens, parent }) => {
+    let keyComponent = null
+    if (member.key.type === 'Identifier') {
+        keyComponent = <span className="font-medium">{member.key.name}</span>
+    } else if (member.key.type === 'Literal') {
+        keyComponent = <span className="text-blue-500">{member.key.raw}</span>
+    }
+
+    // Constructor, Method, or Getter/Setter
+    return (
+        <>
+            {member.static && <span className="keyword keyword-static mr-1 text-purple-600 font-medium">static</span>}
+            {member.kind === 'get' && <span className="keyword keyword-getter mr-1 text-purple-600 font-medium">get</span>}
+            {member.kind === 'set' && <span className="keyword keyword-setter mr-1 text-purple-600 font-medium">set</span>}
+            {member.computed ? (
+                <>
+                    <span className="text-2xl align-middle font-bold">[</span>
+                    <Expression expr={member.key} parens={parens} parent={parent} />
+                    <span className="text-2xl align-middle font-bold">]</span>
+                </>
+            ) : keyComponent}
+            <FnArgsDef args={member.value.params} parens={parens} parent={parent} />
+            <span className="text-2xl align-middle font-bold ml-1">&#123;</span>
+            {member.value.body && member.value.body.body && member.value.body.body.length > 0 && (
+                <div className="ml-4 space-y-1">
+                    {member.value.body.body.map((st, i) => (
+                        <Statement key={i} st={st} parent={parent} parens={parens} />
+                    ))}
+                </div>
+            )}
+            <span className="text-2xl align-middle font-bold">&#125;</span>
+        </>
+    )
+}
+
+const ClassProperty = ({ member, parens, parent }) => {
+    console.log(member)
+    let keyComponent = null
+    if (member.key.type === 'Identifier') {
+        keyComponent = <span className="font-medium">{member.key.name}</span>
+    } else if (member.key.type === 'Literal') {
+        keyComponent = <span className="text-blue-500">{member.key.raw}</span>
+    }
+
+    return (
+        <>
+            {member.static && <span className="keyword keyword-static mr-1 text-purple-600 font-medium">static</span>}
+            {member.computed ? (
+                <>
+                    <span className="text-2xl align-middle font-bold">[</span>
+                    <Expression expr={member.key} parens={parens} parent={parent} />
+                    <span className="text-2xl align-middle font-bold">]</span>
+                </>
+            ) : keyComponent}
+            {member.value && (
+                <>
+                    <span className="text-xl align-middle font-bold mx-1">=</span>
+                    <Expression expr={member.value} parens={parens} parent={parent} />
+                </>
+            )}
+            <span className="text-xl align-middle font-bold">;</span>
+        </>
+    )
+}
+
+const ClassMethod = ({ member, parens, parent }) => {
+    let keyComponent = null
+    if (member.type === 'Identifier') {
+        keyComponent = <span className="font-medium">{member.name}</span>
+    } else if (member.type === 'Literal') {
+        keyComponent = <span className="text-blue-500">{member.raw}</span>
+    }
+
+    return (
+        <div className="class-method py-1">
+            {member.static && <span className="keyword keyword-static mr-1 text-purple-600 font-medium">static</span>}
+            {member.kind === 'get' && <span className="keyword keyword-getter mr-1 text-purple-600 font-medium">get</span>}
+            {member.kind === 'set' && <span className="keyword keyword-setter mr-1 text-purple-600 font-medium">set</span>}
+            {member.computed ? (
+                <>
+                    <span className="text-2xl align-middle font-bold">[</span>
+                    <Expression expr={member.key} parens={parens} parent={parent} />
+                    <span className="text-2xl align-middle font-bold">]</span>
+                </>
+            ) : keyComponent}
+            <FnArgsDef args={member.value.params} parens={parens} parent={parent} />
+            <span className="text-2xl align-middle font-bold ml-1">&#123;</span>
+            {member.value.body && member.value.body.body && member.value.body.body.length > 0 && (
+                <div className="ml-4 space-y-1">
+                    {member.value.body.body.map((st, i) => (
+                        <Statement key={i} st={st} parent={parent} parens={parens} />
+                    ))}
+                </div>
+            )}
+            <span className="text-2xl align-middle font-bold">&#125;</span>
+        </div>
+    )
+}
+
+const ClassMember = ({ member, parens, parent }) => {
+    let component = <>UNKNOWN CLASS MEMBER</>
+
+    // MethodDefinition: key:Identifier|Literal kind:string static:bool computed:bool value:FunctionExpression
+    if (member.type === 'MethodDefinition') {
+        member.category = "class.method"
+
+        component = (
+            <MethodDefinition
+                member={member}
+                parens={parens}
+                parent={parent}
+            />
+        )
+    }
+
+    // PropertyDefinition (class fields): key:Identifier|Literal static:bool computed:bool value:Expression|null
+    if (member.type === 'PropertyDefinition' || member.type === 'ClassProperty') {
+        member.category = "class.property"
+        component = (
+            <ClassProperty
+                member={member}
+                parens={parens}
+                parent={parent}
+            />
+        )
+    }
+
+    // ClassMethod: type:string key:Identifier body:BlockStatement params:[] static:bool
+    if (member.type === 'ClassMethod') {
+        member.category = "class.method"
+        component = (
+            <ClassMethod
+                member={member}
+                parens={parens}
+                parent={parent}
+            />
+        )
+    }
+
+    // Try to handle any other member that could be a statement
+    if (member.type && typeof member.type === 'string' && member.type.endsWith('Statement')) {
+        component = (
+            <div className="class-statement py-1">
+                <Statement st={member} parent={parent} parens={parens} />
+            </div>
+        )
+    }
+
+    // Try to handle any other member that could be a declaration
+    if (member.type && typeof member.type === 'string' && member.type.endsWith('Declaration')) {
+        component = (
+            <div className="class-declaration py-1">
+                <Statement st={member} parent={parent} parens={parens} />
+            </div>
+        )
+    }
+
+    const cheatSheetId = _.get(decorations, member.category || "class.UNKNOWN")
+    const title = _.get(decorations, member.category || "class.UNKNOWN").tooltip
+    const className = (member.category || "class.UNKNOWN").split('.').map((__, i, all) =>
+        _.get(decorations, all.slice(0, i + 1).join('.')).classN || ''
+    ).join(' ')
+
+    return <div
+        data-cheat-sheet-id={cheatSheetId}
+        className={className}
+        title={title}
+    >{component}</div>
+}
 
 const CodeArea: React.FC<CodeAreaProps> = ({ fromAstOf, parent, parens, debug }) => {
     const { updateCodeStr, astOfCode, codeAreaRef } = useSimulatorStore()
