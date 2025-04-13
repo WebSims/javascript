@@ -7,6 +7,7 @@
     "st/dec/var": "Declare a Variable (within a scope)",
     "st/dec/assign": "Declare and Assign (initial value)",
     "st/dec/func": "Declare a Named Function",
+    "st/dec/class": "Declare a Class",
     "st/cond": "Conditional",
     "st/cond/if": "If",
     "st/cond/else": "Else",
@@ -47,6 +48,5 @@
     "data/object": "New Object",
     "data/array": "New Array",
     "data/function": "New Anonymous Function",
-    "data/arrow": "New Arrow Function",
-    "data/class": "New Class"
+    "data/arrow": "New Arrow Function"
 }
