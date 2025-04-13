@@ -102,6 +102,7 @@ interface CodeAreaProps {
 
 const Statement = ({ st, parent, parens }) => {
     let component = <>UNKNWON STATEMENT</>;
+    let cheatSheetId = "statement.UNKNOWN"
 
     // VariableDeclaration kind:string declarations:VariableDeclarator[]
     // VariableDeclarator init:expr id:Identifier
@@ -115,6 +116,11 @@ const Statement = ({ st, parent, parens }) => {
     // ExpressionStatement expression:expr
     if (st.type == "ExpressionStatement") {
         st.category = "statement.expression"
+        cheatSheetId = [
+            "CallExpression", "AssignmentExpression", "UpdateExpression",
+            "NewExpression", "AwaitExpression", "YieldExpression",
+            "UnaryExpression" // need further check for void/delete
+        ].includes(st.expression.type) ? 'st-exp-useful' : 'st-exp-useless'
         component = <Expression expr={st.expression} parens={parens} parent={st} />
     }
 
@@ -122,7 +128,8 @@ const Statement = ({ st, parent, parens }) => {
     const className = (st.category || "statement.UNKNOWN").split('.').map((__, i, all) =>
         _.get(decorations, all.slice(0, i + 1).join('.')).classN || ''
     ).join(' ')
-    return <div className={className} title={title}>{component}</div>
+
+    return <div data-cheat-sheet-id={cheatSheetId} className={className} title={title}>{component}</div>
 }
 
 const Def = ({ defBy, name, setBy, setTo, parens, parent }) => {
