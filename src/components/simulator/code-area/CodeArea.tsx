@@ -110,7 +110,13 @@ const Statement = ({ st, parent, parens }) => {
         const { kind, declarations } = st
         const { init, id } = declarations[0]
         st.category = "statement.declaration"
-        component = <Def defBy={kind} name={id.name} setTo={init} parens={parens} parent={st} />
+        if (init) {
+            cheatSheetId = 'st-dec-assign'
+            component = <Def defBy={kind} name={id.name} setBy="=" setTo={init} parens={parens} parent={st} />
+        } else {
+            cheatSheetId = 'st-dec-var'
+            component = <Def defBy={kind} name={id.name} setBy="" parens={parens} parent={st} />
+        }
     }
 
     // ExpressionStatement expression:expr
@@ -135,7 +141,7 @@ const Statement = ({ st, parent, parens }) => {
 const Def = ({ defBy, name, setBy, setTo, parens, parent }) => {
     return <>
         <span className="keyword keyword-prefix keyword-def">{defBy}</span>
-        <WriteVar name={name} setBy="=" setTo={setTo} parent={parent} parens={parens} />
+        <WriteVar name={name} setBy={setBy} setTo={setTo} parent={parent} parens={parens} />
     </>
 }
 
@@ -151,6 +157,11 @@ const Expression = ({ fromAstOf, expr, parent, parens }) => {
     }
 
     let component = <>UNKNOWN Expression</>
+
+    // Guard against null or undefined expr
+    if (!expr) {
+        return
+    }
 
     // Literal literalType:string raw:string
     if (expr.type == "Literal") {
