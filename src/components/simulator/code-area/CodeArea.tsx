@@ -379,7 +379,7 @@ const NewFnArrow = ({ async, args, code, parent, parens }) => {
             {async && <span className="keyword keyword-prefix keyword-async">async</span>}
             {/* {name && <span className="ast-exp-fn-name">{name}</span>} */}
             <FnArgsDef args={args} parens={parens} parent={parent} />
-            <span className="text-2xl align-middle font-bold">&nbsp;=&gt;&nbsp;</span>
+            <span className="text-xl align-middle font-bold">&nbsp;=&gt;&nbsp;</span>
             {content}
         </>
     )
@@ -460,7 +460,7 @@ const ReadIndex = ({ expr, of, parent, parens }) => (
 const WriteVar = ({ name, setBy, setTo, parent, parens }) => (
     <>
         <span>{name}</span>
-        <span className="text-2xl mx-1 align-middle font-bold">&nbsp;{setBy}&nbsp;</span>
+        <span className="text-xl mx-1 align-middle font-bold">&nbsp;{setBy}&nbsp;</span>
         <Expression expr={setTo} parens={parens} parent={parent} />
     </>
 )
@@ -505,7 +505,7 @@ const OperatorBinary = ({ operator, left, right, parent, parens }) => {
     return (
         <>
             <Expression expr={left} parens={parens} parent={parent} />
-            <span className="text-2xl align-middle mx-1 font-bold">&nbsp;{operator}&nbsp;</span>
+            <span className="text-xl align-middle mx-1 font-bold">&nbsp;{operator}&nbsp;</span>
             <Expression expr={right} parens={parens} parent={parent} />
         </>
     )
@@ -515,9 +515,9 @@ const OperatorTernary = ({ cond, truthy, falsy, parent, parens }) => {
     return (
         <>
             <Expression expr={cond} parens={parens} parent={parent} />
-            <span className="text-2xl align-middle mx-1 font-bold">?</span>
+            <span className="text-xl align-middle mx-1 font-bold">?</span>
             <Expression expr={truthy} parens={parens} parent={parent} />
-            <span className="text-2xl align-middle mx-1 font-bold">:</span>
+            <span className="text-xl align-middle mx-1 font-bold">:</span>
             <Expression expr={falsy} parens={parens} parent={parent} />
         </>
     )
