@@ -57,6 +57,7 @@ const decorations = {
         classN: "ast-st",
         expression: { tooltip: "Expression Evaluation Statement", cheatSheetId: "st-exp", classN: "" },
         declaration: { tooltip: "Variable declaration Statement", cheatSheetId: "st-dec", classN: "" },
+        return: { tooltip: "Return Statement", cheatSheetId: "st-flow-return", classN: "" },
         UNKNOWN: { tooltip: "UNKNOWN Statement", classN: "bg-orange-500" },
     },
     expression: {
@@ -140,6 +141,13 @@ const Statement = ({ st, parent, parens }) => {
         component = <NewFn async={st.async} name={st.id.name} args={st.params} code={st.body} parens={parens} parent={st} />
     }
 
+    // ReturnStatement argument:expr
+    if (st.type == "ReturnStatement") {
+        st.category = "statement.return"
+        cheatSheetId = 'st-flow-return'
+        component = <ReturnStatement expr={st.argument} parens={parens} parent={st} />
+    }
+
     const title = _.get(decorations, st.category || "statement.UNKNOWN").tooltip
     const className = (st.category || "statement.UNKNOWN").split('.').map((__, i, all) =>
         _.get(decorations, all.slice(0, i + 1).join('.')).classN || ''
@@ -159,7 +167,7 @@ const Def = ({ defBy, name, setBy, setTo, parens, parent }) => {
 //   <div className="statement">return {<Expression {...expr} />}</div>
 // )
 
-const Expression = ({ fromAstOf, expr, parent, parens }) => {
+const Expression = ({ fromAstOf, expr, parent, parens }: { fromAstOf?: any, expr: any, parent: any, parens: any }) => {
     if (fromAstOf) {
         const ast = astOf(fromAstOf)
         expr = ast.body[0].expression
@@ -374,14 +382,14 @@ const NewFnArrow = ({ async, args, code, parent, parens }) => {
 }
 
 const NewFn = ({ async, name, args, code, parent, parens }) => {
-    console.log(parent)
     return (
         <>
             {async && <span className="keyword keyword-prefix keyword-async">async</span>}
             <span className="keyword keyword-prefix keyword-fn">function</span>
             {name && <span className="ast-exp-fn-name">{name}</span>}
             <FnArgsDef args={args} parens={parens} parent={parent} />
-            <span className="punc punc-block punc-new-fn-block punc-open">&#123;<br /></span>
+            <span className="punc punc-block punc-new-fn-block punc-open">&#123;</span>
+            <br />
             {code.body && code.body.length > 0 &&
                 <div className="ml-4">
                     {code.body.map((statement, i) =>
@@ -389,7 +397,8 @@ const NewFn = ({ async, name, args, code, parent, parens }) => {
                     )}
                 </div>
             }
-            <span className="punc punc-block punc-new-fn-block punc-close"><br />&#125;</span>
+            <br />
+            <span className="punc punc-block punc-new-fn-block punc-close">&#125;</span>
         </>
     )
 }
@@ -527,6 +536,18 @@ const Call = ({ expr, args, parent, parens }) => {
         <span className="punc punc-close">)</span>
     </>
 }
+
+const ReturnStatement = ({ expr, parens, parent }) => (
+    <>
+        <span className="text-purple-600 font-medium">return</span>
+        {expr && (
+            <>
+                <span className="mx-1"></span>
+                <Expression expr={expr} parens={parens} parent={parent} />
+            </>
+        )}
+    </>
+)
 
 const CodeArea: React.FC<CodeAreaProps> = ({ fromAstOf, parent, parens, debug }) => {
     const { updateCodeStr, astOfCode, codeAreaRef } = useSimulatorStore()
