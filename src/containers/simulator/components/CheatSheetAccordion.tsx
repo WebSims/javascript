@@ -29,11 +29,9 @@ const CheatSheetAccordion: React.FC<CheatSheetAccordionProps> = ({ open = true, 
             >
                 {isOpen ? <ChevronUp className='scale-125' /> : <ChevronDown className='scale-125' />}
             </Button>
-            {isOpen && (
-                <div className='h-[calc(100%-36px)]'>
-                    <CheatSheet ref={cheatSheetRef} />
-                </div>
-            )}
+            <div className={`h-[calc(100%-36px)] ${isOpen ? 'block' : 'hidden'}`}>
+                <CheatSheet ref={cheatSheetRef} />
+            </div>
         </div>
     )
 }
