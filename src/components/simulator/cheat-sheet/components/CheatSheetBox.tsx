@@ -57,12 +57,12 @@ const CheatSheetBox: React.FC<CheatSheetBoxProps> = ({ title, path, data }) => {
     const items = getDescendantItems(path)
 
     return (
-        <div className="h-full flex flex-col">
-            <h2 className="text-lg font-bold mb-1">
-                <span id={path} className="py-0.5 px-1.5 rounded-md inline-block">{title}</span>
-            </h2>
+        <div className="h-full flex flex-col p-1">
+            <div>
+                <span id={path} className="inline-block rounded-md font-semibold px-1.5 py-0.5 text-gray-900">{title}</span>
+            </div>
             {items.length > 0 && (
-                <div className="h-full overflow-y-auto pb-9">
+                <div className="h-full overflow-y-auto px-1.5 py-0.5">
                     <CheatSheetItems items={items} />
                 </div>
             )}
