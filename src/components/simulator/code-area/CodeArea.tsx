@@ -236,10 +236,10 @@ const Expression = ({ fromAstOf, expr, parent, parens }: { fromAstOf?: any, expr
         component = <ReadVar name={expr.name} />
     }
 
-    // PrivateIdentifier name:string
-    if (expr.type == "PrivateIdentifier") {
+    // ThisExpression
+    if (expr.type == "ThisExpression") {
         expr.category = "expression.read.var"
-        component = <span className="text-purple-500">#{expr.name}</span>
+        component = <span className="text-purple-600 font-medium">this</span>
     }
 
     // MemberExpression object:expr property:expr computed:bool
@@ -315,6 +315,8 @@ const Expression = ({ fromAstOf, expr, parent, parens }: { fromAstOf?: any, expr
         parens.delete(expr.range[0])
         // console.log('had parens', { newParens: [...parens] })
     }
+
+
 
     const decoratorObject = _.get(decorations, expr.category || "expression.UNKNOWN")
     const title = decoratorObject.tooltip
