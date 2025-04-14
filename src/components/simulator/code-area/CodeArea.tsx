@@ -238,8 +238,14 @@ const Expression = ({ fromAstOf, expr, parent, parens }: { fromAstOf?: any, expr
 
     // ThisExpression
     if (expr.type == "ThisExpression") {
-        expr.category = "expression.read.var"
+        expr.category = "expression.read.prop"
         component = <span className="text-purple-600 font-medium">this</span>
+    }
+
+    // SuperExpression
+    if (expr.type == "Super") {
+        expr.category = "expression.read.prop"
+        component = <span className="text-purple-600 font-medium">super</span>
     }
 
     // MemberExpression object:expr property:expr computed:bool
