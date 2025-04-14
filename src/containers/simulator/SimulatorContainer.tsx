@@ -1,4 +1,5 @@
 import React, { useState } from 'react'
+import { Code2Icon, TerminalIcon, MemoryStickIcon } from 'lucide-react'
 
 import {
   ResizableHandle,
@@ -135,48 +136,56 @@ const SimulatorContainer: React.FC = () => {
                 defaultSize={70}
               >
                 <div className="h-full flex flex-col">
-                  <h4 className="text-xl font-bold p-2">Code Editor</h4>
-                  <div className="flex-1 overflow-auto p-2">
-                    {/* <NewCodeArea fromAstOf={CODE_SAMPLE} /> */}
+                  <div className="flex items-center gap-2 py-2 px-3 border-b border-slate-100">
+                    <Code2Icon className="w-5 h-5 text-slate-500" />
+                    <h4 className=" font-semibold text-slate-700">Code Editor</h4>
+                  </div>
+                  <div className="flex-1 overflow-auto p-4">
                     <CodeArea fromAstOf={CODE_SAMPLE} />
                   </div>
                 </div>
               </ResizablePanel>
-              <ResizableHandle withHandle />
+              <ResizableHandle withHandle className="bg-slate-100 hover:bg-slate-200 transition-colors" />
               <ResizablePanel
                 defaultSize={30}
                 minSize={isCheatSheetOpen ? 30 : 4}
                 maxSize={isCheatSheetOpen ? 70 : 4}
               >
                 <CheatSheetAccordion onOpenChange={setIsCheatSheetOpen} />
-              </ResizablePanel >
-            </ResizablePanelGroup >
+              </ResizablePanel>
+            </ResizablePanelGroup>
           </ResizablePanel>
-          <ResizableHandle withHandle />
-          <ResizablePanel defaultSize={35}>
+          <ResizableHandle withHandle className="bg-slate-100 hover:bg-slate-200 transition-colors" />
+          <ResizablePanel defaultSize={35} className="bg-white">
             <ResizablePanelGroup direction="vertical">
               <ResizablePanel defaultSize={40}>
                 <div className="h-full flex flex-col">
-                  <h4 className="text-xl font-bold p-2">Console (Outputs of code execution)</h4>
+                  <div className="flex items-center gap-2 py-2 px-3 border-b border-slate-100">
+                    <TerminalIcon className="w-5 h-5 text-slate-500" />
+                    <h4 className="font-semibold text-slate-700">Console Output</h4>
+                  </div>
                   <div className="flex-1 overflow-auto p-2">
                     <Console code={CODE_SAMPLE} />
                   </div>
                 </div>
               </ResizablePanel>
-              <ResizableHandle withHandle />
+              <ResizableHandle withHandle className="bg-slate-100 hover:bg-slate-200 transition-colors" />
               <ResizablePanel defaultSize={60}>
                 <div className="h-full flex flex-col">
-                  <h4 className="text-xl font-bold p-2">Memory Model (updates on execution steps)</h4>
+                  <div className="flex items-center gap-2 py-2 px-3 border-b border-slate-100 bg-slate-50">
+                    <MemoryStickIcon className="w-5 h-5 text-slate-500" />
+                    <h4 className="font-semibold text-slate-700">Memory Model</h4>
+                  </div>
                   <div className="flex-1 overflow-auto p-2">
                     <MemoryModel code={CODE_SAMPLE} />
                   </div>
                 </div>
-              </ResizablePanel >
-            </ResizablePanelGroup >
-          </ResizablePanel >
-        </ResizablePanelGroup >
-      </div >
-    </div >
+              </ResizablePanel>
+            </ResizablePanelGroup>
+          </ResizablePanel>
+        </ResizablePanelGroup>
+      </div>
+    </div>
   )
 }
 
