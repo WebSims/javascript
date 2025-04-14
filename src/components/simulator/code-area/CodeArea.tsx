@@ -54,11 +54,11 @@ const colorPallete = colorPalletes[2]
 
 const decorations = {
     statement: {
-        classN: "bg-gray-50 rounded-md p-2 [&:has(div:hover)]:bg-gray-50 hover:bg-gray-100",
+        classN: "bg-slate-50 rounded-md p-2 [&:has(div:hover)]:bg-slate-50 hover:bg-blue-50 transition-colors duration-150",
         expression: { tooltip: "Expression Evaluation Statement", cheatSheetId: "st-exp", classN: "" },
         declaration: { tooltip: "Variable declaration Statement", cheatSheetId: "st-dec", classN: "" },
         return: { tooltip: "Return Statement", cheatSheetId: "st-flow-return", classN: "" },
-        class: { tooltip: "Class Declaration", cheatSheetId: "st-dec-class", classN: "bg-gray-50" },
+        class: { tooltip: "Class Declaration", cheatSheetId: "st-dec-class", classN: "" },
         UNKNOWN: { tooltip: "UNKNOWN Statement", classN: "bg-orange-400 hover:bg-orange-500" },
     },
     expression: {
@@ -97,7 +97,7 @@ const decorations = {
         UNKNOWN: { tooltip: "UNKNOWN Expression", classN: "bg-orange-400 hover:bg-orange-500" },
     },
     class: {
-        classN: "bg-gray-50 rounded-md p-2 [&:has(div:hover)]:bg-gray-50 hover:bg-gray-100",
+        classN: "bg-slate-50 rounded-md p-2 [&:has(div:hover)]:bg-slate-50 hover:bg-blue-50 transition-colors duration-150",
         property: { tooltip: "Class Property", cheatSheetId: "class-property", classN: "" },
         method: { tooltip: "Class Method", cheatSheetId: "class-method", classN: "" },
         UNKNOWN: { tooltip: "UNKNOWN Class", classN: "bg-orange-400 hover:bg-orange-500" },
