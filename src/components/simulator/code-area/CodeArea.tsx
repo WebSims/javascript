@@ -340,11 +340,11 @@ const Expression = ({ fromAstOf, expr, parent, parens }: { fromAstOf?: any, expr
     ).join(' ')
     return <span data-cheat-sheet-id={cheatSheetId} className={className} title={title} style={{ color: color }}>
         {expr.parenthized &&
-            <span className="text-2xl align-middle font-bold">(</span>
+            <span className="text-xl align-middle font-bold">(</span>
         }
         <span className="ast-exp-content">{component}</span>
         {expr.parenthized &&
-            <span className="text-2xl align-middle font-bold">)</span>
+            <span className="text-xl align-middle font-bold">)</span>
         }
     </span>
 }
@@ -352,14 +352,14 @@ const Expression = ({ fromAstOf, expr, parent, parens }: { fromAstOf?: any, expr
 const NewArr = ({ items, parent, parens }) => {
     // TODO: in loop, set parent of sub expressions (each item)
     return <span className="data new arr">
-        <span className="text-2xl align-middle font-bold mr-1">[</span>
+        <span className="text-xl align-middle font-bold mr-1">[</span>
         {items[0] && items.map((item, i) => {
             return <span key={i} className="ast-arr-item">
                 <Expression expr={item} parens={parens} parent={parent} />
-                {i < items.length - 1 && <span className="text-2xl align-middle font-bold">,&nbsp;</span>}
+                {i < items.length - 1 && <span className="text-xl align-middle font-bold">,&nbsp;</span>}
             </span>
         })}
-        <span className="text-2xl align-middle font-bold ml-1">]</span>
+        <span className="text-xl align-middle font-bold ml-1">]</span>
     </span>
 }
 
@@ -367,7 +367,7 @@ const NewObj = ({ props, parent, parens }) => {
     // TODO: in loop, set parent of sub expressions ( each computed name and each value)
     // Property key:expr value:expr computed:bool method:bool shorthand:bool
     return <span className="data new obj">
-        <span className="text-2xl align-middle font-bold mr-1">&#123;</span>
+        <span className="text-xl align-middle font-bold mr-1">&#123;</span>
         {
             props.map((prop, i) => {
                 let key
@@ -382,13 +382,13 @@ const NewObj = ({ props, parent, parens }) => {
                     <span className="text-xl align-middle font-bold">:&nbsp;</span>
                     <Expression expr={prop.value} parens={parens} parent={parent} />
                     {i < props.length - 1 &&
-                        <span className="text-2xl align-middle font-bold">,&nbsp;</span>
+                        <span className="text-xl align-middle font-bold">,&nbsp;</span>
                     }
                 </span>
             }
             )
         }
-        <span className="text-2xl align-middle font-bold ml-1">&#125;</span>
+        <span className="text-xl align-middle font-bold ml-1">&#125;</span>
     </span>
 }
 
@@ -396,7 +396,7 @@ const NewFnArrow = ({ async, args, code, parent, parens }) => {
     let content;
     if (code.type == "BlockStatement") {
         content = <>
-            <span className="text-2xl align-middle font-bold">&#123;<br /></span>
+            <span className="text-xl align-middle font-bold">&#123;<br /></span>
             {code.body && code.body.length > 0 &&
                 <div className="ml-4 space-y-2">
                     {code.body.map((statement, i) =>
@@ -404,7 +404,7 @@ const NewFnArrow = ({ async, args, code, parent, parens }) => {
                     )}
                 </div>
             }
-            <span className="text-2xl align-middle font-bold">&#125;</span>
+            <span className="text-xl align-middle font-bold">&#125;</span>
         </>
     } else {
         content = <Expression expr={code} parens={parens} parent={parent} />
@@ -427,7 +427,7 @@ const NewFn = ({ async, name, args, code, parent, parens }) => {
             <span className="keyword keyword-prefix keyword-fn">function</span>
             {name && <span className="ast-exp-fn-name">{name}</span>}
             <FnArgsDef args={args} parens={parens} parent={parent} />
-            <span className="text-2xl align-middle font-bold">&#123;</span>
+            <span className="text-xl align-middle font-bold">&#123;</span>
             {code.body && code.body.length > 0 &&
                 <div className="ml-4 space-y-1">
                     {code.body.map((statement, i) =>
@@ -435,14 +435,14 @@ const NewFn = ({ async, name, args, code, parent, parens }) => {
                     )}
                 </div>
             }
-            <span className="text-2xl align-middle font-bold">&#125;</span>
+            <span className="text-xl align-middle font-bold">&#125;</span>
         </>
     )
 }
 
 const FnArgsDef = ({ args, parent, parens }) => (
     <>
-        <span className="text-2xl align-middle font-bold">(</span>
+        <span className="text-xl align-middle font-bold">(</span>
         {args.map((arg, i) => {
             let component
 
@@ -459,11 +459,11 @@ const FnArgsDef = ({ args, parent, parens }) => (
             return <span key={i} className="ast-fn-def-arg">
                 {component}
                 {i < args.length - 1 &&
-                    <span className="text-2xl align-middle font-bold">,&nbsp;</span>
+                    <span className="text-xl align-middle font-bold">,&nbsp;</span>
                 }
             </span>
         })}
-        <span className="text-2xl align-middle font-bold">)</span>
+        <span className="text-xl align-middle font-bold">)</span>
     </>
 )
 
@@ -476,7 +476,7 @@ const ReadProp = ({ name, of, parent, parens }) => (
         <span className="ast-noundef">
             <Expression expr={of} parens={parens} parent={parent} />
         </span>
-        <span className="text-2xl align-middle font-bold">.</span>
+        <span className="text-xl align-middle font-bold">.</span>
         <span>{name}</span>
     </>
 )
@@ -486,9 +486,9 @@ const ReadIndex = ({ expr, of, parent, parens }) => (
         <span className="ast-noundef">
             <Expression expr={of} parens={parens} parent={parent} />
         </span>
-        <span className="text-2xl align-middle font-bold">[</span>
+        <span className="text-xl align-middle font-bold">[</span>
         <Expression expr={expr} parens={parens} parent={parent} />
-        <span className="text-2xl align-middle font-bold">]</span>
+        <span className="text-xl align-middle font-bold">]</span>
     </>
 )
 
@@ -505,9 +505,9 @@ const WriteProp = ({ name, of, setBy, setTo, parent, parens }) => (
         {/* <span className="ast-noundef"> */}
         <Expression expr={of} parens={parens} parent={parent} />
         {/* </span> */}
-        <span className="text-2xl align-middle font-bold">.</span>
+        <span className="text-xl align-middle font-bold">.</span>
         <span>{name}</span>
-        <span className="text-2xl mx-1 ">&nbsp;{setBy}&nbsp;</span>
+        <span className="text-xl mx-1 ">&nbsp;{setBy}&nbsp;</span>
         <Expression expr={setTo} parens={parens} parent={parent} />
     </>
 )
@@ -517,10 +517,10 @@ const WriteIndex = ({ expr, of, setBy, setTo, parent, parens }) => (
         {/* <span className="ast-noundef"> */}
         <Expression expr={of} parens={parens} parent={parent} />
         {/* </span> */}
-        <span className="text-2xl align-middle font-bold">[</span>
+        <span className="text-xl align-middle font-bold">[</span>
         <Expression expr={expr} parens={parens} parent={parent} />
-        <span className="text-2xl align-middle font-bold">]</span>
-        <span className="text-2xl mx-1 ">&nbsp;{setBy}&nbsp;</span>
+        <span className="text-xl align-middle font-bold">]</span>
+        <span className="text-xl mx-1 ">&nbsp;{setBy}&nbsp;</span>
         <Expression expr={setTo} parens={parens} parent={parent} />
     </>
 )
@@ -528,7 +528,7 @@ const WriteIndex = ({ expr, of, setBy, setTo, parent, parens }) => (
 const OperatorUnary = ({ operator, operand, parent, parens }) => {
     return (
         <>
-            <span className="text-2xl align-middle mx-1 font-bold">{operator}&nbsp;</span>
+            <span className="text-xl align-middle mx-1 font-bold">{operator}&nbsp;</span>
             <Expression expr={operand} parens={parens} parent={parent} />
         </>
     )
@@ -561,16 +561,16 @@ const OperatorTernary = ({ cond, truthy, falsy, parent, parens }) => {
 const Call = ({ expr, args, parent, parens }) => {
     return <>
         <Expression expr={expr} parens={parens} parent={parent} />
-        <span className="text-2xl align-middle font-bold">(</span>
+        <span className="text-xl align-middle font-bold">(</span>
         {args.map((arg, i) => {
             return <>
                 <Expression key={i} expr={arg} parens={parens} parent={parent} />
                 {i < args.length - 1 &&
-                    <span className="text-2xl align-middle font-bold">,</span>
+                    <span className="text-xl align-middle font-bold">,</span>
                 }
             </>
         })}
-        <span className="text-2xl align-middle font-bold">)</span>
+        <span className="text-xl align-middle font-bold">)</span>
     </>
 }
 
@@ -578,16 +578,16 @@ const NewConstructor = ({ expr, args, parent, parens }) => {
     return <>
         <span className="keyword keyword-new text-purple-600 font-medium mr-1">new</span>
         <Expression expr={expr} parens={parens} parent={parent} />
-        <span className="text-2xl align-middle font-bold">(</span>
+        <span className="text-xl align-middle font-bold">(</span>
         {args.map((arg, i) => {
             return <>
                 <Expression key={i} expr={arg} parens={parens} parent={parent} />
                 {i < args.length - 1 &&
-                    <span className="text-2xl align-middle font-bold">,</span>
+                    <span className="text-xl align-middle font-bold">,</span>
                 }
             </>
         })}
-        <span className="text-2xl align-middle font-bold">)</span>
+        <span className="text-xl align-middle font-bold">)</span>
     </>
 }
 
@@ -614,7 +614,7 @@ const NewClass = ({ name, superClass, body, parens, parent }) => {
                     <Expression expr={superClass} parens={parens} parent={parent} />
                 </>
             )}
-            <span className="text-2xl align-middle font-bold ml-1">&#123;</span>
+            <span className="text-xl align-middle font-bold ml-1">&#123;</span>
             {body.body && body.body.length > 0 && (
                 <div className="ml-4 space-y-1">
                     {body.body.map((member, i) => (
@@ -622,7 +622,7 @@ const NewClass = ({ name, superClass, body, parens, parent }) => {
                     ))}
                 </div>
             )}
-            <span className="text-2xl align-middle font-bold">&#125;</span>
+            <span className="text-xl align-middle font-bold">&#125;</span>
         </>
     )
 }
@@ -645,13 +645,13 @@ const MethodDefinition = ({ member, parens, parent }) => {
             {member.kind === 'set' && <span className="keyword keyword-setter mr-1 text-purple-600 font-medium">set</span>}
             {member.computed ? (
                 <>
-                    <span className="text-2xl align-middle font-bold">[</span>
+                    <span className="text-xl align-middle font-bold">[</span>
                     <Expression expr={member.key} parens={parens} parent={parent} />
-                    <span className="text-2xl align-middle font-bold">]</span>
+                    <span className="text-xl align-middle font-bold">]</span>
                 </>
             ) : keyComponent}
             <FnArgsDef args={member.value.params} parens={parens} parent={parent} />
-            <span className="text-2xl align-middle font-bold ml-1">&#123;</span>
+            <span className="text-xl align-middle font-bold ml-1">&#123;</span>
             {member.value.body && member.value.body.body && member.value.body.body.length > 0 && (
                 <div className="ml-4 space-y-1">
                     {member.value.body.body.map((st, i) => (
@@ -659,7 +659,7 @@ const MethodDefinition = ({ member, parens, parent }) => {
                     ))}
                 </div>
             )}
-            <span className="text-2xl align-middle font-bold">&#125;</span>
+            <span className="text-xl align-middle font-bold">&#125;</span>
         </>
     )
 }
@@ -679,9 +679,9 @@ const ClassProperty = ({ member, parens, parent }) => {
             {member.static && <span className="keyword keyword-static mr-1 text-purple-600 font-medium">static</span>}
             {member.computed ? (
                 <>
-                    <span className="text-2xl align-middle font-bold">[</span>
+                    <span className="text-xl align-middle font-bold">[</span>
                     <Expression expr={member.key} parens={parens} parent={parent} />
-                    <span className="text-2xl align-middle font-bold">]</span>
+                    <span className="text-xl align-middle font-bold">]</span>
                 </>
             ) : keyComponent}
             {member.value && (
@@ -712,13 +712,13 @@ const ClassMethod = ({ member, parens, parent }) => {
             {member.kind === 'set' && <span className="keyword keyword-setter mr-1 text-purple-600 font-medium">set</span>}
             {member.computed ? (
                 <>
-                    <span className="text-2xl align-middle font-bold">[</span>
+                    <span className="text-xl align-middle font-bold">[</span>
                     <Expression expr={member.key} parens={parens} parent={parent} />
-                    <span className="text-2xl align-middle font-bold">]</span>
+                    <span className="text-xl align-middle font-bold">]</span>
                 </>
             ) : keyComponent}
             <FnArgsDef args={member.value.params} parens={parens} parent={parent} />
-            <span className="text-2xl align-middle font-bold ml-1">&#123;</span>
+            <span className="text-xl align-middle font-bold ml-1">&#123;</span>
             {member.value.body && member.value.body.body && member.value.body.body.length > 0 && (
                 <div className="ml-4 space-y-1">
                     {member.value.body.body.map((st, i) => (
@@ -726,7 +726,7 @@ const ClassMethod = ({ member, parens, parent }) => {
                     ))}
                 </div>
             )}
-            <span className="text-2xl align-middle font-bold">&#125;</span>
+            <span className="text-xl align-middle font-bold">&#125;</span>
         </div>
     )
 }
