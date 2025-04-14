@@ -29,6 +29,11 @@ declare module 'hermes-parser' {
         name: string;
     }
 
+    export interface PrivateIdentifier extends ESNode {
+        type: 'PrivateIdentifier';
+        name: string;
+    }
+
     export interface Literal extends ESNode {
         type: 'Literal';
         value: string | number | boolean | null;

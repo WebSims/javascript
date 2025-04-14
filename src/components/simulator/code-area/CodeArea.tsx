@@ -236,6 +236,12 @@ const Expression = ({ fromAstOf, expr, parent, parens }: { fromAstOf?: any, expr
         component = <ReadVar name={expr.name} />
     }
 
+    // PrivateIdentifier name:string
+    if (expr.type == "PrivateIdentifier") {
+        expr.category = "expression.read.var"
+        component = <span className="text-purple-500">#{expr.name}</span>
+    }
+
     // MemberExpression object:expr property:expr computed:bool
     if (expr.type == "MemberExpression") {
         const { object, property, computed } = expr
@@ -595,6 +601,8 @@ const MethodDefinition = ({ member, parens, parent }) => {
         keyComponent = <span className="font-medium">{member.key.name}</span>
     } else if (member.key.type === 'Literal') {
         keyComponent = <span className="text-blue-500">{member.key.raw}</span>
+    } else if (member.key.type === 'PrivateIdentifier') {
+        keyComponent = <span className="font-medium text-purple-500">#{member.key.name}</span>
     }
 
     // Constructor, Method, or Getter/Setter
@@ -625,12 +633,13 @@ const MethodDefinition = ({ member, parens, parent }) => {
 }
 
 const ClassProperty = ({ member, parens, parent }) => {
-    console.log(member)
     let keyComponent = null
     if (member.key.type === 'Identifier') {
         keyComponent = <span className="font-medium">{member.key.name}</span>
     } else if (member.key.type === 'Literal') {
         keyComponent = <span className="text-blue-500">{member.key.raw}</span>
+    } else if (member.key.type === 'PrivateIdentifier') {
+        keyComponent = <span className="font-medium text-purple-500">#{member.key.name}</span>
     }
 
     return (
@@ -660,6 +669,8 @@ const ClassMethod = ({ member, parens, parent }) => {
         keyComponent = <span className="font-medium">{member.name}</span>
     } else if (member.type === 'Literal') {
         keyComponent = <span className="text-blue-500">{member.raw}</span>
+    } else if (member.type === 'PrivateIdentifier') {
+        keyComponent = <span className="font-medium text-purple-500">#{member.name}</span>
     }
 
     return (
