@@ -21,15 +21,20 @@ const CheatSheetAccordion: React.FC<CheatSheetAccordionProps> = ({ open = true, 
 
     return (
         <div className='h-full w-full flex flex-col'>
-            <Button
-                variant="link"
-                size="icon"
-                onClick={() => handleOpenChange(!isOpen)}
-                className="w-full flex items-center justify-center p-4"
-            >
-                {isOpen ? <ChevronUp className='scale-125' /> : <ChevronDown className='scale-125' />}
-            </Button>
-            <div className={`h-[calc(100%-36px)] ${isOpen ? 'block' : 'hidden'}`}>
+            <div className='flex items-center relative h-12'>
+                <h4 className="text-xl font-bold p-2">Cheat Sheet</h4>
+                <div className="absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2">
+                    <Button
+                        variant="link"
+                        size="icon"
+                        onClick={() => handleOpenChange(!isOpen)}
+                        aria-label={isOpen ? "Collapse cheat sheet" : "Expand cheat sheet"}
+                    >
+                        {isOpen ? <ChevronUp className='scale-125' /> : <ChevronDown className='scale-125' />}
+                    </Button>
+                </div>
+            </div>
+            <div className={`h-[calc(100%-48px)] ${isOpen ? 'block' : 'hidden'}`}>
                 <CheatSheet ref={cheatSheetRef} />
             </div>
         </div>
