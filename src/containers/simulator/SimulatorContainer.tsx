@@ -146,8 +146,8 @@ const SimulatorContainer: React.FC = () => {
               <ResizableHandle withHandle className="bg-slate-100 hover:bg-slate-200 transition-colors" />
               <ResizablePanel
                 defaultSize={30}
-                minSize={isCheatSheetOpen ? 30 : 4}
-                maxSize={isCheatSheetOpen ? 70 : 4}
+                minSize={isCheatSheetOpen ? 30 : 3.5}
+                maxSize={isCheatSheetOpen ? 70 : 3.5}
               >
                 <CheatSheetAccordion onOpenChange={setIsCheatSheetOpen} />
               </ResizablePanel>
@@ -170,7 +170,7 @@ const SimulatorContainer: React.FC = () => {
               <ResizableHandle withHandle className="bg-slate-100 hover:bg-slate-200 transition-colors" />
               <ResizablePanel defaultSize={60} minSize={30}>
                 <div className="h-full flex flex-col">
-                  <div className="flex items-center gap-2 py-2 px-3 border-b border-slate-100 bg-slate-50">
+                  <div className="flex items-center gap-2 py-2 px-3 border-b border-slate-100">
                     <MemoryStickIcon className="w-5 h-5 text-slate-500" />
                     <h4 className="font-semibold text-slate-700">Memory Model</h4>
                   </div>
