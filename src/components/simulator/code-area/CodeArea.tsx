@@ -94,6 +94,7 @@ const decorations = {
             ternary: { tooltip: "Operation (Ternary Operator)", cheatSheetId: "exp-op-ternary", classN: "ast-exp-op3" },
         },
         call: { tooltip: "Function call", cheatSheetId: "exp-func", classN: "" },
+        new: { tooltip: "Constructor call", cheatSheetId: "exp-new", classN: "" },
         UNKNOWN: { tooltip: "UNKNOWN Expression", classN: "bg-orange-400 hover:bg-orange-500" },
     },
     class: {
@@ -308,6 +309,12 @@ const Expression = ({ fromAstOf, expr, parent, parens }: { fromAstOf?: any, expr
     if (expr.type == "CallExpression") {
         expr.category = "expression.call"
         component = <Call expr={expr.callee} args={expr.arguments} parens={parens} parent={expr} />
+    }
+
+    // NewExpression callee:expr arguments:expr[]
+    if (expr.type == "NewExpression") {
+        expr.category = "expression.new"
+        component = <NewConstructor expr={expr.callee} args={expr.arguments} parens={parens} parent={expr} />
     }
 
     // console.log('rendering:', { expr, range0: expr.range[0], parenthized: expr.parenthized, parens: [...parens] })
@@ -553,6 +560,23 @@ const OperatorTernary = ({ cond, truthy, falsy, parent, parens }) => {
 
 const Call = ({ expr, args, parent, parens }) => {
     return <>
+        <Expression expr={expr} parens={parens} parent={parent} />
+        <span className="text-2xl align-middle font-bold">(</span>
+        {args.map((arg, i) => {
+            return <>
+                <Expression key={i} expr={arg} parens={parens} parent={parent} />
+                {i < args.length - 1 &&
+                    <span className="text-2xl align-middle font-bold">,</span>
+                }
+            </>
+        })}
+        <span className="text-2xl align-middle font-bold">)</span>
+    </>
+}
+
+const NewConstructor = ({ expr, args, parent, parens }) => {
+    return <>
+        <span className="keyword keyword-new text-purple-600 font-medium mr-1">new</span>
         <Expression expr={expr} parens={parens} parent={parent} />
         <span className="text-2xl align-middle font-bold">(</span>
         {args.map((arg, i) => {
