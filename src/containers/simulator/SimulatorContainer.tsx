@@ -132,9 +132,7 @@ const SimulatorContainer: React.FC = () => {
             maxSize={70}
           >
             <ResizablePanelGroup direction="vertical" className='left-side'>
-              <ResizablePanel
-                defaultSize={70}
-              >
+              <ResizablePanel defaultSize={70}>
                 <div className="h-full flex flex-col">
                   <div className="flex items-center gap-2 py-2 px-3 border-b border-slate-100">
                     <Code2Icon className="w-5 h-5 text-slate-500" />
@@ -158,7 +156,7 @@ const SimulatorContainer: React.FC = () => {
           <ResizableHandle withHandle className="bg-slate-100 hover:bg-slate-200 transition-colors" />
           <ResizablePanel defaultSize={35} className="bg-white">
             <ResizablePanelGroup direction="vertical">
-              <ResizablePanel defaultSize={40}>
+              <ResizablePanel defaultSize={40} minSize={30}>
                 <div className="h-full flex flex-col">
                   <div className="flex items-center gap-2 py-2 px-3 border-b border-slate-100">
                     <TerminalIcon className="w-5 h-5 text-slate-500" />
@@ -170,7 +168,7 @@ const SimulatorContainer: React.FC = () => {
                 </div>
               </ResizablePanel>
               <ResizableHandle withHandle className="bg-slate-100 hover:bg-slate-200 transition-colors" />
-              <ResizablePanel defaultSize={60}>
+              <ResizablePanel defaultSize={60} minSize={30}>
                 <div className="h-full flex flex-col">
                   <div className="flex items-center gap-2 py-2 px-3 border-b border-slate-100 bg-slate-50">
                     <MemoryStickIcon className="w-5 h-5 text-slate-500" />
