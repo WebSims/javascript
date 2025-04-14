@@ -138,7 +138,7 @@ const SimulatorContainer: React.FC = () => {
                     <Code2Icon className="w-5 h-5 text-slate-500" />
                     <h4 className=" font-semibold text-slate-700">Code Editor</h4>
                   </div>
-                  <div className="flex-1 overflow-auto p-4">
+                  <div className="flex-1 overflow-auto">
                     <CodeArea fromAstOf={CODE_SAMPLE} />
                   </div>
                 </div>
