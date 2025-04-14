@@ -20,7 +20,7 @@ const CheatSheetAccordion: React.FC<CheatSheetAccordionProps> = ({ open = true, 
     }
 
     return (
-        <div className='h-full w-full flex flex-col'>
+        <div className='h-full w-full flex flex-col justify-center'>
             <div className={`flex items-center justify-between px-3 ${isOpen ? 'py-2 border-b border-slate-100' : 'py-1 text-sm'}`}>
                 <div className="flex items-center gap-2">
                     <BookOpenIcon className={`${isOpen ? 'h-5 w-5' : 'h-4 w-4'} text-muted-foreground`} />
