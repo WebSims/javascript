@@ -3,13 +3,17 @@ import { astOf } from "@/utils/ast"
 import { cheatSheetHighlighter } from "@/utils/cheatSheetHighlighter"
 import { ESNode } from "hermes-parser"
 import * as ts from "typescript"
+import { ExecStep } from "@/types/simulation"
+
+// Represents a single scope's memory (e.g., global, function scope)
+// Values can be primitives or references to other objects/arrays/functions
+
 
 type SimulatorContextType = {
     codeStr: string
     updateCodeStr: (codeStr: string) => void
     astOfCode: ESNode | ts.SourceFile | null
     execSteps: ExecStep[]
-    setExecSteps: React.Dispatch<React.SetStateAction<ExecStep[]>>
     currentExecStep: ExecStep | null
     isPlaying: boolean
     togglePlaying: (state?: boolean) => void
@@ -23,26 +27,12 @@ type SimulatorContextType = {
     setSpeed: (speed: number) => void
 }
 
-type ExecStep = {
-    index: number
-    code: string
-    output: string
-    memory: Record<string, unknown>
-    error: string
-}
-
 const SimulatorContext = createContext<SimulatorContextType | undefined>(undefined)
 
 export const SimulatorProvider = ({ children }: { children: React.ReactNode }) => {
     const [codeStr, setCodeStr] = useState<string>("")
     const [astOfCode, setAstOfCode] = useState<ESNode | ts.SourceFile | null>(astOf(codeStr))
-    const [execSteps, setExecSteps] = useState<ExecStep[]>(Array.from({ length: 100 }, (_, i) => ({
-        index: i,
-        code: "",
-        output: "",
-        memory: {},
-        error: ""
-    })))
+    const [execSteps, setExecSteps] = useState<ExecStep[]>([])
     const [currentExecStep, setCurrentExecStep] = useState<ExecStep | null>(null)
     const [isPlaying, setIsPlaying] = useState(false)
     const [speed, setSpeed] = useState(1)
@@ -57,11 +47,24 @@ export const SimulatorProvider = ({ children }: { children: React.ReactNode }) =
 
     const totalSteps = execSteps.length
 
-    const updateCodeStr = (codeStr: string) => {
-        setCodeStr(codeStr)
-        const ast = astOf(codeStr)
-        if (ast) {
-            setAstOfCode(ast)
+    const updateCodeStr = (newCodeStr: string) => {
+        setCodeStr(newCodeStr)
+        try {
+            const ast = astOf(newCodeStr)
+            if (ast) {
+                setAstOfCode(ast)
+                setExecSteps([])
+                setCurrentExecStep(null)
+            } else {
+                setAstOfCode(null)
+                setExecSteps([])
+                setCurrentExecStep(null)
+            }
+        } catch (error) {
+            console.error("Error parsing code:", error)
+            setAstOfCode(null)
+            setExecSteps([])
+            setCurrentExecStep(null)
         }
     }
 
@@ -74,47 +77,49 @@ export const SimulatorProvider = ({ children }: { children: React.ReactNode }) =
     }
 
     const stepForward = () => {
-        const currentIndex = currentExecStep?.index ?? 0
+        const currentIndex = currentExecStep?.index ?? -1
         if (currentIndex < totalSteps - 1) {
-            const nextStep = currentIndex + 1
-            setCurrentExecStep(execSteps[nextStep])
+            const nextIndex = currentIndex + 1
+            setCurrentExecStep(execSteps[nextIndex])
+        } else {
+            setIsPlaying(false)
         }
     }
 
     const stepBackward = () => {
         const currentIndex = currentExecStep?.index ?? 0
         if (currentIndex > 0) {
-            const prevStep = currentIndex - 1
-            setCurrentExecStep(execSteps[prevStep])
+            const prevIndex = currentIndex - 1
+            setCurrentExecStep(execSteps[prevIndex])
         }
     }
 
     const changeStep = (index: number) => {
-        setCurrentExecStep(execSteps[index])
+        if (index >= 0 && index < totalSteps) {
+            setCurrentExecStep(execSteps[index])
+        }
     }
 
     const resetSimulation = () => {
-        setCurrentExecStep(execSteps[0])
+        setCurrentExecStep(execSteps[0] ?? null)
         togglePlaying(false)
     }
 
     useEffect(() => {
-        let interval: NodeJS.Timeout
+        let interval: NodeJS.Timeout | undefined
 
-        if (isPlaying) {
+        if (isPlaying && totalSteps > 0) {
             interval = setInterval(() => {
-                const currentIndex = currentExecStep?.index ?? 0
-                if (currentIndex < totalSteps - 1) {
-                    const nextStep = currentIndex + 1
-                    setCurrentExecStep(execSteps[nextStep])
-                } else {
-                    togglePlaying(false)
-                }
+                stepForward()
             }, 1000 / speed)
+        } else {
+            setIsPlaying(false)
         }
 
-        return () => clearInterval(interval)
-    }, [isPlaying, totalSteps, speed, currentExecStep])
+        return () => {
+            if (interval) clearInterval(interval)
+        }
+    }, [isPlaying, speed, currentExecStep, totalSteps])
 
     return (
         <SimulatorContext.Provider
@@ -123,7 +128,6 @@ export const SimulatorProvider = ({ children }: { children: React.ReactNode }) =
                 updateCodeStr,
                 astOfCode,
                 execSteps,
-                setExecSteps,
                 currentExecStep,
                 isPlaying,
                 togglePlaying,
