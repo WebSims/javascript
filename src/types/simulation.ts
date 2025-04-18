@@ -21,13 +21,11 @@ export type HeapObject =
 // Represents the central heap storing all non-primitive values
 export type Heap = Record<HeapRef, HeapObject>
 
-export type ScopeType = "global" | "function" | "block"
 // Represents a single activation record (scope) on the call stack
 export type Scope = {
-    type: ScopeType
-    variables: Record<string, JSValue>
-    thisValue?: JSValue
-    parentScope?: number // index or reference to parent scope
+    variables: Record<string, JSValue> // Maps variable names to their values (primitive or reference)
+    thisValue?: JSValue // The 'this' binding for this scope
+    // Add other scope-specific info if needed (e.g., is it a block scope?)
 }
 
 // ----- Memory Change -----
@@ -72,7 +70,12 @@ export type MemoryChange =
     | {
         type: "function_return"
         returnedValue?: JSValue // The JSValue returned from the function
+        // TODO: remove poppedScope.
         poppedScope: Scope // The scope object that was popped
+    }
+    | {
+        type: "function_throw"
+        error: JSValue // The error message that was thrown
     }
 
 // ----- Execution Step -----
@@ -88,8 +91,12 @@ export type ExecStep = {
     memorySnapshot: { // Snapshot of the entire memory state *after* this step's change
         scopes: Scope[] // The call stack (array of Scope objects)
         heap: Heap // The heap storing shared objects/arrays/functions
+        // TODO: nextRef is not needed here.
         nextRef: HeapRef // The next available reference number for the heap
     }
+    // TODO: instead of output and error, refactor to: 
+    // consoleAdded: null | {type: "log" | "error" | 'info' | 'warn' | 'debug' | 'table' | ..., values: JSValue[]}
+    // consoleSnapshot: {type: "log" | "error" | 'info' | 'warn' | 'debug' | 'table' | ..., values: JSValue[]}[]
     output?: string // Any output generated in this step (e.g., console.log)
     error?: string // Any error generated in this step
 }
