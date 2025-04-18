@@ -12,33 +12,59 @@ import CheatSheetAccordion from './components/CheatSheetAccordion'
 import Console from '@/components/simulator/console-output/ConsoleOutput'
 import MemoryModel from '@/components/simulator/memory-model/MemoryModel'
 import ExecutionBar from '@/components/simulator/execution-bar/ExecutionBar'
+import { astOf } from '@/utils/ast'
+import { simulateExecution } from '@/utils/simulator'
+import { ESNode } from 'hermes-parser'
 
 const CODE_SAMPLE = `
 let a;
 const b = 1;
 function greet(name) { 
- const first = "Hello, ";
- return first + name
- }
- const arrowFn = (x) => {
+  const first = "Hello, ";
+  return first + name
+}
+const arrowFn = (x) => {
   const y = x * x
   return y
- }
+}
 ((1 + 2));
 2*3+4
   2*(3+4
     );
     (2*((3+(((4))))))
     const z = (x) => x ** 2
-  console.log(1,2, "Hello, " + name)
-  console.log(1,something == "xxx" ? myArr[i+1] : false)
-  //something == "xxx" ? myArr[i+1] : false
-  a++
-  const emptyArray = []
-  const emptyObject = {}
-  const array = [1, 2, 3]
-  const object = {name: "John", age: 2, isMale: true, nestedProp: object["name"]}
+console.log(1,2, "Hello, " + name)
+console.log(1,something == "xxx" ? myArr[i+1] : false)
+//something == "xxx" ? myArr[i+1] : false
+//a++
+const emptyArray = []
+const emptyObject = {}
+const array = [1, 2, 3]
+const object = {name: "John", age: 2, isMale: true, nestedProp: object["name"]}  
+function bye(name) { 
+  const first = "Bye, ";
+  return first + name
+}`
 
+const MULTIPLE_SCOPE_CODE_SAMPLE = `
+console.log("Hello, world!");
+const outerVar = "I am in outerFunction";
+function outerFunction() {
+  const innerVar = "I am in innerFunction";
+  function innerFunction() {
+  const test1 = "test1"
+    console.log(outerVar, innerVar);
+  }
+  innerFunction();
+}
+outerFunction();
+if (true) {
+  let blockVar = "I am in a block";
+  const anotherBlockVar = "Another block-scoped var";
+}
+`
+
+const CLASS_CODE_SAMPLE = `
 class Person {
   // Field declarations
   name;
@@ -115,6 +141,9 @@ class Student extends Person {
   }
 }`
 
+const steps = simulateExecution(astOf(MULTIPLE_SCOPE_CODE_SAMPLE) as ESNode)
+console.log(steps)
+
 const SimulatorContainer: React.FC = () => {
   const [isCheatSheetOpen, setIsCheatSheetOpen] = useState(true)
 
@@ -139,7 +168,7 @@ const SimulatorContainer: React.FC = () => {
                     <h4 className=" font-semibold text-slate-700">Code Editor</h4>
                   </div>
                   <div className="flex-1 overflow-auto">
-                    <CodeArea fromAstOf={CODE_SAMPLE} />
+                    <CodeArea fromAstOf={MULTIPLE_SCOPE_CODE_SAMPLE} />
                   </div>
                 </div>
               </ResizablePanel>

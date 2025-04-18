@@ -21,11 +21,13 @@ export type HeapObject =
 // Represents the central heap storing all non-primitive values
 export type Heap = Record<HeapRef, HeapObject>
 
+export type ScopeType = "global" | "function" | "block"
 // Represents a single activation record (scope) on the call stack
 export type Scope = {
-    variables: Record<string, JSValue> // Maps variable names to their values (primitive or reference)
-    thisValue?: JSValue // The 'this' binding for this scope
-    // Add other scope-specific info if needed (e.g., is it a block scope?)
+    type: ScopeType
+    variables: Record<string, JSValue>
+    thisValue?: JSValue
+    parentScope?: number // index or reference to parent scope
 }
 
 // ----- Memory Change -----
