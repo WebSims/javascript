@@ -1,13 +1,14 @@
 import { ESNode } from "hermes-parser"
 
 // ----- Memory Model -----
+export const TDZ = { type: "primitive", value: "not_initialized" } as const
 
 // Represents a unique reference to an object/array/function in the heap
 export type HeapRef = number
 
 // Represents any value in the JavaScript simulation
 export type JSValue =
-    | { type: "primitive"; value: string | number | boolean | null | undefined | symbol | bigint }
+    | { type: "primitive"; value: string | number | boolean | null | undefined | symbol | bigint | typeof TDZ }
     | { type: "reference"; ref: HeapRef }
 // Consider adding symbol/bigint if needed by the code you simulate
 
@@ -31,16 +32,21 @@ export type Scope = {
     // Add other scope-specific info if needed (e.g., is it a block scope?)
 }
 
+export type Declaration = {
+    kind: "var" | "let" | "const" | "function" | "param" | "class",
+    variableName: string,
+    initialValue: JSValue
+}
+
 // ----- Memory Change -----
 
 // Describes the specific memory modification in a step
 export type MemoryChange =
     | { type: "none" }
     | {
-        type: "declare_variable"
+        type: "declaration"
+        declarations: Declaration[]
         scopeIndex: number // Index in the memorySnapshot.scopes array
-        variableName: string
-        kind: "var" | "let" | "const" | "function" | "param"
         // Declaration implies an initial JSValue (primitive undefined or a function reference)
     }
     | {
@@ -66,12 +72,6 @@ export type MemoryChange =
         property: string | number // Property name or array index being deleted
     }
     | {
-        type: "declare_function"
-        variableName: string
-        functionRef: HeapRef
-        scopeIndex: number // Index in the memorySnapshot.scopes array
-    }
-    | {
         type: "function_call"
         functionRef?: HeapRef // Reference to the function HeapObject that was called
         pushedScope: Scope // The new scope object pushed onto the stack
@@ -92,8 +92,10 @@ export type MemoryChange =
 // Represents a single step in the code execution simulation
 export type ExecStep = {
     index: number // Sequential step index
-    node: ESNode // The primary AST node associated with this step
-    pass: "hoisted" | "normal" // Phase of execution (hoisting or normal run)
+    node?: ESNode // The primary AST node associated with this step
+    nodes?: ESNode[] // The nodes associated with this step (e.g., declarations)
+    pass?: "hoisted" | "normal" // Phase of execution (hoisting or normal run)
+    phase: "creation" | "execution" // Phase of execution
     evaluatedValue?: JSValue // The result of evaluating this node (if it's an expression)
     scopeIndex: number // Index into memorySnapshot.scopes for the *active* scope
     memoryChange: MemoryChange // Description of the memory effect of this step

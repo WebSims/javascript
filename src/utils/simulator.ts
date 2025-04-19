@@ -1,5 +1,5 @@
 import { ESNode, Program, VariableDeclarator, Identifier, Literal, VariableDeclaration, ArrayExpression, ObjectExpression, Property, ArrowFunctionExpression } from "hermes-parser"
-import { ExecStep, JSValue, Scope, Heap, MemoryChange, HeapObject, HeapRef } from "../types/simulation"
+import { ExecStep, JSValue, Scope, Heap, MemoryChange, HeapObject, HeapRef, Declaration, TDZ } from "../types/simulation"
 import { cloneDeep } from "lodash" // Import cloneDeep from lodash
 
 /**
@@ -61,41 +61,37 @@ export const simulateExecution = (programNode: ESNode | null): ExecStep[] => {
         return { value: undefined, scopeIndex: -1 } // Not found
     }
 
-    const declareVariable = (name: string, kind: Extract<MemoryChange, { type: 'declare_variable' }>['kind'], scopeIndex: number, initialValue: JSValue): void => {
+    const newDeclaration = (name: string, kind: Extract<MemoryChange, { type: 'declaration' }>['declarations'][number]['kind'], scopeIndex: number, initialValue: JSValue): (Declaration | undefined) => {
         if (scopeIndex < 0 || scopeIndex >= scopes.length) {
             console.error(`Invalid scopeIndex ${scopeIndex} for declaring ${name}`)
             return
         }
         scopes[scopeIndex].variables[name] = initialValue
+        return { kind, variableName: name, initialValue }
         // Step generation happens in the passes
     }
 
-    const writeVariable = (name: string, value: JSValue, scopeIndex: number): boolean => {
+    const writeVariable = (name: string, value: JSValue, scopeIndex: number): number => {
         const lookup = lookupVariable(name, scopeIndex)
         if (lookup.scopeIndex !== -1) {
             scopes[lookup.scopeIndex].variables[name] = value
-            return true
+            return lookup.scopeIndex
         }
         // Handle potential ReferenceError or global assignment (if intended)
         console.warn(`Attempted to write to undeclared variable ${name}`)
         // For simplicity, let's assign to global if not found (like non-strict mode)
         scopes[0].variables[name] = value // Or throw error
-        return false // Indicate it wasn't found in declared scopes
-    }
-
-    const declareFunction = (name: string, scopeIndex: number, functionRef: HeapRef): void => {
-        if (scopeIndex < 0 || scopeIndex >= scopes.length) {
-            console.error(`Invalid scopeIndex ${scopeIndex} for declaring ${name}`)
-            return
-        }
-        scopes[scopeIndex].variables[name] = { type: "reference", ref: functionRef }
+        return 0 // Indicate it wasn't found in declared scopes
     }
 
     // ... more helpers for get/set property, value resolution, etc. ...
 
-    // --- Hoisting Pass --- 
-    const hoistingPass = (nodes: ESNode[], currentScopeIndex: number): void => {
-        console.log("Starting Hoisting Pass for scope:", currentScopeIndex)
+    // --- Creation Pass --- 
+    const creationPhase = (nodes: ESNode[], currentScopeIndex: number): void => {
+        console.log("Starting Creation Pass for scope:", currentScopeIndex)
+
+        const declarations: Declaration[] = []
+
         for (const node of nodes) {
             if (!node) continue
 
@@ -115,21 +111,11 @@ export const simulateExecution = (programNode: ESNode | null): ExecStep[] => {
                                 }
                                 const ref = allocateHeapObject(functionObject)
 
-                                // 2. Declare Variable in Current Scope
-                                declareFunction(functionName, currentScopeIndex, ref)
+                                const declaration = newDeclaration(functionName, "function", currentScopeIndex, { type: "reference", ref })
+                                if (declaration) {
+                                    declarations.push(declaration)
+                                }
 
-                                // 3. Create Hoisting Step
-                                addStep({
-                                    node: node,
-                                    pass: "hoisted",
-                                    scopeIndex: currentScopeIndex,
-                                    memoryChange: {
-                                        type: "declare_function",
-                                        variableName: functionName,
-                                        functionRef: ref,
-                                        scopeIndex: currentScopeIndex,
-                                    },
-                                })
                             } else {
                                 console.warn("FunctionDeclaration id is not an Identifier?", idNode)
                             }
@@ -140,42 +126,56 @@ export const simulateExecution = (programNode: ESNode | null): ExecStep[] => {
                     break;
 
                 case "VariableDeclaration":
-                    if (node.kind === "var" && Array.isArray(node.declarations)) {
-                        for (const declarator of (node.declarations as VariableDeclarator[])) {
-                            if (declarator.id?.type === "Identifier") {
-                                const idNode = declarator.id as Identifier
-                                const varName = idNode.name
-                                const initialValue: JSValue = { type: "primitive", value: undefined }
-                                declareVariable(varName, "var", currentScopeIndex, initialValue)
-                                addStep({
-                                    node: declarator,
-                                    pass: "hoisted",
-                                    scopeIndex: currentScopeIndex,
-                                    memoryChange: {
-                                        type: "declare_variable",
-                                        scopeIndex: currentScopeIndex,
-                                        variableName: varName,
-                                        kind: "var"
+                    {
+                        if (node.kind === "var") {
+                            console.log(node.declarations)
+                            for (const declarator of (node.declarations as VariableDeclarator[])) {
+                                if (declarator.id?.type === "Identifier") {
+                                    const idNode = declarator.id as Identifier
+                                    const varName = idNode.name
+                                    const initialValue: JSValue = { type: "primitive", value: undefined }
+                                    const declaration = newDeclaration(varName, "var", currentScopeIndex, initialValue)
+                                    if (declaration) {
+                                        declarations.push(declaration)
                                     }
-                                })
-                            } else {
-                                console.warn("Unhandled var declaration pattern in hoisting:", declarator.id?.type)
+                                } else {
+                                    console.warn("Unhandled var declaration pattern in creation:", declarator.id?.type)
+                                }
+                            }
+                        }
+                        if (node.kind === "let" || node.kind === "const") {
+                            console.log(node.declarations)
+                            for (const declarator of (node.declarations as VariableDeclarator[])) {
+                                if (declarator.id?.type === "Identifier") {
+                                    const idNode = declarator.id as Identifier
+                                    const varName = idNode.name
+                                    const initialValue: JSValue = TDZ
+                                    const declaration = newDeclaration(varName, node.kind, currentScopeIndex, initialValue)
+                                    if (declaration) {
+                                        declarations.push(declaration)
+                                    }
+                                } else {
+                                    console.warn("Unhandled let/const declaration pattern in creation:", declarator.id?.type)
+                                }
                             }
                         }
                     }
                     break;
-
-                // TODO: Handle hoisting within nested blocks if needed (though var/function are function-scoped)
-                // case "BlockStatement":
-                //     hoistingPass(node.body, currentScopeIndex) // Recurse carefully
-                //     break
             }
         }
-        console.log("Finished Hoisting Pass for scope:", currentScopeIndex)
+
+        addStep({
+            phase: "creation",
+            scopeIndex: currentScopeIndex,
+            memoryChange: { type: "declaration", declarations, scopeIndex: currentScopeIndex },
+            nodes: nodes,
+        })
+
+        console.log("Finished Creation Pass for scope:", currentScopeIndex)
     }
 
     // --- Execution Pass --- 
-    const executionPass = (node: ESNode | null, currentScopeIndex: number): JSValue => {
+    const executionPhase = (node: ESNode | null, currentScopeIndex: number): JSValue => {
         if (!node) return { type: "primitive", value: undefined }
 
         console.log("Executing node:", node.type, "in scope:", currentScopeIndex)
@@ -187,7 +187,7 @@ export const simulateExecution = (programNode: ESNode | null): ExecStep[] => {
                     let lastValue: JSValue = { type: "primitive", value: undefined };
                     if (Array.isArray(programBody)) {
                         for (const statement of programBody) {
-                            lastValue = executionPass(statement as ESNode, currentScopeIndex) // Keep cast
+                            lastValue = executionPhase(statement as ESNode, currentScopeIndex) // Keep cast
                         }
                     }
                     return lastValue
@@ -197,7 +197,7 @@ export const simulateExecution = (programNode: ESNode | null): ExecStep[] => {
                 {
                     // Cast node to any to access the 'expression' property
                     const expressionNode = (node as any).expression
-                    const exprValue = executionPass(expressionNode, currentScopeIndex)
+                    const exprValue = executionPhase(expressionNode, currentScopeIndex)
                     addStep({
                         node: node,
                         pass: "normal",
@@ -207,39 +207,6 @@ export const simulateExecution = (programNode: ESNode | null): ExecStep[] => {
                     })
                     return exprValue
                 }
-
-            case "Identifier":
-                {
-                    // Node is Identifier here
-                    const identifierNode = node as Identifier // Cast for clarity
-                    const name = identifierNode.name
-                    const lookup = lookupVariable(name, currentScopeIndex)
-                    if (lookup.value !== undefined) {
-                        addStep({
-                            node: identifierNode,
-                            pass: "normal",
-                            scopeIndex: currentScopeIndex,
-                            memoryChange: { type: "none" },
-                            evaluatedValue: lookup.value
-                        })
-                        return lookup.value
-                    } else {
-                        // ReferenceError
-                        const errorMsg = `ReferenceError: ${name} is not defined`
-                        console.error(errorMsg)
-                        addStep({
-                            node: identifierNode,
-                            pass: "normal",
-                            scopeIndex: currentScopeIndex,
-                            memoryChange: { type: "none" },
-                            error: errorMsg
-                        })
-                        // How to handle errors? Throw? Return special error value?
-                        // For now, return undefined and log
-                        return { type: "primitive", value: undefined }
-                    }
-                }
-                break;
 
             case "Literal":
                 {
@@ -260,128 +227,43 @@ export const simulateExecution = (programNode: ESNode | null): ExecStep[] => {
                         value = { type: "primitive", value: undefined };
                     }
 
-                    addStep({
-                        node: literalNode,
-                        pass: "normal",
-                        scopeIndex: currentScopeIndex,
-                        memoryChange: { type: "none" },
-                        evaluatedValue: value
-                    })
                     return value
                 }
-                break;
 
-            // --- Placeholder for more node types ---
             case "VariableDeclaration":
                 {
                     // node is VariableDeclaration here
                     const varDeclNode = node as VariableDeclaration; // Use imported type
 
-                    if (varDeclNode.kind === 'let' || varDeclNode.kind === 'const') {
-                        // Handle let/const declarations and initializations
-                        if (Array.isArray(varDeclNode.declarations)) {
-                            for (const declarator of (varDeclNode.declarations as VariableDeclarator[])) {
-                                if (declarator.id?.type === 'Identifier') {
-                                    const idNode = declarator.id as Identifier;
-                                    const varName = idNode.name;
+                    if (varDeclNode.kind === "const" && varDeclNode.declarations.length === 0) {
+                        console.warn("Unhandled const declaration pattern in execution:", varDeclNode.kind)
+                    }
 
-                                    // --- Declaration Step ---
-                                    // Declaring in the current scope index.
-                                    // NOTE: True block scope requires more sophisticated scope management
-                                    //       (e.g., pushing/popping scopes for BlockStatements).
-                                    // For now, let/const are declared in the current function/global scope.
-                                    // Representing TDZ simply by declaring with undefined initially.
-                                    const declaredValue: JSValue = { type: "primitive", value: undefined };
-                                    declareVariable(varName, varDeclNode.kind, currentScopeIndex, declaredValue);
+                    if (Array.isArray(varDeclNode.declarations)) {
+                        // Handle initialization (declaration happened in hoisting pass)
+                        for (const declarator of (varDeclNode.declarations as VariableDeclarator[])) {
+                            // Only process declarators that have an initializer
+                            if (declarator.id?.type === 'Identifier' && declarator.init) {
+                                const idNode = declarator.id as Identifier;
+                                const varName = idNode.name;
 
-                                    addStep({
-                                        node: declarator,
-                                        pass: "normal",
-                                        scopeIndex: currentScopeIndex,
-                                        memoryChange: {
-                                            type: "declare_variable",
-                                            scopeIndex: currentScopeIndex,
-                                            variableName: varName,
-                                            kind: varDeclNode.kind,
-                                        },
-                                    });
+                                // Evaluate the initializer
+                                const evaluatedValue = executionPhase(declarator.init, currentScopeIndex)
 
-                                    // --- Initialization Step ---
-                                    let initValue: JSValue;
-                                    let errorMsg: string | undefined = undefined;
+                                const targetScopeIndex = writeVariable(varName, evaluatedValue, currentScopeIndex)
 
-                                    if (declarator.init) {
-                                        // Evaluate the initializer expression
-                                        initValue = executionPass(declarator.init, currentScopeIndex);
-                                    } else {
-                                        if (varDeclNode.kind === 'const') {
-                                            // Error: Missing initializer in const declaration
-                                            errorMsg = `SyntaxError: Missing initializer in const declaration for '${varName}'`;
-                                            console.error(errorMsg);
-                                            // Assign undefined for simulation continuation, but mark error
-                                            initValue = { type: "primitive", value: undefined };
-                                        } else {
-                                            // 'let' without initializer defaults to undefined
-                                            initValue = { type: "primitive", value: undefined };
-                                        }
-                                    }
-
-                                    // Write the initialized value directly to the current scope's variables
-                                    scopes[currentScopeIndex].variables[varName] = initValue;
-
-                                    addStep({
-                                        node: declarator.init ?? declarator, // Step involves initializer if present
-                                        pass: "normal",
-                                        scopeIndex: currentScopeIndex,
-                                        memoryChange: {
-                                            type: "write_variable",
-                                            scopeIndex: currentScopeIndex, // Written in the same scope it was declared
-                                            variableName: varName,
-                                            value: initValue,
-                                        },
-                                        evaluatedValue: errorMsg ? undefined : initValue, // Value assigned, unless error
-                                        error: errorMsg,
-                                    });
-
-                                } else {
-                                    // TODO: Handle destructuring patterns if needed
-                                    console.warn(`Execution Pass: Unhandled declaration pattern in ${varDeclNode.kind}:`, declarator.id?.type);
-                                }
-                            }
-                        }
-                    } else {
-                        // Handle 'var' initialization (declaration happened in hoisting pass)
-                        if (Array.isArray(varDeclNode.declarations)) {
-                            for (const declarator of (varDeclNode.declarations as VariableDeclarator[])) {
-                                // Only process 'var' declarators that have an initializer
-                                if (declarator.id?.type === 'Identifier' && declarator.init) {
-                                    const idNode = declarator.id as Identifier;
-                                    const varName = idNode.name;
-
-                                    // Evaluate the initializer
-                                    const initValue = executionPass(declarator.init, currentScopeIndex);
-
-                                    // Find where 'var' was hoisted (could be current or outer scope)
-                                    // and write the value there.
-                                    const lookup = lookupVariable(varName, currentScopeIndex);
-                                    const targetScopeIndex = lookup.scopeIndex !== -1 ? lookup.scopeIndex : 0; // Default to global if somehow not found
-                                    scopes[targetScopeIndex].variables[varName] = initValue;
-                                    // Note: writeVariable helper could also be used here if preferred
-
-                                    addStep({
-                                        node: declarator.init, // Step associated with the initializer execution
-                                        pass: "normal",
-                                        scopeIndex: currentScopeIndex, // Execution happens in current scope...
-                                        memoryChange: {
-                                            type: "write_variable",
-                                            scopeIndex: targetScopeIndex, // ...but write happens in the var's scope
-                                            variableName: varName,
-                                            value: initValue,
-                                        },
-                                        evaluatedValue: initValue // The result of the initializer
-                                    });
-                                }
-                                // No step needed for var declarators without initializers during execution pass
+                                addStep({
+                                    nodes: [declarator.init], // Step associated with the initializer execution
+                                    phase: "execution",
+                                    scopeIndex: currentScopeIndex, // Execution happens in current scope...
+                                    memoryChange: {
+                                        type: "write_variable",
+                                        scopeIndex: targetScopeIndex, // ...but write happens in the var's scope
+                                        variableName: varName,
+                                        value: evaluatedValue,
+                                    },
+                                    evaluatedValue: evaluatedValue // The result of the initializer
+                                });
                             }
                         }
                     }
@@ -399,8 +281,8 @@ export const simulateExecution = (programNode: ESNode | null): ExecStep[] => {
             case "BinaryExpression":
                 {
                     const binNode = node as any; // Cast to access left, right, operator
-                    const leftValue = executionPass(binNode.left, currentScopeIndex);
-                    const rightValue = executionPass(binNode.right, currentScopeIndex);
+                    const leftValue = executionPhase(binNode.left, currentScopeIndex);
+                    const rightValue = executionPhase(binNode.right, currentScopeIndex);
 
                     let resultValue: JSValue = { type: "primitive", value: undefined };
                     let errorMsg: string | undefined = undefined;
@@ -461,7 +343,7 @@ export const simulateExecution = (programNode: ESNode | null): ExecStep[] => {
             case "CallExpression":
                 {
                     const callNode = node as any; // Cast to access callee, arguments
-                    const calleeValue = executionPass(callNode.callee, currentScopeIndex); // Use const
+                    const calleeValue = executionPhase(callNode.callee, currentScopeIndex); // Use const
                     let errorMsg: string | undefined = undefined;
                     let returnedValue: JSValue = { type: "primitive", value: undefined }; // Default return
 
@@ -469,7 +351,7 @@ export const simulateExecution = (programNode: ESNode | null): ExecStep[] => {
                     const evaluatedArgs: JSValue[] = [];
                     if (Array.isArray(callNode.arguments)) {
                         for (const argNode of callNode.arguments) {
-                            evaluatedArgs.push(executionPass(argNode, currentScopeIndex));
+                            evaluatedArgs.push(executionPhase(argNode, currentScopeIndex));
                             // TODO: Handle spread arguments?
                         }
                     }
@@ -561,7 +443,7 @@ export const simulateExecution = (programNode: ESNode | null): ExecStep[] => {
                                 // 5. Execute function body
                                 let functionResult: JSValue = { type: "primitive", value: undefined };
                                 try {
-                                    // IMPORTANT: Need a way for executionPass to signal a 'return'
+                                    // IMPORTANT: Need a way for executionPhase to signal a 'return'
                                     // This might involve changing its return type or using exceptions
                                     // For now, execute body and assume implicit undefined return
                                     const bodyNode = funcDefinitionNode.body;
@@ -570,13 +452,13 @@ export const simulateExecution = (programNode: ESNode | null): ExecStep[] => {
                                         if (bodyNode.type === 'BlockStatement' && Array.isArray(bodyNode.body)) {
                                             for (const statement of bodyNode.body) {
                                                 // TODO: Check for return statement result here!
-                                                executionPass(statement, newScopeIndex);
+                                                executionPhase(statement, newScopeIndex);
                                             }
                                         }
                                         // If body is an expression (arrow function shorthand)
                                         else {
                                             // TODO: Handle implicit return for arrow functions
-                                            functionResult = executionPass(bodyNode, newScopeIndex);
+                                            functionResult = executionPhase(bodyNode, newScopeIndex);
                                         }
                                     }
                                     // If return occurred, 'functionResult' should hold the returned value
@@ -628,7 +510,7 @@ export const simulateExecution = (programNode: ESNode | null): ExecStep[] => {
             case "MemberExpression":
                 {
                     const memberNode = node as any; // Keep cast
-                    const objectValue = executionPass(memberNode.object, currentScopeIndex); // Use const
+                    const objectValue = executionPhase(memberNode.object, currentScopeIndex); // Use const
                     // Allow null and boolean as potential primitive property keys
                     let propertyKey: string | number | boolean | null | undefined | symbol | bigint = undefined;
                     let propertyKeyValue: JSValue | undefined = undefined;
@@ -637,7 +519,7 @@ export const simulateExecution = (programNode: ESNode | null): ExecStep[] => {
 
                     // 1. Determine the property key
                     if (memberNode.computed) {
-                        propertyKeyValue = executionPass(memberNode.property, currentScopeIndex);
+                        propertyKeyValue = executionPhase(memberNode.property, currentScopeIndex);
                         if (propertyKeyValue.type === 'primitive') {
                             propertyKey = propertyKeyValue.value; // Assign the primitive value directly
                         } else {
@@ -746,7 +628,7 @@ export const simulateExecution = (programNode: ESNode | null): ExecStep[] => {
                                 console.warn(errorMsg);
                                 break;
                             } else {
-                                elements.push(executionPass(elementNode, currentScopeIndex));
+                                elements.push(executionPhase(elementNode, currentScopeIndex));
                             }
                         }
                     }
@@ -821,7 +703,7 @@ export const simulateExecution = (programNode: ESNode | null): ExecStep[] => {
                                             }
                                         } else { continue; }
                                     } else {
-                                        value = executionPass(property.value, currentScopeIndex);
+                                        value = executionPhase(property.value, currentScopeIndex);
                                     }
                                     if (key !== undefined) {
                                         properties[key] = value;
@@ -909,7 +791,7 @@ export const simulateExecution = (programNode: ESNode | null): ExecStep[] => {
                     let errorMsg: string | undefined = undefined;
 
                     // 1. Evaluate the test condition
-                    const testValue = executionPass(condNode.test, currentScopeIndex);
+                    const testValue = executionPhase(condNode.test, currentScopeIndex);
 
                     // 2. Determine truthiness (simplified)
                     let isTestTruthy = false;
@@ -925,9 +807,9 @@ export const simulateExecution = (programNode: ESNode | null): ExecStep[] => {
                     // 3. Evaluate the appropriate branch
                     try {
                         if (isTestTruthy) {
-                            resultValue = executionPass(condNode.consequent, currentScopeIndex);
+                            resultValue = executionPhase(condNode.consequent, currentScopeIndex);
                         } else {
-                            resultValue = executionPass(condNode.alternate, currentScopeIndex);
+                            resultValue = executionPhase(condNode.alternate, currentScopeIndex);
                         }
                     } catch (e) {
                         errorMsg = `Error during conditional expression execution: ${e instanceof Error ? e.message : String(e)}`;
@@ -961,12 +843,15 @@ export const simulateExecution = (programNode: ESNode | null): ExecStep[] => {
     // --- Simulation Execution --- 
 
     try {
-        // Pass 1: Hoisting
+        // Phase 1: Creation
         // Ensure ast.body is treated as an array of ESNodes
-        hoistingPass(Array.isArray(ast.body) ? ast.body : [], 0)
+        // FunctionDeclaration - Function declarations are completely hoisted with their bodies
+        // VariableDeclaration - With var keyword (not let or const)
+        // ClassDeclaration - Class declarations are hoisted but remain uninitialized until the class expression is evaluated
+        creationPhase(Array.isArray(ast.body) ? ast.body : [], 0)
 
-        // Pass 2: Execution
-        executionPass(ast, 0) // Start execution from the Program node in global scope
+        // Phase 2: Execution
+        executionPhase(ast, 0) // Start execution from the Program node in global scope
 
     } catch (error) {
         console.error("Error during simulation:", error)
