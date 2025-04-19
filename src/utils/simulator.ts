@@ -1,6 +1,7 @@
 import { ESNode, Program, VariableDeclarator, Identifier, Literal, VariableDeclaration, ArrayExpression, ObjectExpression, Property, ArrowFunctionExpression, ExpressionStatement } from "hermes-parser"
-import { ExecStep, JSValue, Scope, Heap, MemoryChange, HeapObject, HeapRef, Declaration, TDZ } from "../types/simulation"
+import { ExecStep, JSValue, Scope, Heap, MemoryChange, HeapObject, HeapRef, Declaration, TDZ, ScopeType } from "../types/simulation"
 import { cloneDeep } from "lodash" // Import cloneDeep from lodash
+import { CallExpression } from "typescript"
 
 /**
  * Simulates the execution of JavaScript code represented by an AST.
@@ -9,14 +10,13 @@ import { cloneDeep } from "lodash" // Import cloneDeep from lodash
  * @param programNode The root Program node of the AST.
  * @returns An array of execution steps representing the simulation.
  */
-export const simulateExecution = (programNode: ESNode | null): ExecStep[] => {
+export const simulateExecution = (astNode: ESNode | null): ExecStep[] => {
+    console.log({ astNode })
     // Ensure we have a valid Program node
-    if (!programNode || programNode.type !== "Program") {
-        console.error("Invalid AST provided to simulateExecution; expected Program node.")
+    if (!astNode) {
+        console.error("Invalid AST provided to simulateExecution.")
         return []
     }
-    // Now we know programNode is a Program
-    const ast = programNode as Program
 
     const steps: ExecStep[] = []
     const scopes: Scope[] = [{ type: "global", variables: {} }] // Start with global scope
@@ -44,6 +44,11 @@ export const simulateExecution = (programNode: ESNode | null): ExecStep[] => {
     }
 
     // --- Memory Manipulation Helpers (Simplified placeholders) ---
+    const newScope = (type: ScopeType): number => {
+        const newScopeIndex = scopes.length
+        scopes.push({ type, variables: {} })
+        return newScopeIndex
+    }
 
     const allocateHeapObject = (obj: HeapObject): HeapRef => {
         const ref = getNextRef()
@@ -196,9 +201,19 @@ export const simulateExecution = (programNode: ESNode | null): ExecStep[] => {
             case "ExpressionStatement":
                 {
                     const expressionNode = (node as ExpressionStatement).expression
-                    const exprValue = executionPhase(expressionNode, currentScopeIndex)
-                    return exprValue
+                    executionPhase(expressionNode, currentScopeIndex)
                 }
+                break;
+
+            case "BlockStatement":
+                {
+                    const blockNode = node as BlockStatement;
+                    const statements = blockNode.body as ESNode[];
+                    for (const statement of statements) {
+                        executionPhase(statement, currentScopeIndex)
+                    }
+                }
+                break;
 
             case "Literal":
                 {
@@ -264,6 +279,22 @@ export const simulateExecution = (programNode: ESNode | null): ExecStep[] => {
 
             case "FunctionDeclaration":
                 // Generally skip in execution pass (already hoisted)
+                break;
+
+            case "CallExpression":
+                {
+                    const callNode = node as CallExpression;
+                    const fnName = (callNode.callee as Identifier).name;
+                    const fnRef = lookupVariable(fnName, currentScopeIndex).value;
+                    if (fnRef?.type === "reference") {
+                        const fnObject = heap[fnRef.ref];
+                        if (fnObject?.type === "function") {
+                            const scopeIndex = newScope("function")
+                            console.log(fnObject.node)
+                            console.log(traverseAST(fnObject.node.body as ESNode, scopeIndex))
+                        }
+                    }
+                }
                 break;
 
             case "AssignmentExpression":
@@ -667,29 +698,32 @@ export const simulateExecution = (programNode: ESNode | null): ExecStep[] => {
     }
 
     // --- Simulation Execution --- 
+    function traverseAST(astNode: ESNode, scopeIndex: number) {
+        try {
+            // Phase 1: Creation
+            // Ensure ast.body is treated as an array of ESNodes
+            // FunctionDeclaration - Function declarations are completely hoisted with their bodies
+            // VariableDeclaration - With var keyword (not let or const)
+            // ClassDeclaration - Class declarations are hoisted but remain uninitialized until the class expression is evaluated
+            creationPhase(Array.isArray(astNode.body) ? astNode.body : [], scopeIndex)
 
-    try {
-        // Phase 1: Creation
-        // Ensure ast.body is treated as an array of ESNodes
-        // FunctionDeclaration - Function declarations are completely hoisted with their bodies
-        // VariableDeclaration - With var keyword (not let or const)
-        // ClassDeclaration - Class declarations are hoisted but remain uninitialized until the class expression is evaluated
-        creationPhase(Array.isArray(ast.body) ? ast.body : [], 0)
+            // Phase 2: Execution
+            executionPhase(astNode, scopeIndex) // Start execution from the Program node in global scope
 
-        // Phase 2: Execution
-        executionPhase(ast, 0) // Start execution from the Program node in global scope
-
-    } catch (error) {
-        console.error("Error during simulation:", error)
-        // Potentially add a final error step to the steps array
-        addStep({
-            node: ast, // Or find a better node association
-            pass: "normal",
-            scopeIndex: scopes.length - 1, // Last known scope
-            memoryChange: { type: "none" },
-            error: error instanceof Error ? error.message : String(error)
-        })
+        } catch (error) {
+            console.error("Error during simulation:", error)
+            // Potentially add a final error step to the steps array
+            // addStep({
+            //     node: astNode, // Or find a better node association
+            //     pass: "normal",
+            //     scopeIndex: scopes.length - 1, // Last known scope
+            //     memoryChange: { type: "none" },
+            //     error: error instanceof Error ? error.message : String(error)
+            // })
+        }
     }
+
+    traverseAST(astNode, 0)
 
     console.log("Simulation finished. Steps:", steps.length)
     return steps
