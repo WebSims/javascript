@@ -31,7 +31,7 @@ export const simulateExecution = (programNode: ESNode | null): ExecStep[] => {
     const createMemorySnapshot = (): ExecStep["memorySnapshot"] => {
         // Crucial: Use a reliable deep copy mechanism here!
         // Use lodash cloneDeep
-        return cloneDeep({ scopes, heap, nextRef })
+        return cloneDeep({ scopes, heap })
     }
 
     const addStep = (stepData: Omit<ExecStep, "index" | "memorySnapshot">): void => {
@@ -83,6 +83,14 @@ export const simulateExecution = (programNode: ESNode | null): ExecStep[] => {
         return false // Indicate it wasn't found in declared scopes
     }
 
+    const declareFunction = (name: string, scopeIndex: number, functionRef: HeapRef): void => {
+        if (scopeIndex < 0 || scopeIndex >= scopes.length) {
+            console.error(`Invalid scopeIndex ${scopeIndex} for declaring ${name}`)
+            return
+        }
+        scopes[scopeIndex].variables[name] = { type: "reference", ref: functionRef }
+    }
+
     // ... more helpers for get/set property, value resolution, etc. ...
 
     // --- Hoisting Pass --- 
@@ -103,15 +111,12 @@ export const simulateExecution = (programNode: ESNode | null): ExecStep[] => {
                                 // 1. Allocate Function Object on Heap
                                 const functionObject: HeapObject = {
                                     type: "function",
-                                    definitionNode: node, // Keep base ESNode type
-                                    closureScopeIndex: currentScopeIndex,
-                                    name: functionName
+                                    node: node
                                 }
                                 const ref = allocateHeapObject(functionObject)
-                                const functionValue: JSValue = { type: "reference", ref }
 
                                 // 2. Declare Variable in Current Scope
-                                declareVariable(functionName, "function", currentScopeIndex, functionValue)
+                                declareFunction(functionName, currentScopeIndex, ref)
 
                                 // 3. Create Hoisting Step
                                 addStep({
@@ -119,10 +124,10 @@ export const simulateExecution = (programNode: ESNode | null): ExecStep[] => {
                                     pass: "hoisted",
                                     scopeIndex: currentScopeIndex,
                                     memoryChange: {
-                                        type: "declare_variable",
-                                        scopeIndex: currentScopeIndex,
+                                        type: "declare_function",
                                         variableName: functionName,
-                                        kind: "function",
+                                        functionRef: ref,
+                                        scopeIndex: currentScopeIndex,
                                     },
                                 })
                             } else {
@@ -385,7 +390,6 @@ export const simulateExecution = (programNode: ESNode | null): ExecStep[] => {
 
             case "FunctionDeclaration":
                 // Generally skip in execution pass (already hoisted)
-                addStep({ node: node, pass: "normal", scopeIndex: currentScopeIndex, memoryChange: { type: "none" } })
                 break;
 
             case "AssignmentExpression":

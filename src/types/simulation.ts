@@ -16,13 +16,16 @@ export type HeapObject =
     | { type: "object"; properties: Record<string, JSValue> }
     | { type: "array"; elements: JSValue[] }
     // We'll need to represent functions stored on the heap too
-    | { type: "function"; definitionNode: ESNode; closureScopeIndex: number; name?: string }
+    | { type: "function"; node: ESNode }
 
 // Represents the central heap storing all non-primitive values
 export type Heap = Record<HeapRef, HeapObject>
 
+export type ScopeType = "global" | "function" | "block"
+
 // Represents a single activation record (scope) on the call stack
 export type Scope = {
+    type: ScopeType
     variables: Record<string, JSValue> // Maps variable names to their values (primitive or reference)
     thisValue?: JSValue // The 'this' binding for this scope
     // Add other scope-specific info if needed (e.g., is it a block scope?)
@@ -63,6 +66,12 @@ export type MemoryChange =
         property: string | number // Property name or array index being deleted
     }
     | {
+        type: "declare_function"
+        variableName: string
+        functionRef: HeapRef
+        scopeIndex: number // Index in the memorySnapshot.scopes array
+    }
+    | {
         type: "function_call"
         functionRef?: HeapRef // Reference to the function HeapObject that was called
         pushedScope: Scope // The new scope object pushed onto the stack
@@ -91,8 +100,6 @@ export type ExecStep = {
     memorySnapshot: { // Snapshot of the entire memory state *after* this step's change
         scopes: Scope[] // The call stack (array of Scope objects)
         heap: Heap // The heap storing shared objects/arrays/functions
-        // TODO: nextRef is not needed here.
-        nextRef: HeapRef // The next available reference number for the heap
     }
     // TODO: instead of output and error, refactor to: 
     // consoleAdded: null | {type: "log" | "error" | 'info' | 'warn' | 'debug' | 'table' | ..., values: JSValue[]}
