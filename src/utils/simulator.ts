@@ -1,4 +1,4 @@
-import { ESNode, Program, VariableDeclarator, Identifier, Literal, VariableDeclaration, ArrayExpression, ObjectExpression, Property, ArrowFunctionExpression } from "hermes-parser"
+import { ESNode, Program, VariableDeclarator, Identifier, Literal, VariableDeclaration, ArrayExpression, ObjectExpression, Property, ArrowFunctionExpression, ExpressionStatement } from "hermes-parser"
 import { ExecStep, JSValue, Scope, Heap, MemoryChange, HeapObject, HeapRef, Declaration, TDZ } from "../types/simulation"
 import { cloneDeep } from "lodash" // Import cloneDeep from lodash
 
@@ -195,16 +195,8 @@ export const simulateExecution = (programNode: ESNode | null): ExecStep[] => {
 
             case "ExpressionStatement":
                 {
-                    // Cast node to any to access the 'expression' property
-                    const expressionNode = (node as any).expression
+                    const expressionNode = (node as ExpressionStatement).expression
                     const exprValue = executionPhase(expressionNode, currentScopeIndex)
-                    addStep({
-                        node: node,
-                        pass: "normal",
-                        scopeIndex: currentScopeIndex,
-                        memoryChange: { type: "none" },
-                        evaluatedValue: exprValue
-                    })
                     return exprValue
                 }
 
@@ -340,172 +332,6 @@ export const simulateExecution = (programNode: ESNode | null): ExecStep[] => {
                     return resultValue;
                 }
 
-            case "CallExpression":
-                {
-                    const callNode = node as any; // Cast to access callee, arguments
-                    const calleeValue = executionPhase(callNode.callee, currentScopeIndex); // Use const
-                    let errorMsg: string | undefined = undefined;
-                    let returnedValue: JSValue = { type: "primitive", value: undefined }; // Default return
-
-                    // Evaluate arguments
-                    const evaluatedArgs: JSValue[] = [];
-                    if (Array.isArray(callNode.arguments)) {
-                        for (const argNode of callNode.arguments) {
-                            evaluatedArgs.push(executionPhase(argNode, currentScopeIndex));
-                            // TODO: Handle spread arguments?
-                        }
-                    }
-
-                    // Check if callee is a function reference
-                    if (calleeValue.type !== 'reference') {
-                        errorMsg = "TypeError: callee is not a function";
-                    } else {
-                        const funcRef = calleeValue.ref;
-                        const heapObject = heap[funcRef];
-
-                        if (!heapObject || heapObject.type !== 'function') {
-                            errorMsg = "TypeError: callee is not a function object in heap";
-                        } else {
-                            const funcObject = heapObject; // Now know it's a HeapObject of type function
-                            const funcDefinitionNode = funcObject.definitionNode as any; // Cast to access params, body
-
-                            // --- Built-in Function Handling (Example: console.log) ---
-                            // Simplistic check based on name (assuming global console)
-                            let isBuiltIn = false;
-                            if (callNode.callee.type === 'MemberExpression' && (callNode.callee as any).object?.name === 'console' && (callNode.callee as any).property?.name === 'log') {
-                                isBuiltIn = true;
-                                const output = evaluatedArgs.map(arg => {
-                                    // Basic stringification for logging
-                                    if (arg.type === 'primitive') return String(arg.value);
-                                    if (arg.type === 'reference') {
-                                        const obj = heap[arg.ref];
-                                        if (obj?.type === 'object') return '[object Object]';
-                                        if (obj?.type === 'array') return '[object Array]'; // TODO: Better array stringify
-                                        if (obj?.type === 'function') return '[object Function]';
-                                        return `[reference ${arg.ref}]`;
-                                    }
-                                    return 'unknown';
-                                }).join(' ');
-
-                                console.log("SIM_CONSOLE_LOG:", output); // Log to actual console for debugging
-
-                                addStep({
-                                    node: node,
-                                    pass: "normal",
-                                    scopeIndex: currentScopeIndex,
-                                    memoryChange: { type: "none" }, // console.log has side effect (output) but no memory change here
-                                    output: output, // Capture output
-                                    evaluatedValue: { type: "primitive", value: undefined } // console.log returns undefined
-                                });
-                                returnedValue = { type: "primitive", value: undefined };
-                            }
-
-                            // --- User-Defined Function Execution --- 
-                            if (!isBuiltIn) {
-                                // 1. Create new scope with type and parent link
-                                const newScope: Scope = {
-                                    type: "function",
-                                    variables: {},
-                                    parentScope: funcObject.closureScopeIndex // Link to scope where function was defined
-                                };
-                                const newScopeIndex = scopes.length;
-
-                                // 2. TODO: Determine 'this' binding 
-
-                                // 3. Bind parameters to arguments
-                                const params = funcDefinitionNode.params ?? [];
-                                for (let i = 0; i < params.length; i++) {
-                                    const param = params[i];
-                                    if (param.type === 'Identifier') { // Handle simple identifier params
-                                        const paramName = param.name;
-                                        newScope.variables[paramName] = evaluatedArgs[i] ?? { type: "primitive", value: undefined };
-                                    } else {
-                                        // TODO: Handle destructuring, default params, rest params
-                                        console.warn("Unhandled parameter type:", param.type);
-                                    }
-                                }
-                                // TODO: Handle `arguments` object?
-
-                                // 4. Push scope & Add call step
-                                scopes.push(newScope);
-                                addStep({
-                                    node: node,
-                                    pass: "normal",
-                                    scopeIndex: currentScopeIndex, // Step occurs *before* scope changes
-                                    memoryChange: {
-                                        type: "function_call",
-                                        functionRef: funcRef,
-                                        pushedScope: newScope // Record the scope being pushed
-                                    },
-                                    evaluatedValue: undefined // Call itself doesn't evaluate to anything yet
-                                });
-
-                                // 5. Execute function body
-                                let functionResult: JSValue = { type: "primitive", value: undefined };
-                                try {
-                                    // IMPORTANT: Need a way for executionPhase to signal a 'return'
-                                    // This might involve changing its return type or using exceptions
-                                    // For now, execute body and assume implicit undefined return
-                                    const bodyNode = funcDefinitionNode.body;
-                                    if (bodyNode) {
-                                        // If body is BlockStatement, execute its contents
-                                        if (bodyNode.type === 'BlockStatement' && Array.isArray(bodyNode.body)) {
-                                            for (const statement of bodyNode.body) {
-                                                // TODO: Check for return statement result here!
-                                                executionPhase(statement, newScopeIndex);
-                                            }
-                                        }
-                                        // If body is an expression (arrow function shorthand)
-                                        else {
-                                            // TODO: Handle implicit return for arrow functions
-                                            functionResult = executionPhase(bodyNode, newScopeIndex);
-                                        }
-                                    }
-                                    // If return occurred, 'functionResult' should hold the returned value
-
-                                } catch (e) {
-                                    errorMsg = `Runtime Error in function ${funcObject.name || '(anonymous)'}: ${e instanceof Error ? e.message : String(e)}`;
-                                    console.error(errorMsg);
-                                    // Error occurred, function implicitly returns undefined
-                                    functionResult = { type: "primitive", value: undefined };
-                                }
-
-                                // 6. Pop scope & Add return step
-                                const poppedScope = scopes.pop(); // Should be newScope
-                                if (!poppedScope) { /* This should not happen */ throw new Error("Scope stack underflow"); }
-                                returnedValue = functionResult;
-                                addStep({
-                                    node: node, // Or associate with return statement? 
-                                    pass: "normal",
-                                    scopeIndex: newScopeIndex, // Step occurs *within* the function's scope before popping
-                                    memoryChange: {
-                                        type: "function_return",
-                                        returnedValue: returnedValue,
-                                        poppedScope: poppedScope,
-                                    },
-                                    evaluatedValue: returnedValue, // The final value call evaluates to
-                                    error: errorMsg // Capture any error during execution
-                                });
-                            } // End if !isBuiltIn
-                        } // End if funcObject exists and is function
-                    } // End if calleeValue is reference
-
-                    // If error occurred before function execution started
-                    if (errorMsg && steps[steps.length - 1]?.node !== node) { // Avoid adding duplicate error step if added during built-in/return
-                        addStep({
-                            node: node,
-                            pass: "normal",
-                            scopeIndex: currentScopeIndex,
-                            memoryChange: { type: "none" },
-                            evaluatedValue: undefined,
-                            error: errorMsg,
-                        });
-                        returnedValue = { type: "primitive", value: undefined };
-                    }
-
-                    return returnedValue;
-                }
-            // break; // Not needed after return
 
             case "MemberExpression":
                 {

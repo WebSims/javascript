@@ -12,6 +12,11 @@ declare module 'hermes-parser' {
         body: ESNode[];
     }
 
+    export interface ExpressionStatement extends ESNode {
+        type: 'ExpressionStatement';
+        expression: ESNode;
+    }
+
     export interface VariableDeclaration extends ESNode {
         type: 'VariableDeclaration';
         declarations: ESNode[];
