@@ -4,6 +4,7 @@ import { cheatSheetHighlighter } from "@/utils/cheatSheetHighlighter"
 import { ESNode } from "hermes-parser"
 import * as ts from "typescript"
 import { ExecStep } from "@/types/simulation"
+import { simulateExecution } from "@/utils/simulator"
 
 // Represents a single scope's memory (e.g., global, function scope)
 // Values can be primitives or references to other objects/arrays/functions
@@ -52,9 +53,10 @@ export const SimulatorProvider = ({ children }: { children: React.ReactNode }) =
         try {
             const ast = astOf(newCodeStr)
             if (ast) {
+                const steps = simulateExecution(ast as ESNode)
                 setAstOfCode(ast)
-                setExecSteps([])
-                setCurrentExecStep(null)
+                setExecSteps(steps)
+                setCurrentExecStep(steps[0])
             } else {
                 setAstOfCode(null)
                 setExecSteps([])

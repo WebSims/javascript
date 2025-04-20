@@ -4,13 +4,7 @@ import ELK from "elkjs/lib/elk.bundled.js"
 import type { ElkNode as ElkLayoutNode, ElkEdge as ElkLayoutEdge } from "elkjs/lib/elk-api"
 import { Scope, Heap, JSValue } from "@/types/simulation"
 import { ZoomInIcon, ZoomOutIcon, HomeIcon } from "lucide-react"
-
-type MemoryModelVisualizerProps = {
-    snapshot: {
-        scopes: Scope[]
-        heap: Heap
-    }
-}
+import { useSimulatorStore } from "@/hooks/useSimulatorStore"
 
 type HeapObjectData = {
     id: string
@@ -54,7 +48,8 @@ type ElkGraph = ElkNode & {
     edges: ElkEdge[]
 }
 
-const MemoryModelVisualizer = ({ snapshot }: MemoryModelVisualizerProps) => {
+const MemoryModelVisualizer = () => {
+    const { currentExecStep } = useSimulatorStore()
     const svgRef = useRef<SVGSVGElement>(null)
     const zoomGroupRef = useRef<SVGGElement | null>(null)
 
@@ -64,7 +59,7 @@ const MemoryModelVisualizer = ({ snapshot }: MemoryModelVisualizerProps) => {
         const heapData: HeapObjectData[] = []
 
         // Categorize scopes with meaningful names and colors
-        snapshot.scopes.forEach((scope, index) => {
+        currentExecStep?.memorySnapshot.scopes.forEach((scope, index) => {
             const scopeId = `scope-${index}`
             let scopeName = "Unknown Scope"
             let scopeColor = "#e2e8f0"
@@ -132,7 +127,7 @@ const MemoryModelVisualizer = ({ snapshot }: MemoryModelVisualizerProps) => {
         })
 
         // Process heap objects
-        Object.entries(snapshot.heap).forEach(([ref, obj]) => {
+        Object.entries(currentExecStep?.memorySnapshot.heap ?? {}).forEach(([ref, obj]) => {
             const objId = `obj-${ref}`
             let objType = "OBJECT"
             let objColor = "#fefcbf"
@@ -213,6 +208,7 @@ const MemoryModelVisualizer = ({ snapshot }: MemoryModelVisualizerProps) => {
     }
 
     useEffect(() => {
+        if (!currentExecStep) return
         if (!svgRef.current) return
 
         // Clear any existing SVG content
@@ -1038,7 +1034,7 @@ const MemoryModelVisualizer = ({ snapshot }: MemoryModelVisualizerProps) => {
             .catch((error) => {
                 console.error("ELK layout error:", error)
             })
-    }, [snapshot])
+    }, [currentExecStep])
 
     return (
         <>
