@@ -10,11 +10,12 @@ import {
 import CodeArea from '@/components/simulator/code-area/CodeArea'
 import CheatSheetAccordion from './components/CheatSheetAccordion'
 import Console from '@/components/simulator/console-output/ConsoleOutput'
-import MemoryModel from '@/components/simulator/memory-model/MemoryModel'
 import ExecutionBar from '@/components/simulator/execution-bar/ExecutionBar'
 import { astOf } from '@/utils/ast'
 import { simulateExecution } from '@/utils/simulator'
 import { ESNode } from 'hermes-parser'
+import MemoryModelVisualizer from '@/components/simulator/memory-model/MemoryModelVisualizer'
+import { ExecStep, Scope, Heap } from '@/types/simulation' // Import your types
 
 const CODE_SAMPLE = `
 let a;
@@ -47,21 +48,21 @@ function bye(name) {
 }`
 
 const MULTIPLE_SCOPE_CODE_SAMPLE = `
-console.log("Hello, world!");
-const outerVar = "I am in outerFunction";
+const person = { name: "Alice", age: 30 };
+const scores = [100, 200];
+const job = { title: "Developer", company: { name: "Tech Co", founded: 2010 } };
+person.job = job;
+scores.push(300);
+const outerConst = 'outerConst text'
+var outerVar = "I am in outerFunction";
 function outerFunction() {
   const innerVar = "I am in innerFunction";
   function innerFunction() {
   const test1 = "test1"
-    console.log(outerVar, innerVar);
   }
   innerFunction();
 }
 outerFunction();
-if (true) {
-  let blockVar = "I am in a block";
-  const anotherBlockVar = "Another block-scoped var";
-}
 `
 
 const CLASS_CODE_SAMPLE = `
@@ -146,6 +147,12 @@ console.log(steps)
 
 const SimulatorContainer: React.FC = () => {
   const [isCheatSheetOpen, setIsCheatSheetOpen] = useState(true)
+  const [currentStepIndex, setCurrentStepIndex] = useState(13)
+
+  const currentSnapshot: { scopes: Scope[]; heap: Heap } | null =
+    steps.length > 0 && steps[currentStepIndex]
+      ? steps[currentStepIndex].memorySnapshot
+      : null
 
   return (
     <div className="h-screen">
@@ -204,7 +211,11 @@ const SimulatorContainer: React.FC = () => {
                     <h4 className="font-semibold text-slate-700">Memory Model</h4>
                   </div>
                   <div className="flex-1 overflow-auto p-2">
-                    <MemoryModel code={CODE_SAMPLE} />
+                    {currentSnapshot ? (
+                      <MemoryModelVisualizer snapshot={currentSnapshot} />
+                    ) : (
+                      <div className="text-center text-gray-500">No memory data yet.</div>
+                    )}
                   </div>
                 </div>
               </ResizablePanel>
