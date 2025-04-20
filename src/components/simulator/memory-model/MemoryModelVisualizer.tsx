@@ -1,9 +1,8 @@
-import { useEffect, useRef } from "react"
+import { useEffect, useRef, useState } from "react"
 import * as d3 from "d3"
 import ELK from "elkjs/lib/elk.bundled.js"
 import type { ElkNode as ElkLayoutNode, ElkEdge as ElkLayoutEdge } from "elkjs/lib/elk-api"
-import { Scope, Heap, JSValue } from "@/types/simulation"
-import { ZoomInIcon, ZoomOutIcon, HomeIcon } from "lucide-react"
+import { JSValue } from "@/types/simulation"
 import { useSimulatorStore } from "@/hooks/useSimulatorStore"
 
 type HeapObjectData = {
@@ -33,6 +32,7 @@ type ElkNode = Omit<ElkLayoutNode, 'labels' | 'children' | 'edges'> & {
     // Adjust label type to match elkjs (text, width, height can be undefined)
     labels?: { text?: string; width?: number; height?: number }[]
     children?: ElkNode[]
+    ports?: { id: string; width: number; height: number; layoutOptions?: Record<string, string> }[]
 }
 
 type ElkEdge = Omit<ElkLayoutEdge, 'sources' | 'targets'> & {
@@ -52,6 +52,8 @@ const MemoryModelVisualizer = () => {
     const { currentExecStep } = useSimulatorStore()
     const svgRef = useRef<SVGSVGElement>(null)
     const zoomGroupRef = useRef<SVGGElement | null>(null)
+    // Add state for dynamic dimensions to ensure re-renders use them
+    const [svgDimensions, setSvgDimensions] = useState({ width: 1000, height: 700, viewBox: "0 0 1000 700" })
 
     // Transform snapshot data into visualization format
     const transformData = () => {
@@ -85,11 +87,13 @@ const MemoryModelVisualizer = () => {
                 const varId = `var-${scopeId}-${name}`
                 let varType = "primitive"
                 let target = undefined
+                let portSide = "EAST" // Default port side for variables
 
                 // Check if it's a reference to a heap object
                 if (value.type === "reference") {
                     varType = "reference"
                     target = `obj-${value.ref}`
+                    portSide = "EAST" // Variables point right (East)
                 }
 
                 // Format the value for display
@@ -105,7 +109,7 @@ const MemoryModelVisualizer = () => {
                         displayValue = String(value.value)
                     }
                 } else {
-                    displayValue = `[Reference: ${value.ref}]`
+                    displayValue = `[Ref: ${value.ref}]` // Shortened reference display
                 }
 
                 return {
@@ -113,7 +117,8 @@ const MemoryModelVisualizer = () => {
                     name,
                     type: varType,
                     target,
-                    value: displayValue
+                    value: displayValue,
+                    portSide
                 }
             })
 
@@ -143,27 +148,27 @@ const MemoryModelVisualizer = () => {
                 objBorderColor = "#63b3ed"
             }
 
-            const properties: { name: string; value: string; target?: string }[] = []
+            const properties: { name: string; value: string; target?: string; portSide?: string }[] = []
 
             if (obj.type === "object") {
                 // Process object properties
                 Object.entries(obj.properties).forEach(([propName, propValue]) => {
                     const property = formatPropertyValue(propName, propValue)
-                    properties.push(property)
+                    properties.push({ ...property, portSide: property.target ? "EAST" : undefined }) // Properties point East if they reference
                 })
             } else if (obj.type === "array") {
                 // Process array elements
                 obj.elements.forEach((element, index) => {
                     const property = formatPropertyValue(String(index), element)
-                    properties.push(property)
+                    properties.push({ ...property, portSide: property.target ? "EAST" : undefined }) // Elements point East if they reference
                 })
-                // Add length property
+                // Add length property (no port needed)
                 properties.push({
                     name: "length",
                     value: String(obj.elements.length)
                 })
             } else if (obj.type === "function") {
-                // Display function node information
+                // Display function node information (no properties point out)
                 properties.push({
                     name: "type",
                     value: "function"
@@ -201,305 +206,164 @@ const MemoryModelVisualizer = () => {
             // It's a reference
             return {
                 name: propName,
-                value: `[Reference: ${propValue.ref}]`,
+                value: `[Ref: ${propValue.ref}]`, // Shortened display
                 target: `obj-${propValue.ref}`
             }
         }
     }
 
     useEffect(() => {
-        if (!currentExecStep) return
-        if (!svgRef.current) return
+        if (!currentExecStep || !svgRef.current) {
+            // Clear SVG if no step
+            d3.select(svgRef.current).selectAll("*").remove()
+            setSvgDimensions({ width: 300, height: 100, viewBox: "0 0 300 100" }) // Minimal size when empty
+            // Optionally display a message
+            d3.select(svgRef.current).append("text")
+                .attr("x", 150).attr("y", 50).attr("text-anchor", "middle")
+                .text("No execution step selected.")
+            return
+        }
 
-        // Clear any existing SVG content
-        d3.select(svgRef.current).selectAll("*").remove()
+        // Clear previous SVG content
+        const svg = d3.select(svgRef.current)
+        svg.selectAll("*").remove()
 
-        // Transform the data into visualization format
         const memoryModelData = transformData()
 
-        // Set up dimensions
-        const width = 1000
-        const height = 700
-        const margin = { top: 40, right: 20, bottom: 20, left: 20 }
-        const contentWidth = width - margin.left - margin.right
-        const contentHeight = height - margin.top - margin.bottom
-        const dividerX = contentWidth * 0.4
+        // --- Element Dimensions ---
+        const scopeWidth = 280 // Adjusted width
+        const variableHeight = 25
+        const scopeHeaderHeight = 30
+        const scopePadding = 10
+        const scopeVariableSpacing = 5
 
-        // Define common dimensions
-        const scopeWidth = 300
-        const scopeHeight = 120
-        const variableHeight = 30
-        const objectWidth = 180
-        const objectHeight = 120
+        const objectWidth = 200 // Adjusted width
+        const propertyHeight = 20
+        const objectHeaderHeight = 25
+        const objectPadding = 10
+        const objectPropertySpacing = 4
 
-        // Create SVG
-        const svg = d3
-            .select(svgRef.current)
-            .attr("width", width)
-            .attr("height", height)
-            .attr("viewBox", `0 0 ${width} ${height}`)
-            .attr("style", "max-width: 100%; height: auto;")
+        const margin = { top: 30, right: 30, bottom: 30, left: 30 }
 
-        // Create a group for zooming
-        const zoomGroup = svg.append("g")
-        zoomGroupRef.current = zoomGroup.node()
-
-        // Define zoom behavior
-        const zoom = d3.zoom<SVGSVGElement, unknown>()
-            .scaleExtent([0.5, 3])
-            .on("zoom", (event) => {
-                zoomGroup.attr("transform", event.transform)
-            })
-
-        // Initialize zoom
-        svg.call(zoom)
-
-        // Add zoom controls
-        const zoomControlsGroup = svg.append("g")
-            .attr("transform", `translate(${width - 100}, ${margin.top})`)
-            .attr("class", "zoom-controls")
-
-        // Zoom in button
-        const zoomInButton = zoomControlsGroup.append("g")
-            .attr("transform", "translate(0, 0)")
-            .attr("class", "zoom-button")
-            .style("cursor", "pointer")
-            .on("click", () => {
-                svg.transition().duration(300).call(zoom.scaleBy, 1.3)
-            })
-
-        zoomInButton.append("rect")
-            .attr("width", 30)
-            .attr("height", 30)
-            .attr("rx", 5)
-            .attr("fill", "#e2e8f0")
-
-        zoomInButton.append("text")
-            .attr("x", 15)
-            .attr("y", 20)
-            .attr("text-anchor", "middle")
-            .attr("font-size", "20px")
-            .text("+")
-
-        // Zoom out button
-        const zoomOutButton = zoomControlsGroup.append("g")
-            .attr("transform", "translate(0, 35)")
-            .attr("class", "zoom-button")
-            .style("cursor", "pointer")
-            .on("click", () => {
-                svg.transition().duration(300).call(zoom.scaleBy, 0.7)
-            })
-
-        zoomOutButton.append("rect")
-            .attr("width", 30)
-            .attr("height", 30)
-            .attr("rx", 5)
-            .attr("fill", "#e2e8f0")
-
-        zoomOutButton.append("text")
-            .attr("x", 15)
-            .attr("y", 20)
-            .attr("text-anchor", "middle")
-            .attr("font-size", "20px")
-            .text("−")
-
-        // Reset zoom button
-        const resetButton = zoomControlsGroup.append("g")
-            .attr("transform", "translate(0, 70)")
-            .attr("class", "zoom-button")
-            .style("cursor", "pointer")
-            .on("click", () => {
-                svg.transition().duration(300).call(zoom.transform, d3.zoomIdentity)
-            })
-
-        resetButton.append("rect")
-            .attr("width", 30)
-            .attr("height", 30)
-            .attr("rx", 5)
-            .attr("fill", "#e2e8f0")
-
-        resetButton.append("text")
-            .attr("x", 15)
-            .attr("y", 20)
-            .attr("text-anchor", "middle")
-            .attr("font-size", "12px")
-            .text("⌂")
-
-        // Add title for scopes section
-        zoomGroup.append("text")
-            .attr("x", margin.left + contentWidth * 0.25)
-            .attr("y", margin.top - 20)
-            .attr("text-anchor", "middle")
-            .attr("font-weight", "bold")
-            .text("Scopes")
-
-        // Add title for heap section
-        zoomGroup.append("text")
-            .attr("x", margin.left + contentWidth * 0.75)
-            .attr("y", margin.top - 20)
-            .attr("text-anchor", "middle")
-            .attr("font-weight", "bold")
-            .text("Memory Heap")
-
-        // Create a container for the graph
-        const graphContainer = zoomGroup.append("g").attr("transform", `translate(${margin.left}, ${margin.top})`)
-
-        // Add background rectangles for scope and heap areas
-        graphContainer
-            .append("rect")
-            .attr("class", "scope-area")
-            .attr("x", 0)
-            .attr("y", 0)
-            .attr("width", dividerX)
-            .attr("height", contentHeight)
-            .attr("fill", "#f7fafc")
-            .attr("opacity", 0.5)
-
-        graphContainer
-            .append("rect")
-            .attr("class", "heap-area")
-            .attr("x", dividerX)
-            .attr("y", 0)
-            .attr("width", contentWidth - dividerX)
-            .attr("height", contentHeight)
-            .attr("fill", "#f7fafc")
-            .attr("opacity", 0.5)
-
-        // Prepare ELK graph structure
+        // --- Create ELK Graph ---
         const createElkGraph = (): ElkGraph => {
             const graph: ElkGraph = {
                 id: "root",
                 layoutOptions: {
-                    "elk.algorithm": "box",
+                    "elk.algorithm": "layered",
                     "elk.direction": "RIGHT",
-                    "elk.spacing.nodeNode": "40",
-                    "elk.padding": "[top=20, left=20, bottom=20, right=20]",
-                    "elk.aspectRatio": "1.6",
-                    "elk.randomSeed": "1",
+                    "elk.spacing.nodeNode": "70", // Increased spacing between nodes
+                    "elk.layered.spacing.nodeNodeBetweenLayers": "80", // Increased spacing between layers
+                    "elk.padding": `[top=${margin.top}, left=${margin.left}, bottom=${margin.bottom}, right=${margin.right}]`,
+                    "elk.layered.nodePlacement.strategy": "NETWORK_SIMPLEX", // Or BRANDES_KOEPF
+                    "elk.layered.crossingMinimization.strategy": "LAYER_SWEEP",
+                    "elk.separateConnectedComponents": "false", // Keep components together if possible
+                    "elk.edgeRouting": "SPLINES", // Use splines for smoother edges
+                    //"elk.layered.cycleBreaking.strategy": "GREEDY", // Helps with complex graphs
                 },
-                children: [],
+                children: [], // Will contain scopes and heap objects directly
                 edges: [],
             }
 
-            // Create a section for scopes with fixed position - changed direction to DOWN
-            const scopeSection: ElkNode = {
-                id: "scopeSection",
-                layoutOptions: {
-                    "elk.algorithm": "layered",
-                    "elk.direction": "DOWN",
-                    "elk.partitioning.activate": "true",
-                    "elk.padding": "[top=20, left=20, bottom=20, right=20]",
-                    "elk.spacing.nodeNode": "40",
-                    "elk.layered.spacing.baseValue": "30",
-                    "elk.layered.nodePlacement.strategy": "BRANDES_KOEPF",
-                    "elk.layered.considerModelOrder.strategy": "PREFER_EDGES",
-                    "elk.layered.crossingMinimization.strategy": "LAYER_SWEEP",
-                },
-                width: dividerX,
-                height: contentHeight,
-                x: 0,
-                y: 0,
-                children: [],
-            }
-
-            // Create a section for heap with fixed position
-            const heapSection: ElkNode = {
-                id: "heapSection",
-                layoutOptions: {
-                    "elk.algorithm": "layered",
-                    "elk.direction": "RIGHT",
-                    "elk.partitioning.activate": "true",
-                    "elk.padding": "[top=20, left=20, bottom=20, right=20]",
-                    "elk.layered.crossingMinimization.strategy": "LAYER_SWEEP",
-                    "elk.layered.considerModelOrder.strategy": "NODES_AND_EDGES",
-                    "elk.spacing.nodeNode": "50",
-                    "elk.layered.spacing.nodeNodeBetweenLayers": "60",
-                    "elk.layered.nodePlacement.strategy": "NETWORK_SIMPLEX",
-                    "elk.layered.nodePlacement.bk.fixedAlignment": "BALANCED",
-                    "elk.edgeRouting": "SPLINES",
-                },
-                width: contentWidth - dividerX,
-                height: contentHeight,
-                x: dividerX,
-                y: 0,
-                children: [],
-            }
-
-            // Add scope nodes
+            // Add scope nodes directly to root children
             memoryModelData.scopes.forEach((scope) => {
+                const scopeNodeHeight = scopeHeaderHeight + scope.variables.length * (variableHeight + scopeVariableSpacing) + 2 * scopePadding
                 const scopeNode: ElkNode = {
                     id: scope.id,
                     width: scopeWidth,
-                    height: Math.max(scopeHeight, 40 + scope.variables.length * (variableHeight + 5)),
+                    height: scopeNodeHeight,
                     layoutOptions: {
-                        "elk.padding": "[top=10, left=10, bottom=10, right=10]",
+                        "elk.padding": `[top=${scopePadding}, left=${scopePadding}, bottom=${scopePadding}, right=${scopePadding}]`,
+                        "elk.portConstraints": "FIXED_SIDE", // Ensure ports are on specified sides
                     },
-                    labels: [{ text: scope.name, width: 100, height: 20 }],
-                    children: [],
+                    labels: [{ text: scope.name }], // Keep label simple
+                    ports: [], // Add ports for variables
                 }
 
-                // Add variable nodes as children of scope
-                scope.variables.forEach((variable) => {
-                    const varNode: ElkNode = {
-                        id: variable.id,
-                        width: scopeWidth - 20,
-                        height: variableHeight,
-                        labels: [{ text: variable.name, width: 80, height: 20 }],
+                // Add ports for each variable on the EAST side
+                scope.variables.forEach((variable, index) => {
+                    if (variable.type === "reference") {
+                        scopeNode.ports?.push({
+                            id: `${variable.id}-port`,
+                            width: 0,
+                            height: 0,
+                            layoutOptions: {
+                                "elk.port.side": "EAST",
+                                "elk.port.index": String(index), // Maintain order
+                            },
+                        })
                     }
-
-                    scopeNode.children?.push(varNode)
                 })
 
-                scopeSection.children?.push(scopeNode)
+                graph.children?.push(scopeNode)
             })
 
-            // Add heap object nodes
+            console.log(graph)
+            // Add heap object nodes directly to root children
             memoryModelData.heap.forEach((object) => {
-                const propCount = object.properties ? object.properties.length : 0
-                const objHeight = Math.max(objectHeight, 40 + propCount * 20)
-
+                const numProperties = object.properties ? object.properties.length : 0
+                const objNodeHeight = objectHeaderHeight + numProperties * (propertyHeight + objectPropertySpacing) + 2 * objectPadding
                 const objNode: ElkNode = {
                     id: object.id,
                     width: objectWidth,
-                    height: objHeight,
-                    labels: [{ text: object.type, width: 100, height: 25 }],
+                    height: objNodeHeight,
+                    layoutOptions: {
+                        "elk.padding": `[top=${objectPadding}, left=${objectPadding}, bottom=${objectPadding}, right=${objectPadding}]`,
+                        "elk.portConstraints": "FIXED_SIDE",
+                    },
+                    labels: [{ text: object.type }],
+                    ports: [], // Add ports for incoming (WEST) and outgoing (EAST) references
                 }
 
-                heapSection.children?.push(objNode)
+                // Add WEST port for incoming references (target)
+                objNode.ports?.push({
+                    id: `${object.id}-target-port`,
+                    width: 0,
+                    height: 0,
+                    layoutOptions: { "elk.port.side": "WEST" },
+                })
+
+                // Add EAST ports for outgoing property references (source)
+                object.properties?.forEach((prop, index) => {
+                    if (prop.target) {
+                        objNode.ports?.push({
+                            id: `${object.id}_${prop.name}-source-port`,
+                            width: 0,
+                            height: 0,
+                            layoutOptions: {
+                                "elk.port.side": "EAST",
+                                "elk.port.index": String(index),
+                            },
+                        })
+                    }
+                })
+
+
+                graph.children?.push(objNode)
             })
 
-            graph.children?.push(scopeSection)
-            graph.children?.push(heapSection)
-
-            // Add edges from variables to heap objects
+            // Add edges using ports
             memoryModelData.scopes.forEach((scope) => {
                 scope.variables.forEach((variable) => {
                     if (variable.type === "reference" && variable.target) {
                         graph.edges.push({
                             id: `${variable.id}_to_${variable.target}`,
-                            sources: [variable.id],
-                            targets: [variable.target],
-                            layoutOptions: {
-                                "elk.layered.priority.direction": "1",
-                            },
+                            sources: [`${variable.id}-port`], // Source is the variable's port on the scope
+                            targets: [`${variable.target}-target-port`], // Target is the object's main target port
                         })
                     }
                 })
             })
 
-            // Add edges between heap objects
+            // Add edges between heap objects using ports
             memoryModelData.heap.forEach((object) => {
                 if (object.properties) {
-                    object.properties.forEach((prop, propIndex) => {
+                    object.properties.forEach((prop) => {
                         if (prop.target) {
                             graph.edges.push({
                                 id: `${object.id}_${prop.name}_to_${prop.target}`,
-                                sources: [object.id],
-                                targets: [prop.target],
-                                layoutOptions: {
-                                    "elk.layered.priority.direction": "1",
-                                },
-                                propIndex,
+                                sources: [`${object.id}_${prop.name}-source-port`], // Source is property's port on object
+                                targets: [`${prop.target}-target-port`], // Target is the other object's target port
                             })
                         }
                     })
@@ -512,538 +376,355 @@ const MemoryModelVisualizer = () => {
         const elkGraph = createElkGraph()
         const elk = new ELK()
 
-        // Create maps to store node positions and data
-        const nodePositions = new Map()
-        const propertyPositions = new Map()
-        const nodeData = new Map()
+        // Create maps to store node positions and data (will be populated after layout)
+        const nodePositions = new Map<string, { x: number; y: number }>()
+        const nodeDimensions = new Map<string, { width: number; height: number }>()
+        const portPositions = new Map<string, { x: number; y: number }>() // Store port absolute positions
+        const nodeData = new Map<string, any>() // Store original data if needed
         const edgeData: Array<{
-            source: string
-            target: string
-            type: string
-            label?: string
-            propIndex?: number
+            id: string
+            sourceNodeId: string // ID of the source node (scope or object)
+            targetNodeId: string // ID of the target node (object)
+            sourcePortId: string // ID of the source port
+            targetPortId: string // ID of the target port
+            type: "var-ref" | "prop-ref"
         }> = []
 
-        // Define the calculatePath function
-        const calculatePath = (
-            source: { x: number; y: number },
-            target: { x: number; y: number },
-            type: string
+        // Function to calculate edge path using port positions
+        const calculatePathFromPorts = (
+            sourcePortPos: { x: number; y: number },
+            targetPortPos: { x: number; y: number }
         ): string => {
             const path = d3.path()
+            path.moveTo(sourcePortPos.x, sourcePortPos.y)
 
-            // Determine if we're crossing the divider
-            const crossingDivider =
-                (source.x < dividerX && target.x >= dividerX) || (source.x >= dividerX && target.x < dividerX)
+            // Calculate control points for a bezier curve
+            const dx = targetPortPos.x - sourcePortPos.x
+            const dy = targetPortPos.y - sourcePortPos.y
 
-            // Calculate distances and directions
-            const dx = target.x - source.x
-            const dy = target.y - source.y
-            const distance = Math.sqrt(dx * dx + dy * dy)
-            const routeAbove = source.y > target.y
+            // Simple horizontal curve for RIGHT direction layout
+            const cp1x = sourcePortPos.x + dx * 0.4
+            const cp1y = sourcePortPos.y
+            const cp2x = sourcePortPos.x + dx * 0.6
+            const cp2y = targetPortPos.y
 
-            // For variable references (scope to heap)
-            if (type === "var-ref") {
-                path.moveTo(source.x, source.y)
-
-                // Adjust curve parameters based on distance and crossing
-                const curveStrength = crossingDivider ? 0.5 : 0.3
-                const curveHeight = Math.min(Math.max(distance * curveStrength, 40), 120) * (routeAbove ? -1 : 1)
-
-                // For long distances, use a more pronounced S-curve
-                if (distance > 300) {
-                    path.bezierCurveTo(
-                        source.x + dx * 0.2,
-                        source.y + curveHeight * 0.7,
-                        target.x - dx * 0.2,
-                        target.y + curveHeight * 0.3,
-                        target.x,
-                        target.y,
-                    )
-                } else {
-                    // For shorter distances, use a simpler curve
-                    path.bezierCurveTo(
-                        source.x + dx * 0.3,
-                        source.y + curveHeight,
-                        target.x - dx * 0.3,
-                        target.y + curveHeight,
-                        target.x,
-                        target.y,
-                    )
-                }
-            }
-            // For property references (between heap objects)
-            else {
-                path.moveTo(source.x, source.y)
-
-                // Adjust curve parameters based on distance and direction
-                const curveHeight = Math.min(Math.max(Math.abs(dy) * 1.5, 50), 150) * (routeAbove ? -1 : 1)
-
-                // For objects that are far apart horizontally, use a flatter curve
-                if (Math.abs(dx) > 250) {
-                    path.bezierCurveTo(
-                        source.x + dx * 0.35,
-                        source.y + curveHeight * 0.2,
-                        target.x - dx * 0.35,
-                        target.y + curveHeight * 0.2,
-                        target.x,
-                        target.y,
-                    )
-                }
-                // For objects that are close horizontally but separated vertically, use a higher curve
-                else if (Math.abs(dy) > 120) {
-                    path.bezierCurveTo(
-                        source.x + dx * 0.4,
-                        source.y + curveHeight * 0.5,
-                        target.x - dx * 0.4,
-                        target.y + curveHeight * 0.5,
-                        target.x,
-                        target.y,
-                    )
-                }
-                // For objects that are close to each other, use a more pronounced curve
-                else {
-                    path.bezierCurveTo(
-                        source.x + dx * 0.5,
-                        source.y + curveHeight * 0.8,
-                        target.x - dx * 0.5,
-                        target.y + curveHeight * 0.8,
-                        target.x,
-                        target.y,
-                    )
-                }
-            }
-
+            path.bezierCurveTo(cp1x, cp1y, cp2x, cp2y, targetPortPos.x, targetPortPos.y)
             return path.toString()
         }
 
-        // Define drag behavior for scopes
-        const scopeDrag = d3
-            .drag<SVGGElement, unknown>()
+
+        // Define drag behavior (no constraints initially)
+        const nodeDrag = d3
+            .drag<SVGGElement, ElkNode>() // Datum is the ElkNode from layout
             .on("start", function () {
-                d3.select(this).raise().classed("active", true)
-                // Disable zoom during drag
-                svg.on(".zoom", null)
+                d3.select(this).raise().classed("active", true).attr("cursor", "grabbing")
+                svg.on(".zoom", null) // Disable zoom during drag
             })
-            .on("drag", function (event) {
-                const scopeId = d3.select(this).attr("data-id")
-                const scopeData = nodeData.get(scopeId)
-                if (!scopeData) return
+            .on("drag", function (event, d) {
+                const transform = d3.zoomTransform(svg.node()!)
+                const currentX = d.x! + event.dx / transform.k
+                const currentY = d.y! + event.dy / transform.k
 
-                let newX = event.x
-                let newY = event.y
+                // Update the node's position in the layout data (optional, ELK recalculates anyway)
+                d.x = currentX
+                d.y = currentY
 
-                // Confine dragging to the scope area
-                newX = Math.max(0, Math.min(dividerX - scopeData.width, newX))
-                newY = Math.max(0, Math.min(contentHeight - scopeData.height, newY))
+                // Update visual position
+                d3.select(this).attr("transform", `translate(${currentX}, ${currentY})`)
 
-                d3.select(this).attr("transform", `translate(${newX},${newY})`)
-
-                // Update node positions
-                nodePositions.set(scopeId, { x: newX + scopeData.width / 2, y: newY + scopeData.height / 2 })
-
-                // Update variable positions
-                scopeData.variables.forEach((varId: string, index: number) => {
-                    const varX = newX + scopeWidth - 5 // Position at the right edge of the variable
-                    const varY = newY + 40 + index * 35 + 10 // Center of the variable
-                    nodePositions.set(varId, { x: varX, y: varY })
+                // Update positions map (center for node, specific for ports)
+                nodePositions.set(d.id, { x: currentX + (d.width ?? 0) / 2, y: currentY + (d.height ?? 0) / 2 })
+                d.ports?.forEach(port => {
+                    portPositions.set(port.id, { x: currentX + (port.x ?? 0), y: currentY + (port.y ?? 0) })
                 })
 
-                updateConnections()
+                updateConnections() // Update connections during drag
             })
             .on("end", function () {
-                d3.select(this).classed("active", false)
-                // Re-enable zoom after drag
-                svg.call(zoom)
+                d3.select(this).classed("active", false).attr("cursor", "grab")
+                svg.call(zoom) // Re-enable zoom
+                // Note: Without re-running layout, drag is purely visual.
+                // Re-running layout on drag end can be complex.
             })
 
-        // Define drag behavior for heap objects
-        const heapObjectDrag = d3
-            .drag<SVGGElement, unknown>()
-            .on("start", function () {
-                d3.select(this).raise().classed("active", true)
-                // Disable zoom during drag
-                svg.on(".zoom", null)
-            })
-            .on("drag", function (event) {
-                const objId = d3.select(this).attr("data-id")
-                const objData = nodeData.get(objId)
-                if (!objData) return
-
-                let newX = event.x
-                let newY = event.y
-
-                // Confine dragging to the heap area
-                newX = Math.max(dividerX, Math.min(contentWidth - objData.width, newX))
-                newY = Math.max(0, Math.min(contentHeight - objData.height, newY))
-
-                d3.select(this).attr("transform", `translate(${newX},${newY})`)
-
-                // Update node positions
-                nodePositions.set(objId, { x: newX, y: newY + objData.height / 2 })
-
-                // Update property positions
-                if (objData.properties) {
-                    objData.properties.forEach((propId: string, i: number) => {
-                        const propX = newX + objectWidth - 10
-                        const propY = newY + 45 + i * 20
-                        propertyPositions.set(propId, { x: propX, y: propY })
-                    })
-                }
-
-                updateConnections()
-            })
-            .on("end", function () {
-                d3.select(this).classed("active", false)
-                // Re-enable zoom after drag
-                svg.call(zoom)
-            })
-
-        // Function to update connections
+        // Function to update connections based on port positions
         const updateConnections = () => {
-            graphContainer.selectAll(".connection").remove()
+            const graphContainer = d3.select("#graph-content-container") // Select the container
+            graphContainer.selectAll(".connection").remove() // Clear existing paths
 
             edgeData.forEach((edge) => {
-                const sourcePos = edge.type === "prop-ref" ? propertyPositions.get(edge.source) : nodePositions.get(edge.source)
-                const targetPos = nodePositions.get(edge.target)
+                const sourcePortPos = portPositions.get(edge.sourcePortId)
+                const targetPortPos = portPositions.get(edge.targetPortId)
 
-                if (!sourcePos || !targetPos) return
+                if (!sourcePortPos || !targetPortPos) {
+                    console.warn(`Missing port position for edge: ${edge.id}`, { sourcePortPos, targetPortPos })
+                    return
+                }
 
                 const pathType = edge.type === "var-ref" ? "var-ref" : "prop-ref"
                 const arrowType = edge.type === "var-ref" ? "arrow-var-ref" : "arrow-prop-ref"
+                const strokeColor = edge.type === "var-ref" ? "#4299e1" : "#ed8936"
 
                 graphContainer
                     .append("path")
-                    .attr("class", "connection")
-                    .attr("d", calculatePath(sourcePos, targetPos, pathType))
-                    .attr("stroke", edge.type === "var-ref" ? "#4299e1" : "#ed8936")
+                    .attr("class", `connection connection-${pathType}`)
+                    .attr("id", edge.id)
+                    .attr("d", calculatePathFromPorts(sourcePortPos, targetPortPos))
+                    .attr("stroke", strokeColor)
                     .attr("stroke-width", 1.5)
                     .attr("fill", "none")
                     .attr("marker-end", `url(#${arrowType})`)
-                    .attr("data-source", edge.source)
-                    .attr("data-target", edge.target)
                     .on("mouseover", function () {
-                        d3.select(this).attr("stroke", "#e53e3e").attr("marker-end", "url(#arrow-highlight)")
+                        d3.select(this).attr("stroke", "#e53e3e").attr("stroke-width", 2.5).attr("marker-end", "url(#arrow-highlight)")
                     })
                     .on("mouseout", function () {
                         d3.select(this)
-                            .attr("stroke", edge.type === "var-ref" ? "#4299e1" : "#ed8936")
+                            .attr("stroke", strokeColor)
+                            .attr("stroke-width", 1.5)
                             .attr("marker-end", `url(#${arrowType})`)
                     })
             })
         }
 
-        // Run the layout algorithm
+        // Define zoom behavior (needs access to calculated dimensions, defined inside .then)
+        let zoom: d3.ZoomBehavior<SVGSVGElement, unknown>
+
+        // --- Run Layout and Render ---
         elk
             .layout(elkGraph)
             .then((layoutedGraph) => {
-                // Draw a divider between scopes and heap
-                graphContainer
-                    .append("line")
-                    .attr("x1", dividerX)
-                    .attr("y1", 0)
-                    .attr("x2", dividerX)
-                    .attr("y2", contentHeight)
-                    .attr("stroke", "#e2e8f0")
-                    .attr("stroke-width", 2)
-                    .attr("stroke-dasharray", "4")
+                // --- Calculate Bounding Box and Dimensions ---
+                let minX = Infinity, minY = Infinity, maxX = -Infinity, maxY = -Infinity;
 
-                // Get scope and heap sections from layouted graph
-                const scopeSection = layoutedGraph.children?.find(section => section.id === "scopeSection")
-                const heapSection = layoutedGraph.children?.find(section => section.id === "heapSection")
+                layoutedGraph.children?.forEach(node => {
+                    if (node.x !== undefined && node.y !== undefined && node.width !== undefined && node.height !== undefined) {
+                        minX = Math.min(minX, node.x);
+                        minY = Math.min(minY, node.y);
+                        maxX = Math.max(maxX, node.x + node.width);
+                        maxY = Math.max(maxY, node.y + node.height);
 
-                if (!scopeSection || !heapSection) return
+                        // Store node positions and dimensions
+                        nodePositions.set(node.id, { x: node.x + node.width / 2, y: node.y + node.height / 2 })
+                        nodeDimensions.set(node.id, { width: node.width, height: node.height })
+                        nodeData.set(node.id, memoryModelData.scopes.find(s => s.id === node.id) || memoryModelData.heap.find(h => h.id === node.id))
 
-                // Add arrow marker definitions with different colors and sizes
-                const defs = svg.append("defs")
-
-                // Variable reference arrow (blue)
-                defs
-                    .append("marker")
-                    .attr("id", "arrow-var-ref")
-                    .attr("viewBox", "0 -5 10 10")
-                    .attr("refX", 8)
-                    .attr("refY", 0)
-                    .attr("markerWidth", 6)
-                    .attr("markerHeight", 6)
-                    .attr("orient", "auto")
-                    .append("path")
-                    .attr("d", "M0,-4L8,0L0,4")
-                    .attr("fill", "#4299e1")
-
-                // Object property reference arrow (orange)
-                defs
-                    .append("marker")
-                    .attr("id", "arrow-prop-ref")
-                    .attr("viewBox", "0 -5 10 10")
-                    .attr("refX", 8)
-                    .attr("refY", 0)
-                    .attr("markerWidth", 6)
-                    .attr("markerHeight", 6)
-                    .attr("orient", "auto")
-                    .append("path")
-                    .attr("d", "M0,-4L8,0L0,4")
-                    .attr("fill", "#ed8936")
-
-                // Highlighted arrow (red)
-                defs
-                    .append("marker")
-                    .attr("id", "arrow-highlight")
-                    .attr("viewBox", "0 -5 10 10")
-                    .attr("refX", 8)
-                    .attr("refY", 0)
-                    .attr("markerWidth", 8)
-                    .attr("markerHeight", 8)
-                    .attr("orient", "auto")
-                    .append("path")
-                    .attr("d", "M0,-5L10,0L0,5")
-                    .attr("fill", "#e53e3e")
-
-                // Draw scopes
-                scopeSection.children?.forEach((scopeNode: ElkNode) => {
-                    // Find the original scope data
-                    const scopeData = memoryModelData.scopes.find(s => s.id === scopeNode.id)
-                    if (!scopeData || !scopeNode.x || !scopeNode.y) return
-
-                    const scopeGroup = graphContainer
-                        .append("g")
-                        .attr("class", "scope")
-                        .attr("data-id", scopeNode.id)
-                        .attr("transform", `translate(${scopeNode.x}, ${scopeNode.y})`)
-                        .attr("cursor", "grab")
-                        .call(scopeDrag as d3.DragBehavior<SVGGElement, unknown, unknown>)
-
-                    // Store scope data for dragging
-                    nodeData.set(scopeNode.id, {
-                        id: scopeNode.id,
-                        type: "scope",
-                        width: scopeNode.width || scopeWidth,
-                        height: scopeNode.height || scopeHeight,
-                        variables: scopeNode.children?.map(child => child.id) || [],
-                    })
-
-                    // Draw scope rectangle
-                    scopeGroup
-                        .append("rect")
-                        .attr("width", scopeNode.width || scopeWidth)
-                        .attr("height", scopeNode.height || scopeHeight)
-                        .attr("rx", 10)
-                        .attr("ry", 10)
-                        .attr("fill", scopeData.color)
-                        .attr("stroke", scopeData.borderColor)
-                        .attr("stroke-width", 2)
-
-                    // Add scope name
-                    scopeGroup.append("text").attr("x", 10).attr("y", 20).attr("font-weight", "bold").text(scopeData.name)
-
-                    // Draw variables
-                    scopeNode.children?.forEach((varNode: ElkNode, varIndex: number) => {
-                        if (!varNode.x || !varNode.y) return
-
-                        const varData = scopeData.variables.find(v => v.id === varNode.id)
-                        if (!varData) return
-
-                        const variableGroup = scopeGroup
-                            .append("g")
-                            .attr("class", "variable")
-                            .attr("transform", `translate(10, ${40 + varIndex * 35})`)
-
-                        // Draw file icon
-                        variableGroup
-                            .append("rect")
-                            .attr("width", 16)
-                            .attr("height", 20)
-                            .attr("fill", "white")
-                            .attr("stroke", "black")
-                            .attr("stroke-width", 1)
-
-                        // Draw file icon fold
-                        variableGroup
-                            .append("path")
-                            .attr("d", `M11,0 L11,5 L16,5 L16,0 Z`)
-                            .attr("fill", "white")
-                            .attr("stroke", "black")
-                            .attr("stroke-width", 1)
-
-                        // Add variable name
-                        variableGroup
-                            .append("text")
-                            .attr("x", 21)
-                            .attr("y", 15)
-                            .attr("font-size", "12px")
-                            .text(`${varData.name}: ${varData.value || ""}`)
-
-                        // Store variable position for connections - position at the right side of the variable
-                        if (scopeNode.x !== undefined && scopeNode.y !== undefined) {
-                            const varX = scopeNode.x + scopeWidth - 5
-                            const varY = scopeNode.y + 40 + varIndex * 35 + 10
-                            nodePositions.set(varNode.id, { x: varX, y: varY })
-                        } else {
-                            console.warn(`Scope node position is undefined for scope ${scopeNode.id}, var ${varNode.id}`)
-                        }
-
-                        // Add a small circle at the connection point for variables
-                        variableGroup
-                            .append("circle")
-                            .attr("cx", scopeWidth - 16)
-                            .attr("cy", 10)
-                            .attr("r", 3)
-                            .attr("fill", "#4299e1")
-                            .attr("stroke", "none")
-
-                        // Add edge data if it's a reference
-                        if (varData.type === "reference" && varData.target) {
-                            edgeData.push({
-                                source: varNode.id,
-                                target: varData.target,
-                                type: "var-ref",
-                                label: varData.name,
-                            })
-                        }
-                    })
-                })
-
-                // Draw heap objects
-                heapSection.children?.forEach((objNode: ElkNode) => {
-                    const objData = memoryModelData.heap.find(o => o.id === objNode.id)
-                    if (!objData || !objNode.x || !objNode.y) return
-
-                    // Adjust x position to be in the heap section
-                    const objX = objNode.x + dividerX
-
-                    const objectGroup = graphContainer
-                        .append("g")
-                        .attr("class", "heap-object")
-                        .attr("data-id", objNode.id)
-                        .attr("transform", `translate(${objX}, ${objNode.y})`)
-                        .attr("cursor", "grab")
-                        .call(heapObjectDrag as d3.DragBehavior<SVGGElement, unknown, unknown>)
-
-                    // Store object data for dragging
-                    nodeData.set(objNode.id, {
-                        id: objNode.id,
-                        type: "heap-object",
-                        width: objNode.width || objectWidth,
-                        height: objNode.height || objectHeight,
-                        properties: objData.properties
-                            .filter(prop => prop.target)
-                            .map(prop => `${objNode.id}_${prop.name}`),
-                    })
-
-                    // Store object position for connections - use left edge for incoming connections
-                    nodePositions.set(objNode.id, { x: objX, y: objNode.y + (objNode.height || objectHeight) / 2 })
-
-                    // Draw object rectangle
-                    objectGroup
-                        .append("rect")
-                        .attr("width", objNode.width || objectWidth)
-                        .attr("height", objNode.height || objectHeight)
-                        .attr("rx", 5)
-                        .attr("ry", 5)
-                        .attr("fill", objData.color)
-                        .attr("stroke", objData.borderColor)
-                        .attr("stroke-width", 2)
-
-                    // Add object type header
-                    objectGroup
-                        .append("rect")
-                        .attr("width", objNode.width || objectWidth)
-                        .attr("height", 25)
-                        .attr("rx", 5)
-                        .attr("ry", 5)
-                        .attr("fill", objData.borderColor)
-
-                    objectGroup
-                        .append("text")
-                        .attr("x", 10)
-                        .attr("y", 17)
-                        .attr("fill", "white")
-                        .attr("font-weight", "bold")
-                        .text(objData.type)
-
-                    // Add object properties
-                    if (objData.properties) {
-                        objData.properties.forEach((prop, i) => {
-                            const propertyGroup = objectGroup
-                                .append("g")
-                                .attr("class", "property")
-                                .attr("transform", `translate(10, ${35 + i * 20})`)
-                                .attr("data-property-id", `${objNode.id}_${prop.name}`)
-
-                            // Property icon (document icon for references)
-                            if (prop.target) {
-                                propertyGroup
-                                    .append("rect")
-                                    .attr("width", 12)
-                                    .attr("height", 15)
-                                    .attr("fill", "white")
-                                    .attr("stroke", "black")
-                                    .attr("stroke-width", 0.5)
-
-                                propertyGroup
-                                    .append("path")
-                                    .attr("d", `M11,0 L11,5 L16,5 L16,0 Z`)
-                                    .attr("fill", "white")
-                                    .attr("stroke", "black")
-                                    .attr("stroke-width", 0.5)
-
-                                // Store property position for connections
-                                if (objNode.x !== undefined && objNode.y !== undefined) {
-                                    const propX = objX + (objNode.width || objectWidth) - 10
-                                    const propY = objNode.y + 45 + i * 20
-                                    const propId = `${objNode.id}_${prop.name}`
-                                    propertyPositions.set(propId, { x: propX, y: propY })
-                                } else {
-                                    console.warn(`Object node position is undefined for object ${objNode.id}, property ${prop.name}`)
-                                }
-
-                                // Add edge data for property references
-                                const propId = `${objNode.id}_${prop.name}`
-                                edgeData.push({
-                                    source: propId,
-                                    target: prop.target,
-                                    type: "prop-ref",
-                                    label: prop.name,
-                                    propIndex: i,
-                                })
-
-                                // Add a small circle at the connection point
-                                objectGroup
-                                    .append("circle")
-                                    .attr("cx", (objNode.width || objectWidth) - 10)
-                                    .attr("cy", 45 + i * 20)
-                                    .attr("r", 3)
-                                    .attr("fill", "#ed8936")
-                                    .attr("stroke", "none")
+                        // Store absolute port positions
+                        node.ports?.forEach(port => {
+                            if (port.x !== undefined && port.y !== undefined) {
+                                portPositions.set(port.id, { x: node.x! + port.x, y: node.y! + port.y })
                             }
-
-                            // Property name and value
-                            propertyGroup
-                                .append("text")
-                                .attr("x", prop.target ? 20 : 0)
-                                .attr("y", 10)
-                                .attr("font-size", "12px")
-                                .text(`${prop.name}: ${prop.value}`)
                         })
                     }
                 })
 
-                // Initial draw of connections
-                updateConnections()
+                // Populate edgeData for connection drawing
+                layoutedGraph.edges?.forEach(edge => {
+                    const sourceNodeId = memoryModelData.scopes.find(s => s.variables.some(v => `${v.id}-port` === edge.sources[0]))?.id ||
+                        memoryModelData.heap.find(h => h.properties?.some(p => `${h.id}_${p.name}-source-port` === edge.sources[0]))?.id
+                    const targetNodeId = layoutedGraph.children?.find(n => n.ports?.some(p => p.id === edge.targets[0]))?.id
+
+                    if (sourceNodeId && targetNodeId) {
+                        const isVarRef = edge.sources[0].startsWith('var-')
+                        edgeData.push({
+                            id: edge.id,
+                            sourceNodeId: sourceNodeId,
+                            targetNodeId: targetNodeId,
+                            sourcePortId: edge.sources[0],
+                            targetPortId: edge.targets[0],
+                            type: isVarRef ? "var-ref" : "prop-ref",
+                        })
+                    }
+                })
+
+                // Handle case with no nodes
+                if (minX === Infinity) {
+                    minX = 0; minY = 0; maxX = 600; maxY = 400; // Default fallback size
+                }
+
+                const contentWidth = maxX - minX;
+                const contentHeight = maxY - minY;
+
+                const finalWidth = contentWidth + margin.left + margin.right;
+                const finalHeight = contentHeight + margin.top + margin.bottom;
+
+                // Adjust viewBox to focus on the content area including margins, starting from 0,0
+                const viewBox = `${minX - margin.left} ${minY - margin.top} ${finalWidth} ${finalHeight}`
+
+                // Update state to trigger re-render with correct dimensions
+                setSvgDimensions({ width: finalWidth, height: finalHeight, viewBox: viewBox })
+
+                // --- Setup SVG and Zoom --- (Now that dimensions are known)
+                svg
+                    .attr("width", finalWidth)
+                    .attr("height", finalHeight)
+                    .attr("viewBox", viewBox)
+                    .attr("style", "max-width: 100%; height: auto; border: 1px solid #eee;"); // Add border for visibility
+
+                // Add definitions for markers
+                const defs = svg.append("defs");
+                // Variable reference arrow (blue)
+                defs.append("marker")
+                    .attr("id", "arrow-var-ref")
+                    .attr("viewBox", "0 -5 10 10").attr("refX", 8).attr("refY", 0)
+                    .attr("markerWidth", 6).attr("markerHeight", 6).attr("orient", "auto")
+                    .append("path").attr("d", "M0,-4L8,0L0,4").attr("fill", "#4299e1");
+                // Object property reference arrow (orange)
+                defs.append("marker")
+                    .attr("id", "arrow-prop-ref")
+                    .attr("viewBox", "0 -5 10 10").attr("refX", 8).attr("refY", 0)
+                    .attr("markerWidth", 6).attr("markerHeight", 6).attr("orient", "auto")
+                    .append("path").attr("d", "M0,-4L8,0L0,4").attr("fill", "#ed8936");
+                // Highlighted arrow (red)
+                defs.append("marker")
+                    .attr("id", "arrow-highlight")
+                    .attr("viewBox", "0 -5 10 10").attr("refX", 8).attr("refY", 0)
+                    .attr("markerWidth", 7).attr("markerHeight", 7).attr("orient", "auto")
+                    .append("path").attr("d", "M0,-4.5L9,0L0,4.5").attr("fill", "#e53e3e");
+
+
+                // Create the main group for zooming and panning
+                const zoomGroup = svg.append("g").attr("id", "zoom-group");
+                zoomGroupRef.current = zoomGroup.node();
+
+                // Create container for graph elements *inside* the zoom group
+                const graphContainer = zoomGroup.append("g").attr("id", "graph-content-container");
+
+                // Define zoom behavior
+                zoom = d3.zoom<SVGSVGElement, unknown>()
+                    .scaleExtent([0.1, 4]) // Adjusted scale extent
+                    .on("zoom", (event) => {
+                        zoomGroup.attr("transform", event.transform);
+                    });
+
+                // Apply initial zoom/pan to center the content
+                const initialScale = Math.min(1, (finalWidth - margin.left - margin.right) / contentWidth, (finalHeight - margin.top - margin.bottom) / contentHeight);
+                const initialTranslateX = (finalWidth - contentWidth * initialScale) / 2 - (minX * initialScale);
+                const initialTranslateY = (finalHeight - contentHeight * initialScale) / 2 - (minY * initialScale);
+                const initialTransform = d3.zoomIdentity.translate(initialTranslateX, initialTranslateY).scale(initialScale);
+
+                svg.call(zoom).call(zoom.transform, initialTransform); // Apply initial transform
+
+
+                // --- Draw Nodes ---
+                layoutedGraph.children?.forEach((node: ElkNode) => {
+                    if (node.x === undefined || node.y === undefined) return;
+                    const nodeInfo = nodeData.get(node.id)
+                    const isScope = node.id.startsWith('scope-')
+
+                    const nodeGroup = graphContainer
+                        .append("g")
+                        .datum(node) // Attach layout node data for dragging
+                        .attr("class", `node ${isScope ? 'scope' : 'heap-object'} draggable`)
+                        .attr("id", node.id)
+                        .attr("transform", `translate(${node.x}, ${node.y})`)
+                        .attr("cursor", "grab")
+                        .call(nodeDrag)
+
+                    // Draw rectangle
+                    nodeGroup.append("rect")
+                        .attr("width", node.width!)
+                        .attr("height", node.height!)
+                        .attr("rx", isScope ? 10 : 5)
+                        .attr("ry", isScope ? 10 : 5)
+                        .attr("fill", nodeInfo.color)
+                        .attr("stroke", nodeInfo.borderColor)
+                        .attr("stroke-width", 1.5)
+
+                    // Draw Header
+                    nodeGroup.append("rect")
+                        .attr("width", node.width!)
+                        .attr("height", isScope ? scopeHeaderHeight : objectHeaderHeight)
+                        .attr("rx", isScope ? 10 : 5)
+                        .attr("ry", isScope ? 10 : 5)
+                        .attr("fill", nodeInfo.borderColor)
+                        .style("pointer-events", "none") // Prevent header from blocking drag
+
+                    nodeGroup.append("text")
+                        .attr("class", "node-label")
+                        .attr("x", isScope ? scopePadding : objectPadding)
+                        .attr("y", (isScope ? scopeHeaderHeight : objectHeaderHeight) / 2)
+                        .attr("dy", "0.35em") // Vertical alignment
+                        .attr("fill", "white")
+                        .attr("font-weight", "bold")
+                        .attr("font-size", "13px")
+                        .text(nodeInfo.name || nodeInfo.type) // Use scope name or object type
+                        .style("pointer-events", "none")
+
+                    // Draw variables or properties
+                    if (isScope) {
+                        nodeInfo.variables.forEach((variable: any, i: number) => {
+                            const varY = scopeHeaderHeight + i * (variableHeight + scopeVariableSpacing) + scopePadding / 2;
+                            const varGroup = nodeGroup.append("g")
+                                .attr("transform", `translate(${scopePadding}, ${varY})`)
+
+                            varGroup.append("text")
+                                .attr("x", 0).attr("y", variableHeight / 2).attr("dy", "0.35em")
+                                .attr("font-size", "12px").text(`${variable.name}: ${variable.value}`)
+                                .attr("fill", "#1f2937")
+                        })
+                    } else { // Heap Object
+                        nodeInfo.properties?.forEach((prop: any, i: number) => {
+                            const propY = objectHeaderHeight + i * (propertyHeight + objectPropertySpacing) + objectPadding / 2;
+                            const propGroup = nodeGroup.append("g")
+                                .attr("transform", `translate(${objectPadding}, ${propY})`)
+
+                            propGroup.append("text")
+                                .attr("x", 0).attr("y", propertyHeight / 2).attr("dy", "0.35em")
+                                .attr("font-size", "12px").text(`${prop.name}: ${prop.value}`)
+                                .attr("fill", "#1f2937")
+                        })
+                    }
+                })
+
+                // --- Draw Connections ---
+                updateConnections() // Initial draw
+
+                // --- Add Zoom Controls --- (Position relative to finalWidth)
+                const zoomControlsGroup = svg.append("g")
+                    .attr("transform", `translate(${finalWidth - 50}, ${margin.top - 10})`) // Position top right
+                    .attr("class", "zoom-controls")
+
+                const createZoomButton = (parent: d3.Selection<SVGGElement, unknown, null, undefined>, yOffset: number, text: string, clickHandler: () => void) => {
+                    const button = parent.append("g")
+                        .attr("transform", `translate(0, ${yOffset})`)
+                        .attr("class", "zoom-button")
+                        .style("cursor", "pointer")
+                        .on("click", clickHandler)
+                    button.append("rect")
+                        .attr("width", 30).attr("height", 30).attr("rx", 5)
+                        .attr("fill", "#e2e8f0").attr("stroke", "#cbd5e1")
+                    button.append("text")
+                        .attr("x", 15).attr("y", 15).attr("dy", "0.35em").attr("text-anchor", "middle")
+                        .attr("font-size", text === "⌂" ? "16px" : "20px") // Adjust reset icon size
+                        .text(text)
+                        .style("pointer-events", "none") // Prevent text capturing click
+                    return button
+                }
+
+                createZoomButton(zoomControlsGroup, 0, "+", () => svg.transition().duration(300).call(zoom.scaleBy, 1.3))
+                createZoomButton(zoomControlsGroup, 35, "−", () => svg.transition().duration(300).call(zoom.scaleBy, 0.7))
+                createZoomButton(zoomControlsGroup, 70, "⌂", () => svg.transition().duration(300).call(zoom.transform, initialTransform)) // Reset to calculated initial view
+
+
             })
             .catch((error) => {
                 console.error("ELK layout error:", error)
+                svg.append("text")
+                    .attr("x", 10).attr("y", 30).text(`Layout Error: ${error.message}`)
+                    .attr("fill", "red")
+                // Set fallback dimensions on error
+                setSvgDimensions({ width: 600, height: 400, viewBox: "0 0 600 400" })
             })
-    }, [currentExecStep])
+
+    }, [currentExecStep]) // Rerun effect when execution step changes
 
     return (
         <>
-            <svg ref={svgRef} className="w-full"></svg>
+            {/* Use state for dimensions */}
+            <svg ref={svgRef} width={svgDimensions.width} height={svgDimensions.height} viewBox={svgDimensions.viewBox} className="w-full"></svg>
+            {/* Optional: Keep instructions or simplify */}
             <div className="mt-4 text-sm text-gray-600">
-                <p>
-                    Drag scopes and objects to rearrange them. Scopes are restricted to the left area, and heap objects to the
-                    right area. Hover over connections to highlight relationships.
-                </p>
+                <p>Drag nodes to rearrange them. Use controls or mouse wheel/trackpad to zoom and pan.</p>
             </div>
         </>
     )
