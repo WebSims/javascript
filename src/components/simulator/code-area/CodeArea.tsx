@@ -78,8 +78,8 @@ const decorations = {
         read: {
             classN: "ast-exp-read",
             var: { tooltip: "Read variable", cheatSheetId: "exp-read-var", classN: "text-blue-600", color: colorPallete[4] },
-            prop: { tooltip: "Read property of object", cheatSheetId: "exp-read-prop", classN: "text-blue-600", color: colorPallete[3] },
-            expr: { tooltip: "Read property of object (by expression)", color: colorPallete[1] },
+            prop: { tooltip: "Read property of object", cheatSheetId: "exp-read-prop-static", classN: "text-blue-600", color: colorPallete[3] },
+            expr: { tooltip: "Read property of object (by expression)", cheatSheetId: "exp-read-prop-dynamic", color: colorPallete[1] },
         },
         write: {
             classN: "ast-exp-write",
