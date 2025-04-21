@@ -147,12 +147,6 @@ console.log(steps)
 
 const SimulatorContainer: React.FC = () => {
   const [isCheatSheetOpen, setIsCheatSheetOpen] = useState(true)
-  const [currentStepIndex, setCurrentStepIndex] = useState(13)
-
-  const currentSnapshot: { scopes: Scope[]; heap: Heap } | null =
-    steps.length > 0 && steps[currentStepIndex]
-      ? steps[currentStepIndex].memorySnapshot
-      : null
 
   return (
     <div className="h-screen">
@@ -211,11 +205,7 @@ const SimulatorContainer: React.FC = () => {
                     <h4 className="font-semibold text-slate-700">Memory Model</h4>
                   </div>
                   <div className="flex-1 overflow-auto p-2">
-                    {currentSnapshot ? (
-                      <MemoryModelVisualizer snapshot={currentSnapshot} />
-                    ) : (
-                      <div className="text-center text-gray-500">No memory data yet.</div>
-                    )}
+                    <MemoryModelVisualizer />
                   </div>
                 </div>
               </ResizablePanel>
