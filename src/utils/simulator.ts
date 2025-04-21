@@ -1,5 +1,5 @@
 import { ESNode, Program, VariableDeclarator, Identifier, Literal, VariableDeclaration, ArrayExpression, ObjectExpression, Property, ArrowFunctionExpression, ExpressionStatement } from "hermes-parser"
-import { ExecStep, JSValue, Scope, Heap, MemoryChange, HeapObject, HeapRef, Declaration, TDZ, ScopeType } from "../types/simulation"
+import { ExecStep, JSValue, Scope, Heap, MemoryChange, HeapObject, HeapRef, Declaration, TDZ, ScopeType, PushScopeKind } from "../types/simulation"
 import { cloneDeep } from "lodash" // Import cloneDeep from lodash
 import { CallExpression } from "typescript"
 
@@ -11,7 +11,6 @@ import { CallExpression } from "typescript"
  * @returns An array of execution steps representing the simulation.
  */
 export const simulateExecution = (astNode: ESNode | null): ExecStep[] => {
-    console.log({ astNode })
     // Ensure we have a valid Program node
     if (!astNode) {
         console.error("Invalid AST provided to simulateExecution.")
@@ -19,8 +18,9 @@ export const simulateExecution = (astNode: ESNode | null): ExecStep[] => {
     }
 
     const steps: ExecStep[] = []
-    const scopes: Scope[] = [{ type: "global", variables: {} }] // Start with global scope
+    const scopes: Scope[] = []
     const heap: Heap = {} // Use const
+    let lastScope = -1
     let nextRef: HeapRef = 0
     let stepCounter: number = 0
 
@@ -90,14 +90,56 @@ export const simulateExecution = (astNode: ESNode | null): ExecStep[] => {
     }
 
     // ... more helpers for get/set property, value resolution, etc. ...
+    const pushScopeKind = (astNode: ESNode): PushScopeKind => {
+        switch (astNode.type) {
+            case "Program":
+                return "program"
+            case "FunctionDeclaration":
+                return "function"
+            case "TryStatement":
+                return "try"
+            default:
+                return "block"
+        }
+    }
+
+    const pushScopeType = (astNode: ESNode): ScopeType => {
+        switch (astNode.type) {
+            case "Program":
+                return "global"
+            case "FunctionDeclaration":
+                return "function"
+            default:
+                return "block"
+        }
+    }
+
+    const pushScope = (astNode: ESNode): number => {
+        const scopeIndex = scopes.length
+        const type = pushScopeType(astNode)
+        const scope = { type, variables: {} }
+        scopes.push(scope)
+
+        const kind = pushScopeKind(astNode)
+        addStep({
+            phase: "creation",
+            scopeIndex,
+            memoryChange: { type: "push_scope", kind, scope },
+            node: astNode,
+        })
+
+        return scopeIndex
+    }
 
     // --- Creation Pass --- 
-    const creationPhase = (nodes: ESNode[], currentScopeIndex: number): void => {
-        console.log("Starting Creation Pass for scope:", currentScopeIndex)
+    const creationPhase = (astNode: ESNode, scopeIndex: number, strict: boolean): void => {
+        // Create a new scope for the current node
+        scopeIndex = pushScope(astNode)
+        console.log("Starting Creation Phase for scope:", scopeIndex)
 
         const declarations: Declaration[] = []
 
-        for (const node of nodes) {
+        for (const node of (astNode as Program).body) {
             if (!node) continue
 
             switch (node.type) {
@@ -116,11 +158,8 @@ export const simulateExecution = (astNode: ESNode | null): ExecStep[] => {
                                 }
                                 const ref = allocateHeapObject(functionObject)
 
-                                const declaration = newDeclaration(functionName, "function", currentScopeIndex, { type: "reference", ref })
-                                if (declaration) {
-                                    declarations.push(declaration)
-                                }
-
+                                const declaration = newDeclaration(functionName, "function", scopeIndex, { type: "reference", ref })
+                                if (declaration) declarations.push(declaration)
                             } else {
                                 console.warn("FunctionDeclaration id is not an Identifier?", idNode)
                             }
@@ -139,10 +178,8 @@ export const simulateExecution = (astNode: ESNode | null): ExecStep[] => {
                                     const idNode = declarator.id as Identifier
                                     const varName = idNode.name
                                     const initialValue: JSValue = { type: "primitive", value: undefined }
-                                    const declaration = newDeclaration(varName, "var", currentScopeIndex, initialValue)
-                                    if (declaration) {
-                                        declarations.push(declaration)
-                                    }
+                                    const declaration = newDeclaration(varName, "var", scopeIndex, initialValue)
+                                    if (declaration) declarations.push(declaration)
                                 } else {
                                     console.warn("Unhandled var declaration pattern in creation:", declarator.id?.type)
                                 }
@@ -155,10 +192,8 @@ export const simulateExecution = (astNode: ESNode | null): ExecStep[] => {
                                     const idNode = declarator.id as Identifier
                                     const varName = idNode.name
                                     const initialValue: JSValue = TDZ
-                                    const declaration = newDeclaration(varName, node.kind, currentScopeIndex, initialValue)
-                                    if (declaration) {
-                                        declarations.push(declaration)
-                                    }
+                                    const declaration = newDeclaration(varName, node.kind, scopeIndex, initialValue)
+                                    if (declaration) declarations.push(declaration)
                                 } else {
                                     console.warn("Unhandled let/const declaration pattern in creation:", declarator.id?.type)
                                 }
@@ -171,12 +206,12 @@ export const simulateExecution = (astNode: ESNode | null): ExecStep[] => {
 
         addStep({
             phase: "creation",
-            scopeIndex: currentScopeIndex,
-            memoryChange: { type: "declaration", declarations, scopeIndex: currentScopeIndex },
-            nodes: nodes,
+            scopeIndex,
+            memoryChange: { type: "declaration", declarations, scopeIndex },
+            node: astNode,
         })
 
-        console.log("Finished Creation Pass for scope:", currentScopeIndex)
+        console.log("Finished Creation Phase for scope:", scopeIndex)
     }
 
     // --- Execution Pass --- 
@@ -711,15 +746,27 @@ export const simulateExecution = (astNode: ESNode | null): ExecStep[] => {
         return { type: "primitive", value: undefined }
     }
 
+    const isBlock = (node: ESNode): boolean => {
+        return node.type === "BlockStatement" || node.type === "Program"
+    }
+
+    const isStrict = (node: ESNode): boolean => {
+        return node?.body[0]?.expression?.type === "Literal" && node?.body[0]?.expression?.value === "use strict"
+    }
     // --- Simulation Execution --- 
-    function traverseAST(astNode: ESNode, scopeIndex: number) {
+    function traverseAST(astNode: ESNode, scopeIndex: number, strict: boolean) {
         try {
             // Phase 1: Creation
             // Ensure ast.body is treated as an array of ESNodes
             // FunctionDeclaration - Function declarations are completely hoisted with their bodies
             // VariableDeclaration - With var keyword (not let or const)
             // ClassDeclaration - Class declarations are hoisted but remain uninitialized until the class expression is evaluated
-            creationPhase(Array.isArray(astNode.body) ? astNode.body : [], scopeIndex)
+            if (isBlock(astNode)) {
+                lastScopeIndex++
+                scopeIndex = lastScopeIndex
+                strict = isStrict(astNode)
+                creationPhase(astNode, scopeIndex, strict)
+            }
 
             // Phase 2: Execution
             executionPhase(astNode, scopeIndex) // Start execution from the Program node in global scope
@@ -737,8 +784,10 @@ export const simulateExecution = (astNode: ESNode | null): ExecStep[] => {
         }
     }
 
-    traverseAST(astNode, 0)
+    let lastScopeIndex = -1
+    traverseAST(astNode, 0, false)
 
     console.log("Simulation finished. Steps:", steps.length)
     return steps
 }
+

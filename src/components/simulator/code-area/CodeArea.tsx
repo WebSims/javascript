@@ -114,7 +114,7 @@ interface CodeAreaProps {
 }
 
 const Statement = ({ st, parent, parens }) => {
-    const { isExecuting } = useExecStep(st)
+    const { isExecuting } = useExecStep(parent)
 
     let component = <>UNKNWON STATEMENT</>;
     let cheatSheetId = "statement.UNKNOWN"

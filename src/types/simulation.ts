@@ -38,6 +38,7 @@ export type Declaration = {
     initialValue: JSValue
 }
 
+export type PushScopeKind = "program" | "function" | "try" | "catch" | "finally" | "switch" | "loop" | "block"
 // ----- Memory Change -----
 
 // Describes the specific memory modification in a step
@@ -73,7 +74,7 @@ export type MemoryChange =
     }
     | {
         type: "push_scope"
-        kind: "program" | "function" | "try" | "catch" | "finally" | "switch" | "loop" | "block"
+        kind: PushScopeKind
         scope: Scope
         functionRef?: HeapRef // Reference to the function HeapObject that was called
         error?: JSValue // The error message that was thrown
