@@ -4,6 +4,7 @@ import React, { useEffect } from "react"
 import * as hermesParser from "hermes-parser"
 import * as _ from 'lodash'
 import { useSimulatorStore } from "@/hooks/useSimulatorStore"
+import { useExecStep } from "@/hooks/useExecStep"
 
 // import * as ts from "typescript";
 // const ast = ts.createSourceFile("temp.ts", codeStr, ts.ScriptTarget.Latest);
@@ -112,33 +113,9 @@ interface CodeAreaProps {
     debug?: boolean
 }
 
-// Helper function to check if a node is currently executing
-const isExecuting = (node: any, currentExecStep: any) => {
-    if (!currentExecStep || !node) return false
+const Statement = ({ st, parent, parens }) => {
+    const { isExecuting } = useExecStep(st)
 
-    // Check if the current step is associated with this node
-    if (currentExecStep.node && node.range) {
-        return (
-            currentExecStep.node.range[0] === node.range[0] &&
-            currentExecStep.node.range[1] === node.range[1]
-        )
-    }
-
-    // Also check nodes array if present in the step
-    if (currentExecStep.nodes && currentExecStep.nodes.length > 0) {
-        return currentExecStep.nodes.some(
-            (stepNode: any) => stepNode.range &&
-                node.range &&
-                stepNode.range[0] === node.range[0] &&
-                stepNode.range[1] === node.range[1]
-        )
-    }
-
-    return false
-}
-
-const Statement = ({ st, parent, parens, step }) => {
-    const executing = isExecuting(st, step)
     let component = <>UNKNWON STATEMENT</>;
     let cheatSheetId = "statement.UNKNOWN"
 
@@ -150,10 +127,10 @@ const Statement = ({ st, parent, parens, step }) => {
         st.category = "statement.declaration"
         if (init) {
             cheatSheetId = 'st-dec-assign'
-            component = <Def defBy={kind} name={id.name} setBy="=" setTo={init} parens={parens} parent={st} step={step} />
+            component = <Def defBy={kind} name={id.name} setBy="=" setTo={init} parens={parens} parent={st} />
         } else {
             cheatSheetId = 'st-dec-var'
-            component = <Def defBy={kind} name={id.name} setBy="" setTo={init} parens={parens} parent={st} step={step} />
+            component = <Def defBy={kind} name={id.name} setBy="" setTo={init} parens={parens} parent={st} />
         }
     }
 
@@ -165,34 +142,34 @@ const Statement = ({ st, parent, parens, step }) => {
             "NewExpression", "AwaitExpression", "YieldExpression",
             "UnaryExpression" // need further check for void/delete
         ].includes(st.expression.type) ? 'st-exp-useful' : 'st-exp-useless'
-        component = <Expression expr={st.expression} parens={parens} parent={st} step={step} />
+        component = <Expression expr={st.expression} parens={parens} parent={st} />
     }
 
     // FunctionDeclaration async:bool id:Identifier params:[] body:{BlockStatement body:[st]}
     if (st.type == "FunctionDeclaration") {
         st.category = "statement.declaration"
         cheatSheetId = 'st-dec-func'
-        component = <NewFn async={st.async} name={st.id.name} args={st.params} code={st.body} parens={parens} parent={st} step={step} />
+        component = <NewFn async={st.async} name={st.id.name} args={st.params} code={st.body} parens={parens} parent={st} />
     }
 
     // ClassDeclaration id:Identifier superClass:Identifier|null body:{ClassBody body:[MethodDefinition|PropertyDefinition]}
     if (st.type == "ClassDeclaration") {
         st.category = "statement.class"
         cheatSheetId = 'st-dec-class'
-        component = <NewClass name={st.id.name} superClass={st.superClass} body={st.body} parens={parens} parent={st} step={step} />
+        component = <NewClass name={st.id.name} superClass={st.superClass} body={st.body} parens={parens} parent={st} />
     }
 
     // ReturnStatement argument:expr
     if (st.type == "ReturnStatement") {
         st.category = "statement.return"
         cheatSheetId = 'st-flow-return'
-        component = <ReturnStatement expr={st.argument} parens={parens} parent={st} step={step} />
+        component = <ReturnStatement expr={st.argument} parens={parens} parent={st} />
     }
 
     const title = _.get(decorations, st.category || "statement.UNKNOWN").tooltip
     const className = (st.category || "statement.UNKNOWN").split('.').map((__, i, all) =>
         _.get(decorations, all.slice(0, i + 1).join('.')).classN || ''
-    ).join(' ') + (executing ? ' executing' : '')
+    ).join(' ') + (isExecuting ? ' executing' : '')
 
     return <div
         data-cheat-sheet-id={cheatSheetId}
@@ -201,10 +178,10 @@ const Statement = ({ st, parent, parens, step }) => {
     >{component}</div>
 }
 
-const Def = ({ defBy, name, setBy, setTo, parens, parent, step }) => {
+const Def = ({ defBy, name, setBy, setTo, parens, parent }) => {
     return <>
         <span className="keyword keyword-prefix keyword-def">{defBy}</span>
-        <WriteVar name={name} setBy={setBy} setTo={setTo} parent={parent} parens={parens} step={step} />
+        <WriteVar name={name} setBy={setBy} setTo={setTo} parent={parent} parens={parens} />
     </>
 }
 
@@ -212,8 +189,8 @@ const Def = ({ defBy, name, setBy, setTo, parens, parent, step }) => {
 //   <div className="statement">return {<Expression {...expr} />}</div>
 // )
 
-const Expression = ({ fromAstOf, expr, parent, parens, step }: { fromAstOf?: any, expr: any, parent: any, parens: any, step: any }) => {
-    const executing = isExecuting(expr, step)
+const Expression = ({ fromAstOf, expr, parent, parens }: { fromAstOf?: any, expr: any, parent: any, parens: any }) => {
+    const { isExecuting } = useExecStep(expr)
 
     if (fromAstOf) {
         const ast = astOf(fromAstOf)
@@ -244,19 +221,19 @@ const Expression = ({ fromAstOf, expr, parent, parens, step }: { fromAstOf?: any
     // ArrayExpression elements:expr[]
     if (expr.type == "ArrayExpression") {
         expr.category = "expression.data.arr"
-        component = <NewArr items={expr.elements} parens={parens} parent={expr} step={step} />
+        component = <NewArr items={expr.elements} parens={parens} parent={expr} />
     }
 
     // ObjectExpression properties:Property[]
     if (expr.type == "ObjectExpression") {
         expr.category = "expression.data.obj"
-        component = <NewObj props={expr.properties} parens={parens} parent={expr} step={step} />
+        component = <NewObj props={expr.properties} parens={parens} parent={expr} />
     }
 
     // ArrowFunctionExpression params:[] body:expr|{BlockStatement body:[st]} async:bool expression:bool
     if (expr.type == "ArrowFunctionExpression") {
         expr.category = "expression.data.fnArr"
-        component = <NewFnArrow async={expr.async || false} args={expr.params} code={expr.body} parens={parens} parent={expr} step={step} />
+        component = <NewFnArrow async={expr.async || false} args={expr.params} code={expr.body} parens={parens} parent={expr} />
     }
 
     // Identifier name:string
@@ -282,35 +259,12 @@ const Expression = ({ fromAstOf, expr, parent, parens, step }: { fromAstOf?: any
         const { object, property, computed } = expr
         if (computed) {
             expr.category = "expression.read.expr"
-            component = <ReadIndex expr={property} of={object} parens={parens} parent={expr} step={step} />
+            component = <ReadIndex expr={property} of={object} parens={parens} parent={expr} />
         } else {
             expr.category = "expression.read.prop"
-            component = <ReadProp name={property.name} of={object} parens={parens} parent={expr} step={step} />
+            component = <ReadProp name={property.name} of={object} parens={parens} parent={expr} />
         }
     }
-
-    // AssignmentExpression operator:string left:Identifier|MemberExpression right:expr
-    // if (expr.type == "AssignmentExpression") {
-    //     const { left, operator, right } = st.expression
-
-    //     // Identifier name:string
-    //     if (left.type == "Identifier") {
-    //         expr.category = "expression.write.var"
-    //         component = <WriteVar name={left.name} setBy={operator} setTo={right} />
-    //     }
-
-    //     // MemberExpression object:expr property:expr computed:bool
-    //     if (left.type == "MemberExpression") {
-    //         const { object, property, computed } = left
-    //         if (computed) {
-    //             expr.category = "expression.write.expr"
-    //             component = <WriteIndex expr={property} of={object} setBy={operator} setTo={right} parens={parens} parent={expr} />
-    //         } else {
-    //             expr.category = "expression.write.prop"
-    //             component = <WriteProp name={property.name} of={object} setBy={operator} setTo={right} parens={parens} parent={expr} />
-    //         }
-    //     }
-    // }
 
     // UnaryExpression operator:string argument:expr
     // XXXXExpression operator:string left:expr right:exp
@@ -318,11 +272,11 @@ const Expression = ({ fromAstOf, expr, parent, parens, step }: { fromAstOf?: any
         const { operator, argument, left, right } = expr
         if (argument) {
             expr.category = "expression.operator.unary"
-            component = <OperatorUnary operator={operator} operand={argument} parens={parens} parent={expr} step={step} />
+            component = <OperatorUnary operator={operator} operand={argument} parens={parens} parent={expr} />
         }
         if (right) {
             expr.category = "expression.operator.binary"
-            component = <OperatorBinary {...{ operator, left, right }} parens={parens} parent={expr} step={step} />
+            component = <OperatorBinary {...{ operator, left, right }} parens={parens} parent={expr} />
         }
     }
 
@@ -330,19 +284,19 @@ const Expression = ({ fromAstOf, expr, parent, parens, step }: { fromAstOf?: any
     if (expr.type == "ConditionalExpression") {
         const { test, alternate, consequent } = expr
         expr.category = "expression.operator.ternary"
-        component = <OperatorTernary cond={test} truthy={consequent} falsy={alternate} parens={parens} parent={expr} step={step} />
+        component = <OperatorTernary cond={test} truthy={consequent} falsy={alternate} parens={parens} parent={expr} />
     }
 
     // CallExpression callee:expr arguments:expr[]
     if (expr.type == "CallExpression") {
         expr.category = "expression.call"
-        component = <Call expr={expr.callee} args={expr.arguments} parens={parens} parent={expr} step={step} />
+        component = <Call expr={expr.callee} args={expr.arguments} parens={parens} parent={expr} />
     }
 
     // NewExpression callee:expr arguments:expr[]
     if (expr.type == "NewExpression") {
         expr.category = "expression.new"
-        component = <NewConstructor expr={expr.callee} args={expr.arguments} parens={parens} parent={expr} step={step} />
+        component = <NewConstructor expr={expr.callee} args={expr.arguments} parens={parens} parent={expr} />
     }
 
     // console.log('rendering:', { expr, range0: expr.range[0], parenthized: expr.parenthized, parens: [...parens] })
@@ -363,7 +317,7 @@ const Expression = ({ fromAstOf, expr, parent, parens, step }: { fromAstOf?: any
     const cheatSheetId = decoratorObject.cheatSheetId
     const className = (expr.category || "statement.UNKNOWN").split('.').map((__, i, all) =>
         _.get(decorations, all.slice(0, i + 1).join('.')).classN || ''
-    ).join(' ') + (executing ? ' executing' : '')
+    ).join(' ') + (isExecuting ? ' executing' : '')
     return <span
         data-cheat-sheet-id={cheatSheetId}
         className={className}
@@ -380,13 +334,13 @@ const Expression = ({ fromAstOf, expr, parent, parens, step }: { fromAstOf?: any
     </span>
 }
 
-const NewArr = ({ items, parent, parens, step }) => {
+const NewArr = ({ items, parent, parens }) => {
     // TODO: in loop, set parent of sub expressions (each item)
     return <span className="data new arr">
         <span className="text-xl align-middle font-bold mr-1">[</span>
         {items[0] && items.map((item, i) => {
             return <span key={i} className="ast-arr-item">
-                <Expression expr={item} parens={parens} parent={parent} step={step} />
+                <Expression expr={item} parens={parens} parent={parent} />
                 {i < items.length - 1 && <span className="text-xl align-middle font-bold">,&nbsp;</span>}
             </span>
         })}
@@ -394,7 +348,7 @@ const NewArr = ({ items, parent, parens, step }) => {
     </span>
 }
 
-const NewObj = ({ props, parent, parens, step }) => {
+const NewObj = ({ props, parent, parens }) => {
     // TODO: in loop, set parent of sub expressions ( each computed name and each value)
     // Property key:expr value:expr computed:bool method:bool shorthand:bool
     return <span className="data new obj">
@@ -411,7 +365,7 @@ const NewObj = ({ props, parent, parens, step }) => {
                 return <span key={i} className="ast-obj-prop ">
                     {key}
                     <span className="align-middle font-bold">:&nbsp;</span>
-                    <Expression expr={prop.value} parens={parens} parent={parent} step={step} />
+                    <Expression expr={prop.value} parens={parens} parent={parent} />
                     {i < props.length - 1 &&
                         <span className="align-middle font-bold">,&nbsp;</span>
                     }
@@ -423,7 +377,7 @@ const NewObj = ({ props, parent, parens, step }) => {
     </span>
 }
 
-const NewFnArrow = ({ async, args, code, parent, parens, step }) => {
+const NewFnArrow = ({ async, args, code, parent, parens }) => {
     let content;
     if (code.type == "BlockStatement") {
         content = <>
@@ -431,38 +385,38 @@ const NewFnArrow = ({ async, args, code, parent, parens, step }) => {
             {code.body && code.body.length > 0 &&
                 <div className="ml-4 space-y-2">
                     {code.body.map((statement, i) =>
-                        <Statement key={i} st={statement} parent={parent} parens={parens} step={step} />
+                        <Statement key={i} st={statement} parent={parent} parens={parens} />
                     )}
                 </div>
             }
             <span className="align-middle font-bold">&#125;</span>
         </>
     } else {
-        content = <Expression expr={code} parens={parens} parent={parent} step={step} />
+        content = <Expression expr={code} parens={parens} parent={parent} />
     }
     return (
         <>
             {async && <span className="keyword keyword-prefix keyword-async">async</span>}
             {/* {name && <span className="ast-exp-fn-name">{name}</span>} */}
-            <FnArgsDef args={args} parens={parens} parent={parent} step={step} />
+            <FnArgsDef args={args} parens={parens} parent={parent} />
             <span className="align-middle font-bold">&nbsp;=&gt;&nbsp;</span>
             {content}
         </>
     )
 }
 
-const NewFn = ({ async, name, args, code, parent, parens, step }) => {
+const NewFn = ({ async, name, args, code, parent, parens }) => {
     return (
         <>
             {async && <span className="keyword keyword-prefix keyword-async">async</span>}
             <span className="keyword keyword-prefix keyword-fn">function</span>
             {name && <span className="ast-exp-fn-name">{name}</span>}
-            <FnArgsDef args={args} parens={parens} parent={parent} step={step} />
+            <FnArgsDef args={args} parens={parens} parent={parent} />
             <span className="text-slate-500 align-middle font-bold">&#123;</span>
             {code.body && code.body.length > 0 && (
                 <div className="ml-4 space-y-1">
                     {code.body.map((statement, i) =>
-                        <Statement key={i} st={statement} parent={parent} parens={parens} step={step} />
+                        <Statement key={i} st={statement} parent={parent} parens={parens} />
                     )}
                 </div>
             )}
@@ -471,7 +425,7 @@ const NewFn = ({ async, name, args, code, parent, parens, step }) => {
     )
 }
 
-const FnArgsDef = ({ args, parent, parens, step }) => (
+const FnArgsDef = ({ args, parent, parens }) => (
     <>
         <span className="text-slate-500 align-middle font-bold">(</span>
         {args.map((arg, i) => {
@@ -484,7 +438,7 @@ const FnArgsDef = ({ args, parent, parens, step }) => (
 
             // AssignmentPattern left:Identifier right:exp
             if (arg.type == "AssignmentPattern") {
-                component = <WriteVar name={arg.left.name} setBy="=" setTo={arg.right} parent={parent} parens={parens} step={step} />
+                component = <WriteVar name={arg.left.name} setBy="=" setTo={arg.right} parent={parent} parens={parens} />
             }
 
             return <span key={i} className="ast-fn-def-arg">
@@ -502,98 +456,98 @@ const ReadVar = ({ name }) => (
     <span>{name}</span>
 )
 
-const ReadProp = ({ name, of, parent, parens, step }) => (
+const ReadProp = ({ name, of, parent, parens }) => (
     <>
         <span className="ast-noundef">
-            <Expression expr={of} parens={parens} parent={parent} step={step} />
+            <Expression expr={of} parens={parens} parent={parent} />
         </span>
         <span className="align-middle font-bold">.</span>
         <span>{name}</span>
     </>
 )
 
-const ReadIndex = ({ expr, of, parent, parens, step }) => (
+const ReadIndex = ({ expr, of, parent, parens }) => (
     <>
         <span className="ast-noundef">
-            <Expression expr={of} parens={parens} parent={parent} step={step} />
+            <Expression expr={of} parens={parens} parent={parent} />
         </span>
         <span className="text-xl align-middle font-bold">[</span>
-        <Expression expr={expr} parens={parens} parent={parent} step={step} />
+        <Expression expr={expr} parens={parens} parent={parent} />
         <span className="text-xl align-middle font-bold">]</span>
     </>
 )
 
-const WriteVar = ({ name, setBy, setTo, parent, parens, step }) => (
+const WriteVar = ({ name, setBy, setTo, parent, parens }) => (
     <>
         <span className="text-blue-600">{name}</span>
         <span className="text-slate-500 font-bold">&nbsp;{setBy}&nbsp;</span>
-        <Expression expr={setTo} parens={parens} parent={parent} step={step} />
+        <Expression expr={setTo} parens={parens} parent={parent} />
     </>
 )
 
-const WriteProp = ({ name, of, setBy, setTo, parent, parens, step }) => (
+const WriteProp = ({ name, of, setBy, setTo, parent, parens }) => (
     <>
         {/* <span className="ast-noundef"> */}
-        <Expression expr={of} parens={parens} parent={parent} step={step} />
+        <Expression expr={of} parens={parens} parent={parent} />
         <span className="text-slate-500 font-bold">.</span>
         <span className="text-blue-600">{name}</span>
         <span className="text-slate-500 font-bold">&nbsp;{setBy}&nbsp;</span>
-        <Expression expr={setTo} parens={parens} parent={parent} step={step} />
+        <Expression expr={setTo} parens={parens} parent={parent} />
     </>
 )
 
-const WriteIndex = ({ expr, of, setBy, setTo, parent, parens, step }) => (
+const WriteIndex = ({ expr, of, setBy, setTo, parent, parens }) => (
     <>
         {/* <span className="ast-noundef"> */}
-        <Expression expr={of} parens={parens} parent={parent} step={step} />
+        <Expression expr={of} parens={parens} parent={parent} />
         <span className="text-slate-500 font-bold">[</span>
-        <Expression expr={expr} parens={parens} parent={parent} step={step} />
+        <Expression expr={expr} parens={parens} parent={parent} />
         <span className="text-slate-500 font-bold">]</span>
         <span className="text-slate-500 font-bold">&nbsp;{setBy}&nbsp;</span>
-        <Expression expr={setTo} parens={parens} parent={parent} step={step} />
+        <Expression expr={setTo} parens={parens} parent={parent} />
     </>
 )
 
-const OperatorUnary = ({ operator, operand, parent, parens, step }) => {
+const OperatorUnary = ({ operator, operand, parent, parens }) => {
     return (
         <>
             <span className="align-middle font-bold">{operator}&nbsp;</span>
-            <Expression expr={operand} parens={parens} parent={parent} step={step} />
+            <Expression expr={operand} parens={parens} parent={parent} />
         </>
     )
 }
 
-const OperatorBinary = ({ operator, left, right, parent, parens, step }) => {
+const OperatorBinary = ({ operator, left, right, parent, parens }) => {
     const decoratorObject = _.get(decorations, parent.category || "expression.UNKNOWN")
 
     return (
         <>
-            <Expression expr={left} parens={parens} parent={parent} step={step} />
+            <Expression expr={left} parens={parens} parent={parent} />
             <span className="align-middle font-bold">&nbsp;{operator}&nbsp;</span>
-            <Expression expr={right} parens={parens} parent={parent} step={step} />
+            <Expression expr={right} parens={parens} parent={parent} />
         </>
     )
 }
 
-const OperatorTernary = ({ cond, truthy, falsy, parent, parens, step }) => {
+const OperatorTernary = ({ cond, truthy, falsy, parent, parens }) => {
     return (
         <>
-            <Expression expr={cond} parens={parens} parent={parent} step={step} />
+            <Expression expr={cond} parens={parens} parent={parent} />
             <span className="text-slate-500 align-middle font-bold">?</span>
-            <Expression expr={truthy} parens={parens} parent={parent} step={step} />
+            <Expression expr={truthy} parens={parens} parent={parent} />
             <span className="text-slate-500 align-middle font-bold">:</span>
-            <Expression expr={falsy} parens={parens} parent={parent} step={step} />
+            <Expression expr={falsy} parens={parens} parent={parent} />
         </>
     )
 }
 
-const Call = ({ expr, args, parent, parens, step }) => {
+const Call = ({ expr, args, parent, parens }) => {
     return <>
-        <Expression expr={expr} parens={parens} parent={parent} step={step} />
+        <Expression expr={expr} parens={parens} parent={parent} />
         <span className="text-slate-500 align-middle font-bold">(</span>
         {args.map((arg, i) => {
             return <>
-                <Expression key={i} expr={arg} parens={parens} parent={parent} step={step} />
+                <Expression key={i} expr={arg} parens={parens} parent={parent} />
                 {i < args.length - 1 &&
                     <span className="text-slate-500 align-middle font-bold">,</span>
                 }
@@ -603,14 +557,14 @@ const Call = ({ expr, args, parent, parens, step }) => {
     </>
 }
 
-const NewConstructor = ({ expr, args, parent, parens, step }) => {
+const NewConstructor = ({ expr, args, parent, parens }) => {
     return <>
         <span className="keyword keyword-new text-purple-600 font-medium mr-1">new</span>
-        <Expression expr={expr} parens={parens} parent={parent} step={step} />
+        <Expression expr={expr} parens={parens} parent={parent} />
         <span className="text-slate-500 align-middle font-bold">(</span>
         {args.map((arg, i) => {
             return <>
-                <Expression key={i} expr={arg} parens={parens} parent={parent} step={step} />
+                <Expression key={i} expr={arg} parens={parens} parent={parent} />
                 {i < args.length - 1 &&
                     <span className="text-slate-500 align-middle font-bold">,</span>
                 }
@@ -620,19 +574,19 @@ const NewConstructor = ({ expr, args, parent, parens, step }) => {
     </>
 }
 
-const ReturnStatement = ({ expr, parens, parent, step }) => (
+const ReturnStatement = ({ expr, parens, parent }) => (
     <>
         <span className="text-purple-600 font-medium">return</span>
         {expr && (
             <>
                 <span className="mx-1"></span>
-                <Expression expr={expr} parens={parens} parent={parent} step={step} />
+                <Expression expr={expr} parens={parens} parent={parent} />
             </>
         )}
     </>
 )
 
-const NewClass = ({ name, superClass, body, parens, parent, step }) => {
+const NewClass = ({ name, superClass, body, parens, parent }) => {
     return (
         <>
             <span className="text-purple-600 font-medium">class</span>
@@ -640,14 +594,14 @@ const NewClass = ({ name, superClass, body, parens, parent, step }) => {
             {superClass && (
                 <>
                     <span className="text-purple-600 font-medium">extends</span>
-                    <Expression expr={superClass} parens={parens} parent={parent} step={step} />
+                    <Expression expr={superClass} parens={parens} parent={parent} />
                 </>
             )}
             <span className="text-slate-500 font-bold ml-1">&#123;</span>
             {body.body && body.body.length > 0 && (
                 <div className="ml-4 space-y-1">
                     {body.body.map((member, i) => (
-                        <ClassMember key={i} member={member} parens={parens} parent={parent} step={step} />
+                        <ClassMember key={i} member={member} parens={parens} parent={parent} />
                     ))}
                 </div>
             )}
@@ -656,7 +610,7 @@ const NewClass = ({ name, superClass, body, parens, parent, step }) => {
     )
 }
 
-const MethodDefinition = ({ member, parens, parent, step }) => {
+const MethodDefinition = ({ member, parens, parent }) => {
     let keyComponent = null
     if (member.key.type === 'Identifier') {
         keyComponent = <span className="font-medium">{member.key.name}</span>
@@ -675,16 +629,16 @@ const MethodDefinition = ({ member, parens, parent, step }) => {
             {member.computed ? (
                 <>
                     <span className="align-middle font-bold">[</span>
-                    <Expression expr={member.key} parens={parens} parent={parent} step={step} />
+                    <Expression expr={member.key} parens={parens} parent={parent} />
                     <span className="align-middle font-bold">]</span>
                 </>
             ) : keyComponent}
-            <FnArgsDef args={member.value.params} parens={parens} parent={parent} step={step} />
+            <FnArgsDef args={member.value.params} parens={parens} parent={parent} />
             <span className="align-middle font-bold ml-1">&#123;</span>
             {member.value.body && member.value.body.body && member.value.body.body.length > 0 && (
                 <div className="ml-4 space-y-1">
                     {member.value.body.body.map((st, i) => (
-                        <Statement key={i} st={st} parent={parent} parens={parens} step={step} />
+                        <Statement key={i} st={st} parent={parent} parens={parens} />
                     ))}
                 </div>
             )}
@@ -693,7 +647,7 @@ const MethodDefinition = ({ member, parens, parent, step }) => {
     )
 }
 
-const ClassProperty = ({ member, parens, parent, step }) => {
+const ClassProperty = ({ member, parens, parent }) => {
     let keyComponent = null
     if (member.key.type === 'Identifier') {
         keyComponent = <span className="font-medium">{member.key.name}</span>
@@ -709,14 +663,14 @@ const ClassProperty = ({ member, parens, parent, step }) => {
             {member.computed ? (
                 <>
                     <span className="align-middle font-bold">[</span>
-                    <Expression expr={member.key} parens={parens} parent={parent} step={step} />
+                    <Expression expr={member.key} parens={parens} parent={parent} />
                     <span className="align-middle font-bold">]</span>
                 </>
             ) : keyComponent}
             {member.value && (
                 <>
                     <span className="align-middle font-bold mx-1">=</span>
-                    <Expression expr={member.value} parens={parens} parent={parent} step={step} />
+                    <Expression expr={member.value} parens={parens} parent={parent} />
                 </>
             )}
             <span className="align-middle font-bold">;</span>
@@ -724,7 +678,7 @@ const ClassProperty = ({ member, parens, parent, step }) => {
     )
 }
 
-const ClassMethod = ({ member, parens, parent, step }) => {
+const ClassMethod = ({ member, parens, parent }) => {
     let keyComponent = null
     if (member.type === 'Identifier') {
         keyComponent = <span className="font-medium">{member.name}</span>
@@ -742,16 +696,16 @@ const ClassMethod = ({ member, parens, parent, step }) => {
             {member.computed ? (
                 <>
                     <span className="text-xl align-middle font-bold">[</span>
-                    <Expression expr={member.key} parens={parens} parent={parent} step={step} />
+                    <Expression expr={member.key} parens={parens} parent={parent} />
                     <span className="text-xl align-middle font-bold">]</span>
                 </>
             ) : keyComponent}
-            <FnArgsDef args={member.value.params} parens={parens} parent={parent} step={step} />
+            <FnArgsDef args={member.value.params} parens={parens} parent={parent} />
             <span className="text-xl align-middle font-bold ml-1">&#123;</span>
             {member.value.body && member.value.body.body && member.value.body.body.length > 0 && (
                 <div className="ml-4 space-y-1">
                     {member.value.body.body.map((st, i) => (
-                        <Statement key={i} st={st} parent={parent} parens={parens} step={step} />
+                        <Statement key={i} st={st} parent={parent} parens={parens} />
                     ))}
                 </div>
             )}
@@ -760,8 +714,9 @@ const ClassMethod = ({ member, parens, parent, step }) => {
     )
 }
 
-const ClassMember = ({ member, parens, parent, step }) => {
-    const executing = isExecuting(member, step)
+const ClassMember = ({ member, parens, parent }) => {
+    const { isExecuting } = useExecutingNodes()
+    const executing = isExecuting(member)
 
     let component = <>UNKNOWN CLASS MEMBER</>
 
@@ -774,7 +729,6 @@ const ClassMember = ({ member, parens, parent, step }) => {
                 member={member}
                 parens={parens}
                 parent={parent}
-                step={step}
             />
         )
     }
@@ -787,7 +741,6 @@ const ClassMember = ({ member, parens, parent, step }) => {
                 member={member}
                 parens={parens}
                 parent={parent}
-                step={step}
             />
         )
     }
@@ -800,7 +753,6 @@ const ClassMember = ({ member, parens, parent, step }) => {
                 member={member}
                 parens={parens}
                 parent={parent}
-                step={step}
             />
         )
     }
@@ -809,7 +761,7 @@ const ClassMember = ({ member, parens, parent, step }) => {
     if (member.type && typeof member.type === 'string' && member.type.endsWith('Statement')) {
         component = (
             <div className="class-statement py-1">
-                <Statement st={member} parent={parent} parens={parens} step={step} />
+                <Statement st={member} parent={parent} parens={parens} />
             </div>
         )
     }
@@ -818,7 +770,7 @@ const ClassMember = ({ member, parens, parent, step }) => {
     if (member.type && typeof member.type === 'string' && member.type.endsWith('Declaration')) {
         component = (
             <div className="class-declaration py-1">
-                <Statement st={member} parent={parent} parens={parens} step={step} />
+                <Statement st={member} parent={parent} parens={parens} />
             </div>
         )
     }
@@ -837,7 +789,8 @@ const ClassMember = ({ member, parens, parent, step }) => {
 }
 
 const CodeArea: React.FC<CodeAreaProps> = ({ fromAstOf, parent, parens, debug }) => {
-    const { updateCodeStr, astOfCode, codeAreaRef, currentExecStep } = useSimulatorStore()
+    const { updateCodeStr, astOfCode, codeAreaRef } = useSimulatorStore()
+
     useEffect(() => {
         if (fromAstOf) {
             updateCodeStr(fromAstOf)
@@ -874,7 +827,7 @@ const CodeArea: React.FC<CodeAreaProps> = ({ fromAstOf, parent, parens, debug })
                 className="font-mono space-y-1"
             >
                 {statements.map((statement, i) => {
-                    return <Statement key={i} st={statement} parent={parent} parens={parens} step={currentExecStep} />
+                    return <Statement key={i} st={statement} parent={parent} parens={parens} />
                 })}
             </pre>
         </div>
