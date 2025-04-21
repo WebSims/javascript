@@ -745,6 +745,25 @@ export const simulateExecution = (astNode: ESNode | null): ExecStep[] => {
         return { type: "primitive", value: undefined }
     }
 
+    const destructionPhase = (astNode: ESNode, scopeIndex: number) => {
+        console.log("Destroying phase")
+        // remove scopeIndex from scopes and heap items in scopeIndex
+        const heapItems = Object.values(scopes[scopeIndex].variables)
+            .filter((item): item is Extract<JSValue, { type: 'reference' }> => item.type === 'reference') // Use type predicate
+        heapItems.forEach(item => {
+            delete heap[item.ref] // Safe access now
+        })
+        scopes.splice(scopeIndex, 1)
+
+        addStep({
+            node: astNode,
+            phase: "destruction",
+            scopeIndex: scopeIndex,
+            memoryChange: { type: "pop_scope", scopeIndex },
+            evaluatedValue: undefined,
+        })
+    }
+
     const isBlock = (node: ESNode): boolean => {
         return node.type === "Program" || node?.body?.type === "BlockStatement"
     }
@@ -759,18 +778,25 @@ export const simulateExecution = (astNode: ESNode | null): ExecStep[] => {
             // FunctionDeclaration - Function declarations are completely hoisted with their bodies
             // VariableDeclaration - With var keyword (not let or const)
             // ClassDeclaration - Class declarations are hoisted but remain uninitialized until the class expression is evaluated
+
+            // Phase 2: Execution
+            // executionPhase(astNode.type === "Program" ? astNode : astNode.body, scopeIndex) // Start execution from the Program node in global scope
+
+            // Phase 3: Destruction
+
             if (isBlock(astNode)) {
                 lastScopeIndex++
                 scopeIndex = lastScopeIndex
-
                 strict = isStrict(astNode)
-                creationPhase(astNode, scopeIndex, strict)
 
+                creationPhase(astNode, scopeIndex, strict)
+                executionPhase(astNode.type === "Program" ? astNode : astNode.body, scopeIndex) // Start execution from the Program node in global scope
+                destructionPhase(astNode, scopeIndex)
+
+                lastScopeIndex--
+            } else {
+                executionPhase(astNode, scopeIndex)
             }
-            // Phase 2: Execution
-            // executionPhase(astNode.type === "Program" ? astNode : astNode.body, scopeIndex) // Start execution from the Program node in global scope
-            executionPhase(astNode.type === "Program" ? astNode : astNode.body, scopeIndex) // Start execution from the Program node in global scope
-            lastScopeIndex--
         } catch (error) {
             console.error("Error during simulation:", error)
             // Potentially add a final error step to the steps array

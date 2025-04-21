@@ -92,7 +92,7 @@ export type ExecStep = {
     node?: ESNode // The primary AST node associated with this step
     nodes?: ESNode[] // The nodes associated with this step (e.g., declarations)
     pass?: "hoisted" | "normal" // Phase of execution (hoisting or normal run)
-    phase: "creation" | "execution" // Phase of execution
+    phase: "creation" | "execution" | "destruction" // Phase of execution
     evaluatedValue?: JSValue // The result of evaluating this node (if it's an expression)
     scopeIndex: number // Index into memorySnapshot.scopes for the *active* scope
     memoryChange: MemoryChange // Description of the memory effect of this step
