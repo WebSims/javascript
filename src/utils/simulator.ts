@@ -139,7 +139,8 @@ export const simulateExecution = (astNode: ESNode | null): ExecStep[] => {
 
         const declarations: Declaration[] = []
 
-        for (const node of (astNode as Program).body) {
+        const nodes = astNode.type === "Program" ? (astNode as Program).body : [astNode]
+        for (const node of nodes) {
             if (!node) continue
 
             switch (node.type) {
@@ -331,16 +332,13 @@ export const simulateExecution = (astNode: ESNode | null): ExecStep[] => {
                     if (fnRef?.type === "reference") {
                         const fnObject = heap[fnRef.ref];
                         if (fnObject?.type === "function") {
-                            const scopeIndex = newScope("function")
-
                             addStep({
-                                nodes: [node],
-                                phase: "creation",
+                                node: node,
+                                phase: "execution",
                                 scopeIndex: currentScopeIndex,
-                                memoryChange: { type: "function_call", functionRef: fnRef.ref, scopeIndex },
+                                memoryChange: { type: "none" },
                             })
-
-                            traverseAST(fnObject.node.body as ESNode, scopeIndex)
+                            traverseAST(fnObject.node as ESNode, currentScopeIndex, false)
                         }
                     }
                 }
@@ -747,7 +745,7 @@ export const simulateExecution = (astNode: ESNode | null): ExecStep[] => {
     }
 
     const isBlock = (node: ESNode): boolean => {
-        return node.type === "BlockStatement" || node.type === "Program"
+        return node.type === "Program" || node?.body?.type === "BlockStatement"
     }
 
     const isStrict = (node: ESNode): boolean => {
