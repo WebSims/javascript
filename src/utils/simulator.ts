@@ -139,9 +139,9 @@ export const simulateExecution = (astNode: ESNode | null): ExecStep[] => {
 
         const declarations: Declaration[] = []
 
-        const nodes = astNode.type === "Program" ? astNode.body : astNode.body.body
+        const body = astNode.type === "Program" ? astNode.body : astNode.body.body
 
-        for (const node of nodes) {
+        for (const node of body) {
             if (!node) continue
 
             switch (node.type) {
