@@ -72,19 +72,15 @@ export type MemoryChange =
         property: string | number // Property name or array index being deleted
     }
     | {
-        type: "function_call"
+        type: "push_scope"
+        kind: "program" | "function" | "try" | "catch" | "finally" | "switch" | "loop" | "block"
+        scope: Scope
         functionRef?: HeapRef // Reference to the function HeapObject that was called
-        scopeIndex: number // The new scope object pushed onto the stack
+        error?: JSValue // The error message that was thrown
     }
     | {
-        type: "function_return"
-        returnedValue?: JSValue // The JSValue returned from the function
-        // TODO: remove poppedScope.
-        poppedScope: Scope // The scope object that was popped
-    }
-    | {
-        type: "function_throw"
-        error: JSValue // The error message that was thrown
+        type: "pop_scope"
+        scopeIndex: number // Index in the memorySnapshot.scopes array
     }
 
 // ----- Execution Step -----
