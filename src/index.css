@@ -200,3 +200,10 @@
     transform: translateY(0px) scale(1);
   }
 }
+
+.executing {
+  @apply bg-yellow-200 rounded;
+}
+/* .executing:not(:has(.executing)) > * {
+  @apply bg-yellow-200 rounded;
+} */
