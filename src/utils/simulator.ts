@@ -234,6 +234,14 @@ export const simulateExecution = (astNode: ESNode | null): ExecStep[] => {
                         value = { type: "primitive", value: undefined };
                     }
 
+                    addStep({
+                        nodes: [node],
+                        phase: "execution",
+                        scopeIndex: currentScopeIndex,
+                        memoryChange: { type: "none" },
+                        evaluatedValue: value,
+                    })
+
                     return value
                 }
 
