@@ -36,7 +36,7 @@ export const SimulatorProvider = ({ children }: { children: React.ReactNode }) =
     const [execSteps, setExecSteps] = useState<ExecStep[]>([])
     const [currentExecStep, setCurrentExecStep] = useState<ExecStep | null>(null)
     const [isPlaying, setIsPlaying] = useState(false)
-    const [speed, setSpeed] = useState(1)
+    const [speed, setSpeed] = useState(2)
 
     const codeAreaRef = useRef<HTMLDivElement>(null)
     const cheatSheetRef = useRef<HTMLDivElement>(null)

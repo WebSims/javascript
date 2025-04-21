@@ -783,7 +783,6 @@ export const simulateExecution = (astNode: ESNode | null): ExecStep[] => {
             // executionPhase(astNode.type === "Program" ? astNode : astNode.body, scopeIndex) // Start execution from the Program node in global scope
 
             // Phase 3: Destruction
-
             if (isBlock(astNode)) {
                 lastScopeIndex++
                 scopeIndex = lastScopeIndex
@@ -794,8 +793,6 @@ export const simulateExecution = (astNode: ESNode | null): ExecStep[] => {
                 destructionPhase(astNode, scopeIndex)
 
                 lastScopeIndex--
-            } else {
-                executionPhase(astNode, scopeIndex)
             }
         } catch (error) {
             console.error("Error during simulation:", error)
