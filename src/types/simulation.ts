@@ -74,7 +74,7 @@ export type MemoryChange =
     | {
         type: "function_call"
         functionRef?: HeapRef // Reference to the function HeapObject that was called
-        pushedScope: Scope // The new scope object pushed onto the stack
+        scopeIndex: number // The new scope object pushed onto the stack
     }
     | {
         type: "function_return"

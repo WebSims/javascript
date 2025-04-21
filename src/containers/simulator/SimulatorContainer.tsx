@@ -48,11 +48,6 @@ function bye(name) {
 }`
 
 const MULTIPLE_SCOPE_CODE_SAMPLE = `
-const person = { name: "Alice", age: 30 };
-const scores = [100, 200];
-const job = { title: "Developer", company: { name: "Tech Co", founded: 2010 } };
-person.job = job;
-scores.push(300);
 const outerConst = 'outerConst text'
 var outerVar = "I am in outerFunction";
 function outerFunction() {

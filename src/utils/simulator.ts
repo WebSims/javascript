@@ -291,15 +291,21 @@ export const simulateExecution = (astNode: ESNode | null): ExecStep[] => {
 
             case "CallExpression":
                 {
-                    const callNode = node as CallExpression;
-                    const fnName = (callNode.callee as Identifier).name;
+                    const fnName = (node.callee as Identifier).name;
                     const fnRef = lookupVariable(fnName, currentScopeIndex).value;
                     if (fnRef?.type === "reference") {
                         const fnObject = heap[fnRef.ref];
                         if (fnObject?.type === "function") {
                             const scopeIndex = newScope("function")
-                            console.log(fnObject.node)
-                            console.log(traverseAST(fnObject.node.body as ESNode, scopeIndex))
+
+                            addStep({
+                                nodes: [node],
+                                phase: "creation",
+                                scopeIndex: currentScopeIndex,
+                                memoryChange: { type: "function_call", functionRef: fnRef.ref, scopeIndex },
+                            })
+
+                            traverseAST(fnObject.node.body as ESNode, scopeIndex)
                         }
                     }
                 }

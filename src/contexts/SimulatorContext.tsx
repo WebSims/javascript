@@ -54,6 +54,7 @@ export const SimulatorProvider = ({ children }: { children: React.ReactNode }) =
             const ast = astOf(newCodeStr)
             if (ast) {
                 const steps = simulateExecution(ast as ESNode)
+                console.log(steps)
                 setAstOfCode(ast)
                 setExecSteps(steps)
                 setCurrentExecStep(steps[0])
