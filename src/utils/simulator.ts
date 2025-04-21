@@ -1,7 +1,7 @@
 import { ESNode, Program, VariableDeclarator, Identifier, Literal, VariableDeclaration, ArrayExpression, ObjectExpression, Property, ArrowFunctionExpression, ExpressionStatement } from "hermes-parser"
 import { ExecStep, JSValue, Scope, Heap, MemoryChange, HeapObject, HeapRef, Declaration, TDZ, ScopeType, PushScopeKind } from "../types/simulation"
 import { cloneDeep } from "lodash" // Import cloneDeep from lodash
-import { CallExpression } from "typescript"
+import { CallExpression, FunctionDeclaration } from "typescript"
 
 /**
  * Simulates the execution of JavaScript code represented by an AST.
@@ -139,7 +139,8 @@ export const simulateExecution = (astNode: ESNode | null): ExecStep[] => {
 
         const declarations: Declaration[] = []
 
-        const nodes = astNode.type === "Program" ? (astNode as Program).body : [astNode]
+        const nodes = astNode.type === "Program" ? astNode.body : astNode.body.body
+
         for (const node of nodes) {
             if (!node) continue
 
@@ -213,6 +214,8 @@ export const simulateExecution = (astNode: ESNode | null): ExecStep[] => {
         })
 
         console.log("Finished Creation Phase for scope:", scopeIndex)
+
+        return scopeIndex
     }
 
     // --- Execution Pass --- 
@@ -321,14 +324,12 @@ export const simulateExecution = (astNode: ESNode | null): ExecStep[] => {
                 }
                 break; // End of VariableDeclaration case
 
-            case "FunctionDeclaration":
-                // Generally skip in execution pass (already hoisted)
-                break;
-
             case "CallExpression":
                 {
                     const fnName = (node.callee as Identifier).name;
+                    console.log(fnName)
                     const fnRef = lookupVariable(fnName, currentScopeIndex).value;
+                    console.log(currentScopeIndex, fnRef)
                     if (fnRef?.type === "reference") {
                         const fnObject = heap[fnRef.ref];
                         if (fnObject?.type === "function") {
@@ -755,20 +756,21 @@ export const simulateExecution = (astNode: ESNode | null): ExecStep[] => {
     function traverseAST(astNode: ESNode, scopeIndex: number, strict: boolean) {
         try {
             // Phase 1: Creation
-            // Ensure ast.body is treated as an array of ESNodes
             // FunctionDeclaration - Function declarations are completely hoisted with their bodies
             // VariableDeclaration - With var keyword (not let or const)
             // ClassDeclaration - Class declarations are hoisted but remain uninitialized until the class expression is evaluated
             if (isBlock(astNode)) {
                 lastScopeIndex++
                 scopeIndex = lastScopeIndex
+
                 strict = isStrict(astNode)
                 creationPhase(astNode, scopeIndex, strict)
+
             }
-
             // Phase 2: Execution
-            executionPhase(astNode, scopeIndex) // Start execution from the Program node in global scope
-
+            // executionPhase(astNode.type === "Program" ? astNode : astNode.body, scopeIndex) // Start execution from the Program node in global scope
+            executionPhase(astNode.type === "Program" ? astNode : astNode.body, scopeIndex) // Start execution from the Program node in global scope
+            lastScopeIndex--
         } catch (error) {
             console.error("Error during simulation:", error)
             // Potentially add a final error step to the steps array
