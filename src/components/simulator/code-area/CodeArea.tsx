@@ -479,13 +479,17 @@ const ReadIndex = ({ expr, of, parent, parens }) => (
     </>
 )
 
-const WriteVar = ({ name, setBy, setTo, parent, parens }) => (
-    <>
-        <span className="text-blue-600">{name}</span>
-        <span className="text-slate-500 font-bold">&nbsp;{setBy}&nbsp;</span>
-        <Expression expr={setTo} parens={parens} parent={parent} />
-    </>
-)
+const WriteVar = ({ name, setBy, setTo, parent, parens }) => {
+    const { isExecuting: isIdExecuting } = useExecStep(parent.declarations[0].id)
+
+    return (
+        <>
+            <span className={`text-blue-600 ${isIdExecuting ? 'executing' : ''}`}>{name}</span>
+            <span className="text-slate-500 font-bold">&nbsp;{setBy}&nbsp;</span>
+            <Expression expr={setTo} parens={parens} parent={parent} />
+        </>
+    )
+}
 
 const WriteProp = ({ name, of, setBy, setTo, parent, parens }) => (
     <>

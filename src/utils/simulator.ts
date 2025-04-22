@@ -312,7 +312,7 @@ export const simulateExecution = (astNode: ESNode | null): ExecStep[] => {
                                 const targetScopeIndex = writeVariable(varName, evaluatedValue, currentScopeIndex)
 
                                 addStep({
-                                    nodes: [declarator.init], // Step associated with the initializer execution
+                                    node: declarator.id, // Step associated with the initializer execution
                                     phase: "execution",
                                     scopeIndex: currentScopeIndex, // Execution happens in current scope...
                                     memoryChange: {
