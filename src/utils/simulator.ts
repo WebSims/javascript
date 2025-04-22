@@ -326,7 +326,6 @@ export const simulateExecution = (astNode: ESNode | null): ExecStep[] => {
                     }
 
                     addMemVal(value)
-
                     addStep({
                         node: literalNode,
                         phase: "execution",
@@ -360,9 +359,9 @@ export const simulateExecution = (astNode: ESNode | null): ExecStep[] => {
 
                                 // Evaluate the initializer
                                 const evaluatedValue = executionPhase(declarator.init, currentScopeIndex)
-
                                 const targetScopeIndex = writeVariable(varName, evaluatedValue, currentScopeIndex)
 
+                                removeMemVal(evaluatedValue)
                                 addStep({
                                     node: varDeclNode, // Step associated with the initializer execution
                                     phase: "execution",
@@ -415,6 +414,7 @@ export const simulateExecution = (astNode: ESNode | null): ExecStep[] => {
                                 return error
                             }
                         } else if (variable.value.type === "primitive") {
+                            addMemVal(variable.value)
                             addStep({
                                 node: node,
                                 phase: "execution",
@@ -451,7 +451,13 @@ export const simulateExecution = (astNode: ESNode | null): ExecStep[] => {
                     const rightValue = executionPhase(binNode.right, currentScopeIndex);
 
                     if (binNode.operator) {
-                        const evaluatedValue = eval(`${leftValue.value} ${binNode.operator} ${rightValue.value}`)
+                        const value = eval(`${leftValue.value}${binNode.operator}${rightValue.value}`)
+                        const evaluatedValue = {
+                            type: "primitive",
+                            value
+                        }
+                        removeMemVal(leftValue)
+                        removeMemVal(rightValue)
                         addMemVal(evaluatedValue)
                         addStep({
                             node: node,

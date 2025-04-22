@@ -1040,10 +1040,7 @@ const MemoryModelVisualizer = () => {
         <>
             <svg ref={svgRef} className="w-full"></svg>
             <div className="mt-4 text-sm text-gray-600">
-                <p>
-                    Drag scopes and objects to rearrange them. Scopes are restricted to the left area, and heap objects to the
-                    right area. Hover over connections to highlight relationships.
-                </p>
+                MEMVAL: {JSON.stringify(currentExecStep?.memorySnapshot?.memVal.map(val => val.value))}
             </div>
         </>
     )
