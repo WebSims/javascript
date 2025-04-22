@@ -263,9 +263,28 @@ export const simulateExecution = (astNode: ESNode | null): ExecStep[] => {
                 {
                     const blockNode = node as BlockStatement;
                     const statements = blockNode.body as ESNode[];
+                    let lastValue: JSValue = { type: "primitive", value: undefined };
                     for (const statement of statements) {
-                        executionPhase(statement, currentScopeIndex)
+                        if (!isBlock(statement)) {
+                            addStep({
+                                node: statement,
+                                phase: "execution",
+                                scopeIndex: currentScopeIndex,
+                                memoryChange: { type: "none" },
+                            })
+
+                            lastValue = executionPhase(statement, currentScopeIndex)
+
+                            addStep({
+                                node: statement,
+                                phase: "execution",
+                                scopeIndex: currentScopeIndex,
+                                memoryChange: { type: "none" },
+                                evaluatedValue: lastValue,
+                            })
+                        }
                     }
+                    return lastValue
                 }
                 break;
 
