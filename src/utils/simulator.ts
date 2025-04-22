@@ -464,6 +464,7 @@ export const simulateExecution = (astNode: ESNode | null): ExecStep[] => {
                 break;
 
             case "BinaryExpression":
+            case "LogicalExpression":
                 {
                     const binNode = node
                     addStep({
