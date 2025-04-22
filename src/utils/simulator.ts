@@ -1,6 +1,6 @@
 import { ESNode, Program, VariableDeclarator, Identifier, Literal, VariableDeclaration, ArrayExpression, ObjectExpression, Property, ArrowFunctionExpression, ExpressionStatement } from "hermes-parser"
 import { ExecStep, JSValue, Scope, Heap, MemoryChange, HeapObject, HeapRef, Declaration, TDZ, ScopeType, PushScopeKind } from "../types/simulation"
-import { cloneDeep } from "lodash" // Import cloneDeep from lodash
+import { cloneDeep, result } from "lodash" // Import cloneDeep from lodash
 import { CallExpression, FunctionDeclaration } from "typescript"
 
 /**
@@ -57,13 +57,13 @@ export const simulateExecution = (astNode: ESNode | null): ExecStep[] => {
         return ref
     }
 
-    const lookupVariable = (name: string, startingScopeIndex: number): { value: JSValue | undefined, scopeIndex: number } => {
+    const lookupVariable = (name: string, startingScopeIndex: number): { value: JSValue | undefined, scopeIndex: number } | false => {
         for (let i = startingScopeIndex; i >= 0; i--) {
             if (Object.prototype.hasOwnProperty.call(scopes[i].variables, name)) {
                 return { value: scopes[i].variables[name], scopeIndex: i }
             }
         }
-        return { value: undefined, scopeIndex: -1 } // Not found
+        return false // Not found
     }
 
     const newDeclaration = (name: string, kind: Extract<MemoryChange, { type: 'declaration' }>['declarations'][number]['kind'], scopeIndex: number, initialValue: JSValue): (Declaration | undefined) => {
@@ -239,6 +239,10 @@ export const simulateExecution = (astNode: ESNode | null): ExecStep[] => {
 
                                 lastValue = executionPhase(statement as ESNode, currentScopeIndex) // Keep cast
 
+                                if (lastValue.type === "error") {
+                                    return lastValue
+                                }
+
                                 addStep({
                                     node: statement,
                                     phase: "execution",
@@ -255,7 +259,7 @@ export const simulateExecution = (astNode: ESNode | null): ExecStep[] => {
             case "ExpressionStatement":
                 {
                     const expressionNode = (node as ExpressionStatement).expression
-                    executionPhase(expressionNode, currentScopeIndex)
+                    return executionPhase(expressionNode, currentScopeIndex)
                 }
                 break;
 
@@ -360,19 +364,36 @@ export const simulateExecution = (astNode: ESNode | null): ExecStep[] => {
 
             case "CallExpression":
                 {
-                    const fnName = (node.callee as Identifier).name;
-                    const fnRef = lookupVariable(fnName, currentScopeIndex).value;
-                    if (fnRef?.type === "reference") {
-                        const fnObject = heap[fnRef.ref];
-                        if (fnObject?.type === "function") {
-                            addStep({
-                                node: node,
-                                phase: "execution",
-                                scopeIndex: currentScopeIndex,
-                                memoryChange: { type: "none" },
-                            })
-                            traverseAST(fnObject.node as ESNode, currentScopeIndex, false)
+                    return executionPhase(node.callee, currentScopeIndex)
+                }
+
+            case "Identifier":
+                {
+                    const varName = (node as Identifier).name;
+                    const variable = lookupVariable(varName, currentScopeIndex)
+                    if (variable) {
+                        if (variable.value?.type === "reference") {
+                            const object = heap[variable.value.ref];
+                            if (object?.type === "function") {
+                                addStep({
+                                    node: node,
+                                    phase: "execution",
+                                    scopeIndex: currentScopeIndex,
+                                    memoryChange: { type: "none" },
+                                })
+                                traverseAST(object.node as ESNode, currentScopeIndex, false)
+                            }
                         }
+                    } else {
+                        const error = { type: "error", value: 'ReferenceError: ' + varName + ' is not defined' } as const
+                        addStep({
+                            node: node,
+                            phase: "execution",
+                            scopeIndex: currentScopeIndex,
+                            memoryChange: { type: "none" },
+                            errorThrown: error
+                        })
+                        return error
                     }
                 }
                 break;
@@ -821,9 +842,12 @@ export const simulateExecution = (astNode: ESNode | null): ExecStep[] => {
                 strict = isStrict(astNode)
 
                 creationPhase(astNode, scopeIndex, strict)
-                executionPhase(astNode.type === "Program" ? astNode : astNode.body, scopeIndex) // Start execution from the Program node in global scope
-                destructionPhase(astNode, scopeIndex)
+                const result = executionPhase(astNode.type === "Program" ? astNode : astNode.body, scopeIndex) // Start execution from the Program node in global scope
+                if (result.type === "error") {
+                    return result
+                }
 
+                destructionPhase(astNode, scopeIndex)
                 lastScopeIndex--
             } else {
                 return executionPhase(astNode, scopeIndex)

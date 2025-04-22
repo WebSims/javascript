@@ -10,6 +10,7 @@ export type HeapRef = number
 export type JSValue =
     | { type: "primitive"; value: string | number | boolean | null | undefined | symbol | bigint | typeof TDZ }
     | { type: "reference"; ref: HeapRef }
+    | { type: "error"; value: string }
 // Consider adding symbol/bigint if needed by the code you simulate
 
 // Represents a single object/array/function stored in the heap
