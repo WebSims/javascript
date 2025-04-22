@@ -17,13 +17,25 @@ export const simulateExecution = (astNode: ESNode | null): ExecStep[] => {
         return []
     }
 
-    const steps: ExecStep[] = []
+    const steps: ExecStep[] = [
+        {
+            index: 0,
+            memorySnapshot: { scopes: [], heap: {}, memVal: [] },
+            phase: "initial",
+            scopeIndex: 0,
+            memoryChange: { type: "none" },
+            executing: false,
+            executed: false,
+            evaluating: false,
+            evaluated: false,
+        }
+    ]
     const scopes: Scope[] = []
     const heap: Heap = {} // Use const
     const memVal: JSValue[] = []
-    let lastScope = -1
     let nextRef: HeapRef = 0
-    let stepCounter: number = 0
+    let lastScopeIndex = -1
+    let stepCounter: number = 1
 
     // --- Helper Functions ---
 
@@ -894,7 +906,6 @@ export const simulateExecution = (astNode: ESNode | null): ExecStep[] => {
         }
     }
 
-    let lastScopeIndex = -1
     traverseAST(astNode, 0, false)
 
     console.log("Simulation finished. Steps:", steps.length)

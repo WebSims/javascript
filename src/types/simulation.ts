@@ -91,7 +91,7 @@ export type ExecStep = {
     index: number // Sequential step index
     node?: ESNode // The primary AST node associated with this step
     nodes?: ESNode[] // The nodes associated with this step (e.g., declarations)
-    phase: "creation" | "execution" | "destruction" // Phase of execution
+    phase: "initial" | "creation" | "execution" | "destruction" // Phase of execution
     executing: boolean // Whether the step is currently being executed
     executed: boolean // Whether the step has been executed
     evaluating: boolean // Whether the step is currently evaluating an expression
