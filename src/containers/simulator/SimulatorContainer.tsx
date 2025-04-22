@@ -52,7 +52,7 @@ const a = 2
 const b = a + 1
 const c = (a + 1) + (b + 2)
 const d = (a + 1) + (b + 2) + (c + 3)
-const e = (a + 1) + (b + 2) + (c + 3) + (d + 4)
+const e = (a + 1) * (b + 2) + (c - 3) / (d + 4)
 `
 
 const FUNCTION_CODE_SAMPLE = `
