@@ -1,7 +1,7 @@
 import { ESNode, Program, VariableDeclarator, Identifier, Literal, VariableDeclaration, ArrayExpression, ObjectExpression, Property, ArrowFunctionExpression, ExpressionStatement } from "hermes-parser"
 import { ExecStep, JSValue, Scope, Heap, MemoryChange, HeapObject, HeapRef, Declaration, TDZ, ScopeType, PushScopeKind } from "../types/simulation"
 import { cloneDeep, result } from "lodash" // Import cloneDeep from lodash
-import { CallExpression, FunctionDeclaration } from "typescript"
+import { BinaryExpression, CallExpression, FunctionDeclaration, Node } from "typescript"
 
 /**
  * Simulates the execution of JavaScript code represented by an AST.
@@ -446,7 +446,18 @@ export const simulateExecution = (astNode: ESNode | null): ExecStep[] => {
 
             case "BinaryExpression":
                 {
-                    const binNode = node as any; // Cast to access left, right, operator
+                    const binNode = node
+                    addStep({
+                        node: node,
+                        phase: "execution",
+                        scopeIndex: currentScopeIndex,
+                        memoryChange: { type: "none" },
+                        executing: false,
+                        executed: false,
+                        evaluating: true,
+                        evaluated: false
+                    })
+
                     const leftValue = executionPhase(binNode.left, currentScopeIndex);
                     const rightValue = executionPhase(binNode.right, currentScopeIndex);
 
@@ -456,18 +467,20 @@ export const simulateExecution = (astNode: ESNode | null): ExecStep[] => {
                             type: "primitive",
                             value
                         }
-                        removeMemVal(leftValue)
-                        removeMemVal(rightValue)
+
+                        if (leftValue.type === "primitive") removeMemVal(leftValue)
+                        if (rightValue.type === "primitive") removeMemVal(rightValue)
                         addMemVal(evaluatedValue)
                         addStep({
                             node: node,
                             phase: "execution",
                             scopeIndex: currentScopeIndex,
                             memoryChange: { type: "none" },
-                            evaluatedValue,
                             executing: false,
-                            executed: true,
+                            executed: false,
+                            evaluating: false,
                             evaluated: true,
+                            evaluatedValue,
                         })
                         return evaluatedValue
                     }

@@ -94,6 +94,7 @@ export type ExecStep = {
     phase: "creation" | "execution" | "destruction" // Phase of execution
     executing: boolean // Whether the step is currently being executed
     executed: boolean // Whether the step has been executed
+    evaluating: boolean // Whether the step is currently evaluating an expression
     evaluated: boolean // Whether the step has evaluated an expression
     evaluatedValue?: JSValue // The result of evaluating this node (if it's an expression)
     scopeIndex: number // Index into memorySnapshot.scopes for the *active* scope
