@@ -174,7 +174,6 @@ export const simulateExecution = (astNode: ESNode | null): ExecStep[] => {
                 case "VariableDeclaration":
                     {
                         if (node.kind === "var") {
-                            console.log(node.declarations)
                             for (const declarator of (node.declarations as VariableDeclarator[])) {
                                 if (declarator.id?.type === "Identifier") {
                                     const idNode = declarator.id as Identifier
@@ -188,7 +187,6 @@ export const simulateExecution = (astNode: ESNode | null): ExecStep[] => {
                             }
                         }
                         if (node.kind === "let" || node.kind === "const") {
-                            console.log(node.declarations)
                             for (const declarator of (node.declarations as VariableDeclarator[])) {
                                 if (declarator.id?.type === "Identifier") {
                                     const idNode = declarator.id as Identifier
@@ -207,10 +205,10 @@ export const simulateExecution = (astNode: ESNode | null): ExecStep[] => {
         }
 
         addStep({
+            node: astNode,
             phase: "creation",
             scopeIndex,
             memoryChange: { type: "declaration", declarations, scopeIndex },
-            node: astNode,
         })
 
         console.log("Finished Creation Phase for scope:", scopeIndex)
@@ -231,7 +229,14 @@ export const simulateExecution = (astNode: ESNode | null): ExecStep[] => {
                     let lastValue: JSValue = { type: "primitive", value: undefined };
                     if (Array.isArray(programBody)) {
                         for (const statement of programBody) {
+                            addStep({
+                                node: statement,
+                                phase: "execution",
+                                scopeIndex: currentScopeIndex,
+                                memoryChange: { type: "none" },
+                            })
                             lastValue = executionPhase(statement as ESNode, currentScopeIndex) // Keep cast
+                            console.log(lastValue)
                         }
                     }
                     return lastValue
@@ -327,9 +332,7 @@ export const simulateExecution = (astNode: ESNode | null): ExecStep[] => {
             case "CallExpression":
                 {
                     const fnName = (node.callee as Identifier).name;
-                    console.log(fnName)
                     const fnRef = lookupVariable(fnName, currentScopeIndex).value;
-                    console.log(currentScopeIndex, fnRef)
                     if (fnRef?.type === "reference") {
                         const fnObject = heap[fnRef.ref];
                         if (fnObject?.type === "function") {

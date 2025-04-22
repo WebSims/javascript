@@ -50,7 +50,6 @@ function bye(name) {
 const MULTIPLE_SCOPE_CODE_SAMPLE = `
 const outerConst = 'outerConst text'
 var outerVar = "I am in outerFunction";
-outerFunction();
 function outerFunction() {
   const innerVar = "I am in innerFunction";
   function innerFunction() {
@@ -58,9 +57,6 @@ function outerFunction() {
   }
   innerFunction();
 }
-outerFunction();
-outerFunction();
-outerFunction();
 outerFunction();
 `
 
