@@ -77,7 +77,6 @@ export type MemoryChange =
         kind: PushScopeKind
         scope: Scope
         functionRef?: HeapRef // Reference to the function HeapObject that was called
-        error?: JSValue // The error message that was thrown
     }
     | {
         type: "pop_scope"
@@ -104,5 +103,5 @@ export type ExecStep = {
     // consoleAdded: null | {type: "log" | "error" | 'info' | 'warn' | 'debug' | 'table' | ..., values: JSValue[]}
     // consoleSnapshot: {type: "log" | "error" | 'info' | 'warn' | 'debug' | 'table' | ..., values: JSValue[]}[]
     output?: string // Any output generated in this step (e.g., console.log)
-    error?: string // Any error generated in this step
+    errorThrown?: JSValue // Any error generated in this step
 }

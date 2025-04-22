@@ -229,21 +229,24 @@ export const simulateExecution = (astNode: ESNode | null): ExecStep[] => {
                     let lastValue: JSValue = { type: "primitive", value: undefined };
                     if (Array.isArray(programBody)) {
                         for (const statement of programBody) {
-                            addStep({
-                                node: statement,
-                                phase: "execution",
-                                scopeIndex: currentScopeIndex,
-                                memoryChange: { type: "none" },
-                            })
-                            lastValue = executionPhase(statement as ESNode, currentScopeIndex) // Keep cast
-                            console.log(lastValue)
-                            addStep({
-                                node: statement,
-                                phase: "execution",
-                                scopeIndex: currentScopeIndex,
-                                memoryChange: { type: "none" },
-                                evaluatedValue: lastValue,
-                            })
+                            if (!isBlock(statement)) {
+                                addStep({
+                                    node: statement,
+                                    phase: "execution",
+                                    scopeIndex: currentScopeIndex,
+                                    memoryChange: { type: "none" },
+                                })
+
+                                lastValue = executionPhase(statement as ESNode, currentScopeIndex) // Keep cast
+
+                                addStep({
+                                    node: statement,
+                                    phase: "execution",
+                                    scopeIndex: currentScopeIndex,
+                                    memoryChange: { type: "none" },
+                                    evaluatedValue: lastValue,
+                                })
+                            }
                         }
                     }
                     return lastValue
@@ -803,6 +806,8 @@ export const simulateExecution = (astNode: ESNode | null): ExecStep[] => {
                 destructionPhase(astNode, scopeIndex)
 
                 lastScopeIndex--
+            } else {
+                return executionPhase(astNode, scopeIndex)
             }
         } catch (error) {
             console.error("Error during simulation:", error)
