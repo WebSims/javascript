@@ -244,6 +244,7 @@ export const simulateExecution = (astNode: ESNode | null): ExecStep[] => {
                                     phase: "execution",
                                     executing: true,
                                     executed: false,
+                                    evaluating: false,
                                     evaluated: false,
                                     scopeIndex: currentScopeIndex,
                                     memoryChange: { type: "none" },
@@ -331,8 +332,9 @@ export const simulateExecution = (astNode: ESNode | null): ExecStep[] => {
                         phase: "execution",
                         scopeIndex: currentScopeIndex,
                         memoryChange: { type: "none" },
-                        executing: true,
+                        executing: false,
                         executed: false,
+                        evaluating: false,
                         evaluated: true,
                         evaluatedValue: value,
                     })
@@ -374,6 +376,7 @@ export const simulateExecution = (astNode: ESNode | null): ExecStep[] => {
                                     },
                                     executing: false,
                                     executed: true,
+                                    evaluating: false,
                                     evaluated: false,
                                 });
                             }
@@ -420,6 +423,10 @@ export const simulateExecution = (astNode: ESNode | null): ExecStep[] => {
                                 phase: "execution",
                                 scopeIndex: currentScopeIndex,
                                 memoryChange: { type: "none" },
+                                executing: false,
+                                executed: false,
+                                evaluating: false,
+                                evaluated: true,
                                 evaluatedValue: variable.value
                             })
                             return variable.value
