@@ -20,6 +20,7 @@ export const simulateExecution = (astNode: ESNode | null): ExecStep[] => {
     const steps: ExecStep[] = []
     const scopes: Scope[] = []
     const heap: Heap = {} // Use const
+    const memVal: JSValue[] = []
     let lastScope = -1
     let nextRef: HeapRef = 0
     let stepCounter: number = 0
@@ -31,7 +32,7 @@ export const simulateExecution = (astNode: ESNode | null): ExecStep[] => {
     const createMemorySnapshot = (): ExecStep["memorySnapshot"] => {
         // Crucial: Use a reliable deep copy mechanism here!
         // Use lodash cloneDeep
-        return cloneDeep({ scopes, heap })
+        return cloneDeep({ scopes, heap, memVal })
     }
 
     const addStep = (stepData: Omit<ExecStep, "index" | "memorySnapshot">): void => {
@@ -129,6 +130,14 @@ export const simulateExecution = (astNode: ESNode | null): ExecStep[] => {
         })
 
         return scopeIndex
+    }
+
+    const addMemVal = (value: JSValue) => {
+        memVal.push(value)
+    }
+
+    const removeMemVal = (value: JSValue) => {
+        memVal.splice(memVal.indexOf(value), 1)
     }
 
     // --- Creation Pass --- 
@@ -233,6 +242,9 @@ export const simulateExecution = (astNode: ESNode | null): ExecStep[] => {
                                 addStep({
                                     node: statement,
                                     phase: "execution",
+                                    executing: true,
+                                    executed: false,
+                                    evaluated: false,
                                     scopeIndex: currentScopeIndex,
                                     memoryChange: { type: "none" },
                                 })
@@ -243,13 +255,15 @@ export const simulateExecution = (astNode: ESNode | null): ExecStep[] => {
                                     return lastValue
                                 }
 
-                                addStep({
-                                    node: statement,
-                                    phase: "execution",
-                                    scopeIndex: currentScopeIndex,
-                                    memoryChange: { type: "none" },
-                                    evaluatedValue: lastValue,
-                                })
+                                // addStep({
+                                //     node: statement,
+                                //     phase: "execution",
+                                //     executing: false,
+                                //     executed: true,
+                                //     evaluated: false,
+                                //     scopeIndex: currentScopeIndex,
+                                //     memoryChange: { type: "none" },
+                                // })
                             }
                         }
                     }
@@ -311,11 +325,16 @@ export const simulateExecution = (astNode: ESNode | null): ExecStep[] => {
                         value = { type: "primitive", value: undefined };
                     }
 
+                    addMemVal(value)
+
                     addStep({
-                        nodes: [node],
+                        node: literalNode,
                         phase: "execution",
                         scopeIndex: currentScopeIndex,
                         memoryChange: { type: "none" },
+                        executing: true,
+                        executed: false,
+                        evaluated: true,
                         evaluatedValue: value,
                     })
 
@@ -345,7 +364,7 @@ export const simulateExecution = (astNode: ESNode | null): ExecStep[] => {
                                 const targetScopeIndex = writeVariable(varName, evaluatedValue, currentScopeIndex)
 
                                 addStep({
-                                    node: declarator.id, // Step associated with the initializer execution
+                                    node: varDeclNode, // Step associated with the initializer execution
                                     phase: "execution",
                                     scopeIndex: currentScopeIndex, // Execution happens in current scope...
                                     memoryChange: {
@@ -354,7 +373,9 @@ export const simulateExecution = (astNode: ESNode | null): ExecStep[] => {
                                         variableName: varName,
                                         value: evaluatedValue,
                                     },
-                                    evaluatedValue: evaluatedValue // The result of the initializer
+                                    executing: false,
+                                    executed: true,
+                                    evaluated: false,
                                 });
                             }
                         }
@@ -372,8 +393,8 @@ export const simulateExecution = (astNode: ESNode | null): ExecStep[] => {
                     const varName = (node as Identifier).name;
                     const variable = lookupVariable(varName, currentScopeIndex)
                     if (variable) {
-                        if (variable.value?.type === "reference") {
-                            const object = heap[variable.value.ref];
+                        if (variable.value.type === "reference") {
+                            const object = heap[variable.value.ref]
                             if (object?.type === "function") {
                                 addStep({
                                     node: node,
@@ -382,7 +403,28 @@ export const simulateExecution = (astNode: ESNode | null): ExecStep[] => {
                                     memoryChange: { type: "none" },
                                 })
                                 traverseAST(object.node as ESNode, currentScopeIndex, false)
+                            } else {
+                                const error = { type: "error", value: 'TypeError: ' + varName + ' is not a function' } as const
+                                addStep({
+                                    node: node,
+                                    phase: "execution",
+                                    scopeIndex: currentScopeIndex,
+                                    memoryChange: { type: "none" },
+                                    errorThrown: error
+                                })
+                                return error
                             }
+                        } else if (variable.value.type === "primitive") {
+                            addStep({
+                                node: node,
+                                phase: "execution",
+                                scopeIndex: currentScopeIndex,
+                                memoryChange: { type: "none" },
+                                evaluatedValue: variable.value
+                            })
+                            return variable.value
+                        } else {
+                            return { type: "error", value: 'TypeError: ' + varName + ' is not a function' }
                         }
                     } else {
                         const error = { type: "error", value: 'ReferenceError: ' + varName + ' is not defined' } as const
@@ -408,62 +450,23 @@ export const simulateExecution = (astNode: ESNode | null): ExecStep[] => {
                     const leftValue = executionPhase(binNode.left, currentScopeIndex);
                     const rightValue = executionPhase(binNode.right, currentScopeIndex);
 
-                    let resultValue: JSValue = { type: "primitive", value: undefined };
-                    let errorMsg: string | undefined = undefined;
-
-                    // Helper to extract primitive value
-                    const getPrimitiveValue = (jsVal: JSValue): number | string | boolean | null | undefined | bigint | symbol => {
-                        if (jsVal.type === 'primitive') {
-                            return jsVal.value;
-                        }
-                        console.warn("Binary operation on non-primitive reference not fully handled", jsVal);
-                        return NaN;
-                    };
-
-                    const leftPrim = getPrimitiveValue(leftValue);
-                    const rightPrim = getPrimitiveValue(rightValue);
-
-                    try {
-                        switch (binNode.operator) {
-                            case '+':
-                                if (typeof leftPrim === 'string' || typeof rightPrim === 'string') {
-                                    resultValue = { type: "primitive", value: String(leftPrim ?? '') + String(rightPrim ?? '') };
-                                } else {
-                                    resultValue = { type: "primitive", value: Number(leftPrim) + Number(rightPrim) };
-                                }
-                                break;
-                            case '-': resultValue = { type: "primitive", value: Number(leftPrim) - Number(rightPrim) }; break;
-                            case '*': resultValue = { type: "primitive", value: Number(leftPrim) * Number(rightPrim) }; break;
-                            case '/': resultValue = { type: "primitive", value: Number(leftPrim) / Number(rightPrim) }; break;
-                            case '%': resultValue = { type: "primitive", value: Number(leftPrim) % Number(rightPrim) }; break;
-                            case '===': resultValue = { type: "primitive", value: leftPrim === rightPrim }; break;
-                            case '!==': resultValue = { type: "primitive", value: leftPrim !== rightPrim }; break;
-                            case '<': resultValue = { type: "primitive", value: Number(leftPrim) < Number(rightPrim) }; break;
-                            case '<=': resultValue = { type: "primitive", value: Number(leftPrim) <= Number(rightPrim) }; break;
-                            case '>': resultValue = { type: "primitive", value: Number(leftPrim) > Number(rightPrim) }; break;
-                            case '>=': resultValue = { type: "primitive", value: Number(leftPrim) >= Number(rightPrim) }; break;
-                            default:
-                                errorMsg = `Operator ${binNode.operator} not implemented`;
-                                console.warn(errorMsg);
-                                resultValue = { type: "primitive", value: undefined };
-                        }
-                    } catch (e) {
-                        errorMsg = e instanceof Error ? e.message : String(e);
-                        console.error(`Error during binary operation ${binNode.operator}:`, errorMsg);
-                        resultValue = { type: "primitive", value: undefined };
+                    if (binNode.operator) {
+                        const evaluatedValue = eval(`${leftValue.value} ${binNode.operator} ${rightValue.value}`)
+                        addMemVal(evaluatedValue)
+                        addStep({
+                            node: node,
+                            phase: "execution",
+                            scopeIndex: currentScopeIndex,
+                            memoryChange: { type: "none" },
+                            evaluatedValue,
+                            executing: false,
+                            executed: true,
+                            evaluated: true,
+                        })
+                        return evaluatedValue
                     }
-
-                    addStep({
-                        node: node,
-                        pass: "normal",
-                        scopeIndex: currentScopeIndex,
-                        memoryChange: { type: "none" },
-                        evaluatedValue: errorMsg ? undefined : resultValue,
-                        error: errorMsg
-                    })
-                    return resultValue;
                 }
-
+                break;
 
             case "MemberExpression":
                 {

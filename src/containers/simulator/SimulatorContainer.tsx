@@ -48,6 +48,13 @@ function bye(name) {
 }`
 
 const MULTIPLE_SCOPE_CODE_SAMPLE = `
+const a = 2
+const b = a + 1
+`
+
+const FUNCTION_CODE_SAMPLE = `
+const fn = a
+fn()
 const outerConst = 'outerConst text'
 var outerVar = "I am in outerFunction";
 function outerFunction() {
@@ -59,7 +66,6 @@ function outerFunction() {
 }
 outerFunction();
 `
-
 const CLASS_CODE_SAMPLE = `
 class Person {
   // Field declarations
