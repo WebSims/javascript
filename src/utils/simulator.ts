@@ -331,6 +331,17 @@ export const simulateExecution = (astNode: ESNode | null): ExecStep[] => {
         let evaluatedValue: JSValue;
         const literalValue = astNode.value
 
+        addStep({
+            node: astNode,
+            phase: "execution",
+            scopeIndex,
+            memoryChange: { type: "none" },
+            executing: false,
+            executed: false,
+            evaluating: true,
+            evaluated: false,
+        })
+
         if (literalValue === null) {
             evaluatedValue = { type: "primitive", value: null };
         } else if (typeof literalValue === 'string' || typeof literalValue === 'number' || typeof literalValue === 'boolean') {
@@ -466,6 +477,16 @@ export const simulateExecution = (astNode: ESNode | null): ExecStep[] => {
                     })
                 }
             } else if (variable.value.type === "primitive") {
+                addStep({
+                    node: astNode,
+                    phase: "execution",
+                    scopeIndex,
+                    memoryChange: { type: "none" },
+                    executing: false,
+                    executed: false,
+                    evaluating: true,
+                    evaluated: false,
+                })
                 addMemVal(variable.value)
                 return addStep({
                     node: astNode,
