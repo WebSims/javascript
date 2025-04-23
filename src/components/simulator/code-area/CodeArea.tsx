@@ -292,7 +292,7 @@ const Expression = ({ fromAstOf, expr, parent, parens }: { fromAstOf?: any, expr
     // CallExpression callee:expr arguments:expr[]
     if (expr.type == "CallExpression") {
         expr.category = "expression.call"
-        component = <Call expr={expr.callee} args={expr.arguments} parens={parens} parent={expr} />
+        component = <Call expr={expr} args={expr.arguments} parens={parens} parent={expr} />
     }
 
     // NewExpression callee:expr arguments:expr[]
@@ -549,11 +549,11 @@ const OperatorTernary = ({ cond, truthy, falsy, parent, parens }) => {
 
 const Call = ({ expr, args, parent, parens }) => {
     return <>
-        <Expression expr={expr} parens={parens} parent={parent} />
+        <Expression expr={expr.callee} parens={parens} parent={parent} />
         <span className="text-slate-500 align-middle font-bold">(</span>
         {args.map((arg, i) => {
             return <>
-                <Expression key={i} expr={arg} parens={parens} parent={parent} />
+                <Expression key={i} expr={expr.callee.arg} parens={parens} parent={parent} />
                 {i < args.length - 1 &&
                     <span className="text-slate-500 align-middle font-bold">,</span>
                 }

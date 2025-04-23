@@ -394,8 +394,31 @@ export const simulateExecution = (astNode: ESNode | null): ExecStep[] => {
     }
 
     const execCallExpression = (astNode: ESNode, scopeIndex: number): ExecStep | undefined => {
-        const callee = astNode.callee
-        return executionPhase(callee, scopeIndex)
+        addStep({
+            node: astNode,
+            phase: "execution",
+            scopeIndex,
+            memoryChange: { type: "none" },
+            executing: false,
+            executed: false,
+            evaluating: true,
+            evaluated: false,
+        })
+
+        const lastStep = executionPhase(astNode.callee, scopeIndex)
+
+        return addStep({
+            node: astNode,
+            phase: "execution",
+            scopeIndex,
+            memoryChange: { type: "none" },
+            executing: false,
+            executed: false,
+            evaluating: false,
+            evaluated: true,
+            evaluatedValue: lastStep.evaluatedValue,
+        })
+
     }
 
     const execIdentifier = (astNode: ESNode, scopeIndex: number): ExecStep | undefined => {

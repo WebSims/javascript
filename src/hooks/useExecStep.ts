@@ -12,18 +12,19 @@ export const useExecStep = (node?: ESNode) => {
         if (currentExecStep.node && node.range) {
             return (
                 currentExecStep.node.range[0] === node.range[0] &&
-                currentExecStep.node.range[1] === node.range[1]
+                currentExecStep.node.range[1] === node.range[1] &&
+                currentExecStep.node.type === node.type
             )
         }
 
-        if (currentExecStep.nodes && currentExecStep.nodes.length > 0) {
-            return currentExecStep.nodes.some(
-                (stepNode: ESNode) => stepNode.range &&
-                    node.range &&
-                    stepNode.range[0] === node.range[0] &&
-                    stepNode.range[1] === node.range[1]
-            )
-        }
+        // if (currentExecStep.nodes && currentExecStep.nodes.length > 0) {
+        //     return currentExecStep.nodes.some(
+        //         (stepNode: ESNode) => stepNode.range &&
+        //             node.range &&
+        //             stepNode.range[0] === node.range[0] &&
+        //             stepNode.range[1] === node.range[1]
+        //     )
+        // }
 
         return false
     }
