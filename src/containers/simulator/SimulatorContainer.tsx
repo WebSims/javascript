@@ -48,7 +48,7 @@ function bye(name) {
 }`
 
 const MULTIPLE_SCOPE_CODE_SAMPLE = `
-const g = true && true
+const g = true && false && true
 const h = true || false
 const i = g && false || h
 const j = g || false && h

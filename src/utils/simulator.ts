@@ -478,8 +478,21 @@ export const simulateExecution = (astNode: ESNode | null): ExecStep[] => {
                         evaluated: false
                     })
 
-                    const leftValue = executionPhase(binNode.left, currentScopeIndex);
-                    const rightValue = executionPhase(binNode.right, currentScopeIndex);
+                    let leftValue: JSValue
+                    let rightValue: JSValue
+
+                    if (binNode.operator === "&&") {
+                        leftValue = executionPhase(binNode.left, currentScopeIndex)
+                        if (leftValue.value === true) rightValue = executionPhase(binNode.right, currentScopeIndex)
+                        else rightValue = { type: "primitive", value: false }
+                    } else if (binNode.operator === "||") {
+                        leftValue = executionPhase(binNode.left, currentScopeIndex)
+                        if (leftValue.value === true) rightValue = { type: "primitive", value: true }
+                        else rightValue = executionPhase(binNode.right, currentScopeIndex)
+                    } else {
+                        leftValue = executionPhase(binNode.left, currentScopeIndex);
+                        rightValue = executionPhase(binNode.right, currentScopeIndex);
+                    }
 
                     if (binNode.operator) {
                         const value = eval(`${leftValue.value}${binNode.operator}${rightValue.value}`)
@@ -488,8 +501,8 @@ export const simulateExecution = (astNode: ESNode | null): ExecStep[] => {
                             value
                         }
 
-                        if (leftValue.type === "primitive") removeMemVal(leftValue)
-                        if (rightValue.type === "primitive") removeMemVal(rightValue)
+                        removeMemVal(leftValue)
+                        removeMemVal(rightValue)
                         addMemVal(evaluatedValue)
                         addStep({
                             node: node,
