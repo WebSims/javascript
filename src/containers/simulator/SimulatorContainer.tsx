@@ -60,8 +60,8 @@ const e = (a + 1) * (b + 2) + (c - 3) / (d + 4)
 `
 
 const FUNCTION_CODE_SAMPLE = `
-const fn = a
-fn()
+const a = 2
+const b = a + 1
 const outerConst = 'outerConst text'
 var outerVar = "I am in outerFunction";
 function outerFunction() {
@@ -150,7 +150,7 @@ class Student extends Person {
   }
 }`
 
-const steps = simulateExecution(astOf(MULTIPLE_SCOPE_CODE_SAMPLE) as ESNode)
+const steps = simulateExecution(astOf(FUNCTION_CODE_SAMPLE) as ESNode)
 console.log(steps)
 
 const SimulatorContainer: React.FC = () => {
@@ -177,7 +177,7 @@ const SimulatorContainer: React.FC = () => {
                     <h4 className=" font-semibold text-slate-700">Code Editor</h4>
                   </div>
                   <div className="flex-1 overflow-auto">
-                    <CodeArea fromAstOf={MULTIPLE_SCOPE_CODE_SAMPLE} />
+                    <CodeArea fromAstOf={FUNCTION_CODE_SAMPLE} />
                   </div>
                 </div>
               </ResizablePanel>

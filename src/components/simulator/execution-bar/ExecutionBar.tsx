@@ -98,8 +98,8 @@ const ExecutionBar = () => {
                     className="flex-1"
                 />
                 <div className="text-sm text-gray-600 text-right">
-                    <span className="font-medium">{(currentExecStep?.index ?? 0) + 1}</span>
-                    <span className="text-gray-400"> / {totalSteps}</span>
+                    <span className="font-medium">{(currentExecStep?.index ?? 0)}</span>
+                    <span className="text-gray-400"> / {totalSteps - 1}</span>
                 </div>
             </div>
 

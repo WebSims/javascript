@@ -856,12 +856,14 @@ export const simulateExecution = (astNode: ESNode | null): ExecStep[] => {
     const destructionPhase = (astNode: ESNode, scopeIndex: number) => {
         console.log("Destroying phase")
         // remove scopeIndex from scopes and heap items in scopeIndex
-        const heapItems = Object.values(scopes[scopeIndex].variables)
-            .filter((item): item is Extract<JSValue, { type: 'reference' }> => item.type === 'reference') // Use type predicate
-        heapItems.forEach(item => {
-            delete heap[item.ref] // Safe access now
-        })
-        scopes.splice(scopeIndex, 1)
+        if (scopeIndex !== 0) {
+            const heapItems = Object.values(scopes[scopeIndex].variables)
+                .filter((item): item is Extract<JSValue, { type: 'reference' }> => item.type === 'reference') // Use type predicate
+            heapItems.forEach(item => {
+                delete heap[item.ref] // Safe access now
+            })
+            scopes.splice(scopeIndex, 1)
+        }
 
         addStep({
             node: astNode,
