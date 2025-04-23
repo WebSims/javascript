@@ -321,7 +321,9 @@ export const simulateExecution = (astNode: ESNode | null): ExecStep[] => {
 
     const execExpressionStatement = (astNode: ESNode, scopeIndex: number): ExecStep | undefined => {
         const expressionNode = (astNode as ExpressionStatement).expression
-        return executionPhase(expressionNode, scopeIndex)
+        const lastStep = executionPhase(expressionNode, scopeIndex)
+        if (lastStep.evaluatedValue) removeMemVal(lastStep.evaluatedValue)
+        return lastStep
     }
 
     const execLiteral = (astNode: ESNode, scopeIndex: number): ExecStep | undefined => {
@@ -408,8 +410,27 @@ export const simulateExecution = (astNode: ESNode | null): ExecStep[] => {
                         phase: "execution",
                         scopeIndex,
                         memoryChange: { type: "none" },
+                        executing: false,
+                        executed: false,
+                        evaluating: true,
+                        evaluated: false,
                     })
-                    traverseAST(object.node as ESNode, scopeIndex, false)
+
+                    const lastStep = traverseAST(object.node as ESNode, scopeIndex, false)
+
+                    addStep({
+                        node: astNode,
+                        phase: "execution",
+                        scopeIndex,
+                        memoryChange: { type: "none" },
+                        executing: false,
+                        executed: false,
+                        evaluating: false,
+                        evaluated: true,
+                        evaluatedValue: lastStep.evaluatedValue,
+                    })
+
+                    return lastStep
                 } else {
                     const error = { type: "error", value: 'TypeError: ' + varName + ' is not a function' } as const
                     return addStep({
@@ -526,13 +547,8 @@ export const simulateExecution = (astNode: ESNode | null): ExecStep[] => {
             case "ReturnStatement":
                 {
                     const returnNode = node as ReturnStatement;
-                    const lastStep = executionPhase(returnNode.argument, currentScopeIndex)
-                    if (lastStep) {
-                        removeMemVal(lastStep.evaluatedValue)
-                    }
-                    return lastStep
+                    return executionPhase(returnNode.argument, currentScopeIndex)
                 }
-                break;
 
             case "MemberExpression":
                 {
@@ -917,6 +933,7 @@ export const simulateExecution = (astNode: ESNode | null): ExecStep[] => {
 
                 destructionPhase(astNode, scopeIndex)
                 lastScopeIndex--
+                return lastStep
             } else {
                 return executionPhase(astNode, scopeIndex)
             }
