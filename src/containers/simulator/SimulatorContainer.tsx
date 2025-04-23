@@ -61,11 +61,29 @@ const e = (a + 1) * (b + 2) + (c - 3) / (d + 4)
 
 const FUNCTION_CODE_SAMPLE = `
 function a() {
-  const a = 2;
-	return a + 1
+  function b() {
+    return 2
+  }
+  return b() + 1
 }
 a()
 `
+
+// const FUNCTION_CODE_SAMPLE = `
+// const a = 2
+// const b = a + 1
+// const outerConst = 'outerConst text'
+// var outerVar = "I am in outerFunction";
+// function outerFunction() {
+//   const innerVar = "I am in innerFunction";
+//   function innerFunction() {
+//   const test1 = "test1"
+//   return 2
+//   }
+//   return innerFunction();
+// }
+// outerFunction();
+// `
 const CLASS_CODE_SAMPLE = `
 class Person {
   // Field declarations

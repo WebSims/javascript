@@ -72,13 +72,13 @@ export const simulateExecution = (astNode: ESNode | null): ExecStep[] => {
         return ref
     }
 
-    const lookupVariable = (name: string, startingScopeIndex: number): { value: JSValue | undefined, scopeIndex: number } | false => {
+    const lookupVariable = (name: string, startingScopeIndex: number): { value: JSValue, scopeIndex: number } | -1 => {
         for (let i = startingScopeIndex; i >= 0; i--) {
             if (Object.prototype.hasOwnProperty.call(scopes[i].variables, name)) {
                 return { value: scopes[i].variables[name], scopeIndex: i }
             }
         }
-        return false // Not found
+        return -1
     }
 
     const newDeclaration = (name: string, kind: Extract<MemoryChange, { type: 'declaration' }>['declarations'][number]['kind'], scopeIndex: number, initialValue: JSValue): (Declaration | undefined) => {
@@ -93,7 +93,7 @@ export const simulateExecution = (astNode: ESNode | null): ExecStep[] => {
 
     const writeVariable = (name: string, value: JSValue, scopeIndex: number): number => {
         const lookup = lookupVariable(name, scopeIndex)
-        if (lookup.scopeIndex !== -1) {
+        if (lookup !== -1) {
             scopes[lookup.scopeIndex].variables[name] = value
             return lookup.scopeIndex
         }
@@ -240,240 +240,227 @@ export const simulateExecution = (astNode: ESNode | null): ExecStep[] => {
     }
 
     // --- Execution Pass --- 
+    const execProgram = (astNode: ESNode, scopeIndex: number): ExecStep | undefined => {
+        const programBody = (astNode as Program).body as ESNode[] | undefined
+        let lastStep: ExecStep | undefined
+        if (Array.isArray(programBody)) {
+            for (const statement of programBody) {
+                if (!isBlock(statement)) {
+                    addStep({
+                        node: statement,
+                        phase: "execution",
+                        executing: true,
+                        executed: false,
+                        evaluating: false,
+                        evaluated: false,
+                        scopeIndex,
+                        memoryChange: { type: "none" },
+                    })
+
+                    lastStep = executionPhase(statement as ESNode, scopeIndex)
+                    if (lastStep) {
+                        if (lastStep.evaluatedValue?.type === "error") {
+                            return lastStep
+                        }
+
+                        addStep({
+                            node: statement,
+                            phase: "execution",
+                            executing: false,
+                            executed: true,
+                            evaluating: false,
+                            evaluated: false,
+                            scopeIndex,
+                            memoryChange: { type: "none" },
+                        })
+                    }
+                }
+            }
+        }
+        return lastStep
+    }
+
+    const execBlockStatement = (astNode: ESNode, scopeIndex: number): ExecStep | undefined => {
+        const statements = astNode.body as ESNode[]
+        let lastStep: ExecStep | undefined
+        for (const statement of statements) {
+            if (!isBlock(statement)) {
+                addStep({
+                    node: statement,
+                    phase: "execution",
+                    scopeIndex,
+                    memoryChange: { type: "none" },
+                    executing: true,
+                    executed: false,
+                    evaluating: false,
+                    evaluated: false,
+                })
+
+                lastStep = executionPhase(statement, scopeIndex)
+
+                if (lastStep) {
+                    if (lastStep.evaluatedValue?.type === "error") {
+                        return lastStep
+                    }
+
+                    addStep({
+                        node: statement,
+                        phase: "execution",
+                        scopeIndex,
+                        memoryChange: { type: "none" },
+                        executing: false,
+                        executed: true,
+                        evaluating: false,
+                        evaluated: false,
+                    })
+                }
+            }
+        }
+        return lastStep
+    }
+
+    const execExpressionStatement = (astNode: ESNode, scopeIndex: number): ExecStep | undefined => {
+        const expressionNode = (astNode as ExpressionStatement).expression
+        return executionPhase(expressionNode, scopeIndex)
+    }
+
+    const execLiteral = (astNode: ESNode, scopeIndex: number): ExecStep | undefined => {
+        let evaluatedValue: JSValue;
+        const literalValue = astNode.value
+
+        if (literalValue === null) {
+            evaluatedValue = { type: "primitive", value: null };
+        } else if (typeof literalValue === 'string' || typeof literalValue === 'number' || typeof literalValue === 'boolean') {
+            evaluatedValue = { type: "primitive", value: literalValue };
+            // Last resort: cast to any to bypass instanceof type check issue
+        } else if (typeof literalValue === 'object' && literalValue !== null && (literalValue as any) instanceof RegExp) {
+            console.warn("RegExp Literal evaluation not fully implemented")
+            evaluatedValue = { type: "primitive", value: astNode.raw };
+        } else {
+            console.warn("Unhandled Literal type:", typeof literalValue)
+            evaluatedValue = { type: "primitive", value: undefined };
+        }
+
+        addMemVal(evaluatedValue)
+
+        return addStep({
+            node: astNode,
+            phase: "execution",
+            scopeIndex,
+            memoryChange: { type: "none" },
+            executing: false,
+            executed: false,
+            evaluating: false,
+            evaluated: true,
+            evaluatedValue,
+        })
+    }
+
+    const execVariableDeclaration = (astNode: ESNode, scopeIndex: number): ExecStep | undefined => {
+        if (astNode.kind === "const" && astNode.declarations.length === 0) {
+            console.warn("Unhandled const declaration pattern in execution:", astNode.kind)
+        }
+
+        if (Array.isArray(astNode.declarations)) {
+            for (const declarator of (astNode.declarations as VariableDeclarator[])) {
+                if (declarator.id?.type === 'Identifier' && declarator.init) {
+                    const idNode = declarator.id as Identifier;
+                    const varName = idNode.name;
+
+                    const lastStep = executionPhase(declarator.init, scopeIndex)
+                    const targetScopeIndex = writeVariable(varName, lastStep.evaluatedValue, scopeIndex)
+
+                    removeMemVal(lastStep.evaluatedValue)
+                    addStep({
+                        node: astNode,
+                        scopeIndex,
+                        memoryChange: {
+                            type: "write_variable",
+                            scopeIndex: targetScopeIndex,
+                            variableName: varName,
+                            value: lastStep.evaluatedValue,
+                        },
+                        executing: false,
+                        executed: true,
+                        evaluating: false,
+                        evaluated: false,
+                    })
+                }
+            }
+        }
+        return
+    }
+
+    const execCallExpression = (astNode: ESNode, scopeIndex: number): ExecStep | undefined => {
+        const callee = astNode.callee
+        return executionPhase(callee, scopeIndex)
+    }
+
+    const execIdentifier = (astNode: ESNode, scopeIndex: number): ExecStep | undefined => {
+        const varName = (astNode as Identifier).name;
+        const variable = lookupVariable(varName, scopeIndex)
+        if (variable !== -1) {
+            if (variable.value.type === "reference") {
+                const object = heap[variable.value.ref]
+                if (object?.type === "function") {
+                    addStep({
+                        node: astNode,
+                        phase: "execution",
+                        scopeIndex,
+                        memoryChange: { type: "none" },
+                    })
+                    traverseAST(object.node as ESNode, scopeIndex, false)
+                } else {
+                    const error = { type: "error", value: 'TypeError: ' + varName + ' is not a function' } as const
+                    return addStep({
+                        node: astNode,
+                        phase: "execution",
+                        scopeIndex,
+                        memoryChange: { type: "none" },
+                        errorThrown: error
+                    })
+                }
+            } else if (variable.value.type === "primitive") {
+                addMemVal(variable.value)
+                return addStep({
+                    node: astNode,
+                    phase: "execution",
+                    scopeIndex,
+                    memoryChange: { type: "none" },
+                    executing: false,
+                    executed: false,
+                    evaluating: false,
+                    evaluated: true,
+                    evaluatedValue: variable.value
+                })
+            } else {
+                return { type: "error", value: 'TypeError: ' + varName + ' is not a function' }
+            }
+        } else {
+            const error = { type: "error", value: 'ReferenceError: ' + varName + ' is not defined' } as const
+
+            return addStep({
+                node: node,
+                phase: "execution",
+                scopeIndex,
+                memoryChange: { type: "none" },
+                errorThrown: error
+            })
+        }
+    }
+
     const executionPhase = (node: ESNode | null, currentScopeIndex: number): ExecStep | undefined => {
         if (!node) return { type: "primitive", value: undefined }
         console.log("Executing node:", node.type, "in scope:", currentScopeIndex)
 
         switch (node.type) {
-            case "Program":
-                {
-                    const programBody = (node as Program).body as ESNode[] | undefined // Explicit cast
-                    let lastStep: ExecStep | undefined
-                    if (Array.isArray(programBody)) {
-                        for (const statement of programBody) {
-                            if (!isBlock(statement)) {
-                                addStep({
-                                    node: statement,
-                                    phase: "execution",
-                                    executing: true,
-                                    executed: false,
-                                    evaluating: false,
-                                    evaluated: false,
-                                    scopeIndex: currentScopeIndex,
-                                    memoryChange: { type: "none" },
-                                })
-
-                                lastStep = executionPhase(statement as ESNode, currentScopeIndex) // Keep cast
-                                if (lastStep) {
-                                    if (lastStep.evaluatedValue?.type === "error") {
-                                        return lastStep
-                                    }
-
-                                    addStep({
-                                        node: statement,
-                                        phase: "execution",
-                                        executing: false,
-                                        executed: true,
-                                        evaluating: false,
-                                        evaluated: false,
-                                        scopeIndex: currentScopeIndex,
-                                        memoryChange: { type: "none" },
-                                    })
-                                }
-                            }
-                        }
-                    }
-                    return lastStep
-                }
-                break;
-            case "ExpressionStatement":
-                {
-                    const expressionNode = (node as ExpressionStatement).expression
-                    return executionPhase(expressionNode, currentScopeIndex)
-                }
-                break;
-
-            case "BlockStatement":
-                {
-                    const blockNode = node as BlockStatement;
-                    const statements = blockNode.body as ESNode[];
-                    let lastStep: ExecStep | undefined
-                    for (const statement of statements) {
-                        if (!isBlock(statement)) {
-                            addStep({
-                                node: statement,
-                                phase: "execution",
-                                scopeIndex: currentScopeIndex,
-                                memoryChange: { type: "none" },
-                                executing: true,
-                                executed: false,
-                                evaluating: false,
-                                evaluated: false,
-                            })
-
-                            lastStep = executionPhase(statement, currentScopeIndex)
-
-                            if (lastStep) {
-                                if (lastStep.evaluatedValue?.type === "error") {
-                                    return lastStep
-                                }
-
-                                addStep({
-                                    node: statement,
-                                    phase: "execution",
-                                    scopeIndex: currentScopeIndex,
-                                    memoryChange: { type: "none" },
-                                    executing: false,
-                                    executed: true,
-                                    evaluating: false,
-                                    evaluated: false,
-                                })
-                            }
-
-                        }
-                    }
-                    return lastStep
-                }
-                break;
-
-            case "Literal":
-                {
-                    const literalNode = node as Literal
-                    let value: JSValue;
-                    const literalValue = literalNode.value
-
-                    if (literalValue === null) {
-                        value = { type: "primitive", value: null };
-                    } else if (typeof literalValue === 'string' || typeof literalValue === 'number' || typeof literalValue === 'boolean') {
-                        value = { type: "primitive", value: literalValue };
-                        // Last resort: cast to any to bypass instanceof type check issue
-                    } else if (typeof literalValue === 'object' && literalValue !== null && (literalValue as any) instanceof RegExp) {
-                        console.warn("RegExp Literal evaluation not fully implemented")
-                        value = { type: "primitive", value: literalNode.raw };
-                    } else {
-                        console.warn("Unhandled Literal type:", typeof literalValue)
-                        value = { type: "primitive", value: undefined };
-                    }
-
-                    addMemVal(value)
-
-                    return addStep({
-                        node: literalNode,
-                        phase: "execution",
-                        scopeIndex: currentScopeIndex,
-                        memoryChange: { type: "none" },
-                        executing: false,
-                        executed: false,
-                        evaluating: false,
-                        evaluated: true,
-                        evaluatedValue: value,
-                    })
-                }
-                break;
-
-            case "VariableDeclaration":
-                {
-                    // node is VariableDeclaration here
-                    const varDeclNode = node as VariableDeclaration; // Use imported type
-
-                    if (varDeclNode.kind === "const" && varDeclNode.declarations.length === 0) {
-                        console.warn("Unhandled const declaration pattern in execution:", varDeclNode.kind)
-                    }
-
-                    if (Array.isArray(varDeclNode.declarations)) {
-                        // Handle initialization (declaration happened in hoisting pass)
-                        for (const declarator of (varDeclNode.declarations as VariableDeclarator[])) {
-                            // Only process declarators that have an initializer
-                            if (declarator.id?.type === 'Identifier' && declarator.init) {
-                                const idNode = declarator.id as Identifier;
-                                const varName = idNode.name;
-
-                                // Evaluate the initializer
-                                const lastStep = executionPhase(declarator.init, currentScopeIndex)
-                                const targetScopeIndex = writeVariable(varName, lastStep.evaluatedValue, currentScopeIndex)
-
-                                removeMemVal(lastStep.evaluatedValue)
-                                addStep({
-                                    node: varDeclNode, // Step associated with the initializer execution
-                                    phase: "execution",
-                                    scopeIndex: currentScopeIndex, // Execution happens in current scope...
-                                    memoryChange: {
-                                        type: "write_variable",
-                                        scopeIndex: targetScopeIndex, // ...but write happens in the var's scope
-                                        variableName: varName,
-                                        value: lastStep.evaluatedValue,
-                                    },
-                                    executing: false,
-                                    executed: true,
-                                    evaluating: false,
-                                    evaluated: false,
-                                })
-                            }
-                        }
-                    }
-                }
-                break; // End of VariableDeclaration case
-
-            case "CallExpression":
-                {
-                    return executionPhase(node.callee, currentScopeIndex)
-                }
-                break;
-
-            case "Identifier":
-                {
-                    const varName = (node as Identifier).name;
-                    const variable = lookupVariable(varName, currentScopeIndex)
-                    if (variable) {
-                        if (variable.value.type === "reference") {
-                            const object = heap[variable.value.ref]
-                            if (object?.type === "function") {
-                                addStep({
-                                    node: node,
-                                    phase: "execution",
-                                    scopeIndex: currentScopeIndex,
-                                    memoryChange: { type: "none" },
-                                })
-                                traverseAST(object.node as ESNode, currentScopeIndex, false)
-                            } else {
-                                const error = { type: "error", value: 'TypeError: ' + varName + ' is not a function' } as const
-                                return addStep({
-                                    node: node,
-                                    phase: "execution",
-                                    scopeIndex: currentScopeIndex,
-                                    memoryChange: { type: "none" },
-                                    errorThrown: error
-                                })
-                            }
-                        } else if (variable.value.type === "primitive") {
-                            addMemVal(variable.value)
-                            return addStep({
-                                node: node,
-                                phase: "execution",
-                                scopeIndex: currentScopeIndex,
-                                memoryChange: { type: "none" },
-                                executing: false,
-                                executed: false,
-                                evaluating: false,
-                                evaluated: true,
-                                evaluatedValue: variable.value
-                            })
-                        } else {
-                            return { type: "error", value: 'TypeError: ' + varName + ' is not a function' }
-                        }
-                    } else {
-                        const error = { type: "error", value: 'ReferenceError: ' + varName + ' is not defined' } as const
-
-                        return addStep({
-                            node: node,
-                            phase: "execution",
-                            scopeIndex: currentScopeIndex,
-                            memoryChange: { type: "none" },
-                            errorThrown: error
-                        })
-                    }
-                }
-                break;
+            case "Program": return execProgram(node, currentScopeIndex)
+            case "ExpressionStatement": return execExpressionStatement(node, currentScopeIndex)
+            case "BlockStatement": return execBlockStatement(node, currentScopeIndex)
+            case "Literal": return execLiteral(node, currentScopeIndex)
+            case "VariableDeclaration": return execVariableDeclaration(node, currentScopeIndex)
+            case "CallExpression": return execCallExpression(node, currentScopeIndex)
+            case "Identifier": return execIdentifier(node, currentScopeIndex)
 
             case "AssignmentExpression":
                 console.warn("Execution Pass TODO: AssignmentExpression")
@@ -735,7 +722,7 @@ export const simulateExecution = (astNode: ESNode | null): ExecStep[] => {
                                     if (property.shorthand) {
                                         if (key) {
                                             const lookup = lookupVariable(key, currentScopeIndex);
-                                            if (lookup.value !== undefined) {
+                                            if (lookup !== -1) {
                                                 value = lookup.value;
                                             } else {
                                                 errorMsg = `ReferenceError: ${key} is not defined (shorthand property)`;
