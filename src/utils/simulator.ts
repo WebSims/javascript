@@ -47,13 +47,15 @@ export const simulateExecution = (astNode: ESNode | null): ExecStep[] => {
         return cloneDeep({ scopes, heap, memVal })
     }
 
-    const addStep = (stepData: Omit<ExecStep, "index" | "memorySnapshot">): void => {
+    const addStep = (stepData: Omit<ExecStep, "index" | "memorySnapshot">): ExecStep => {
         const snapshot = createMemorySnapshot()
-        steps.push({
+        const step = {
             ...stepData,
             index: stepCounter++,
             memorySnapshot: snapshot,
-        })
+        }
+        steps.push(step)
+        return step
     }
 
     // --- Memory Manipulation Helpers (Simplified placeholders) ---
@@ -238,16 +240,15 @@ export const simulateExecution = (astNode: ESNode | null): ExecStep[] => {
     }
 
     // --- Execution Pass --- 
-    const executionPhase = (node: ESNode | null, currentScopeIndex: number): JSValue => {
+    const executionPhase = (node: ESNode | null, currentScopeIndex: number): ExecStep | undefined => {
         if (!node) return { type: "primitive", value: undefined }
-
         console.log("Executing node:", node.type, "in scope:", currentScopeIndex)
 
         switch (node.type) {
             case "Program":
                 {
                     const programBody = (node as Program).body as ESNode[] | undefined // Explicit cast
-                    let lastValue: JSValue = { type: "primitive", value: undefined };
+                    let lastStep: ExecStep | undefined
                     if (Array.isArray(programBody)) {
                         for (const statement of programBody) {
                             if (!isBlock(statement)) {
@@ -262,11 +263,10 @@ export const simulateExecution = (astNode: ESNode | null): ExecStep[] => {
                                     memoryChange: { type: "none" },
                                 })
 
-                                lastValue = executionPhase(statement as ESNode, currentScopeIndex) // Keep cast
-
-                                if (lastValue) {
-                                    if (lastValue.type === "error") {
-                                        return lastValue
+                                lastStep = executionPhase(statement as ESNode, currentScopeIndex) // Keep cast
+                                if (lastStep) {
+                                    if (lastStep.evaluatedValue?.type === "error") {
+                                        return lastStep
                                     }
 
                                     addStep({
@@ -283,9 +283,9 @@ export const simulateExecution = (astNode: ESNode | null): ExecStep[] => {
                             }
                         }
                     }
-                    return lastValue
+                    return lastStep
                 }
-
+                break;
             case "ExpressionStatement":
                 {
                     const expressionNode = (node as ExpressionStatement).expression
@@ -297,7 +297,7 @@ export const simulateExecution = (astNode: ESNode | null): ExecStep[] => {
                 {
                     const blockNode = node as BlockStatement;
                     const statements = blockNode.body as ESNode[];
-                    let lastValue: JSValue = { type: "primitive", value: undefined };
+                    let lastStep: ExecStep | undefined
                     for (const statement of statements) {
                         if (!isBlock(statement)) {
                             addStep({
@@ -311,13 +311,13 @@ export const simulateExecution = (astNode: ESNode | null): ExecStep[] => {
                                 evaluated: false,
                             })
 
-                            lastValue = executionPhase(statement, currentScopeIndex)
+                            lastStep = executionPhase(statement, currentScopeIndex)
 
-                            if (lastValue) {
-                                if (lastValue.type === "error") {
-                                    return lastValue
+                            if (lastStep) {
+                                if (lastStep.evaluatedValue?.type === "error") {
+                                    return lastStep
                                 }
-                                console.log(111, lastValue)
+
                                 addStep({
                                     node: statement,
                                     phase: "execution",
@@ -329,10 +329,12 @@ export const simulateExecution = (astNode: ESNode | null): ExecStep[] => {
                                     evaluated: false,
                                 })
                             }
+
                         }
                     }
-                    return lastValue
+                    return lastStep
                 }
+                break;
 
             case "Literal":
                 {
@@ -354,7 +356,8 @@ export const simulateExecution = (astNode: ESNode | null): ExecStep[] => {
                     }
 
                     addMemVal(value)
-                    addStep({
+
+                    return addStep({
                         node: literalNode,
                         phase: "execution",
                         scopeIndex: currentScopeIndex,
@@ -365,9 +368,8 @@ export const simulateExecution = (astNode: ESNode | null): ExecStep[] => {
                         evaluated: true,
                         evaluatedValue: value,
                     })
-
-                    return value
                 }
+                break;
 
             case "VariableDeclaration":
                 {
@@ -387,10 +389,10 @@ export const simulateExecution = (astNode: ESNode | null): ExecStep[] => {
                                 const varName = idNode.name;
 
                                 // Evaluate the initializer
-                                const evaluatedValue = executionPhase(declarator.init, currentScopeIndex)
-                                const targetScopeIndex = writeVariable(varName, evaluatedValue, currentScopeIndex)
+                                const lastStep = executionPhase(declarator.init, currentScopeIndex)
+                                const targetScopeIndex = writeVariable(varName, lastStep.evaluatedValue, currentScopeIndex)
 
-                                removeMemVal(evaluatedValue)
+                                removeMemVal(lastStep.evaluatedValue)
                                 addStep({
                                     node: varDeclNode, // Step associated with the initializer execution
                                     phase: "execution",
@@ -399,7 +401,7 @@ export const simulateExecution = (astNode: ESNode | null): ExecStep[] => {
                                         type: "write_variable",
                                         scopeIndex: targetScopeIndex, // ...but write happens in the var's scope
                                         variableName: varName,
-                                        value: evaluatedValue,
+                                        value: lastStep.evaluatedValue,
                                     },
                                     executing: false,
                                     executed: true,
@@ -416,6 +418,7 @@ export const simulateExecution = (astNode: ESNode | null): ExecStep[] => {
                 {
                     return executionPhase(node.callee, currentScopeIndex)
                 }
+                break;
 
             case "Identifier":
                 {
@@ -434,18 +437,17 @@ export const simulateExecution = (astNode: ESNode | null): ExecStep[] => {
                                 traverseAST(object.node as ESNode, currentScopeIndex, false)
                             } else {
                                 const error = { type: "error", value: 'TypeError: ' + varName + ' is not a function' } as const
-                                addStep({
+                                return addStep({
                                     node: node,
                                     phase: "execution",
                                     scopeIndex: currentScopeIndex,
                                     memoryChange: { type: "none" },
                                     errorThrown: error
                                 })
-                                return error
                             }
                         } else if (variable.value.type === "primitive") {
                             addMemVal(variable.value)
-                            addStep({
+                            return addStep({
                                 node: node,
                                 phase: "execution",
                                 scopeIndex: currentScopeIndex,
@@ -456,20 +458,19 @@ export const simulateExecution = (astNode: ESNode | null): ExecStep[] => {
                                 evaluated: true,
                                 evaluatedValue: variable.value
                             })
-                            return variable.value
                         } else {
                             return { type: "error", value: 'TypeError: ' + varName + ' is not a function' }
                         }
                     } else {
                         const error = { type: "error", value: 'ReferenceError: ' + varName + ' is not defined' } as const
-                        addStep({
+
+                        return addStep({
                             node: node,
                             phase: "execution",
                             scopeIndex: currentScopeIndex,
                             memoryChange: { type: "none" },
                             errorThrown: error
                         })
-                        return error
                     }
                 }
                 break;
@@ -493,33 +494,33 @@ export const simulateExecution = (astNode: ESNode | null): ExecStep[] => {
                         evaluated: false
                     })
 
-                    let leftValue: JSValue
-                    let rightValue: JSValue
+                    let leftStep: ExecStep | undefined
+                    let rightStep: ExecStep | undefined
 
                     if (binNode.operator === "&&") {
-                        leftValue = executionPhase(binNode.left, currentScopeIndex)
-                        if (leftValue.value === true) rightValue = executionPhase(binNode.right, currentScopeIndex)
-                        else rightValue = { type: "primitive", value: false }
+                        leftStep = executionPhase(binNode.left, currentScopeIndex)
+                        if (leftStep.evaluatedValue?.value === true) rightStep = executionPhase(binNode.right, currentScopeIndex)
+                        else rightStep = { type: "primitive", value: false }
                     } else if (binNode.operator === "||") {
-                        leftValue = executionPhase(binNode.left, currentScopeIndex)
-                        if (leftValue.value === true) rightValue = { type: "primitive", value: true }
-                        else rightValue = executionPhase(binNode.right, currentScopeIndex)
+                        leftStep = executionPhase(binNode.left, currentScopeIndex)
+                        if (leftStep.evaluatedValue?.value === true) rightStep = { type: "primitive", value: true }
+                        else rightStep = executionPhase(binNode.right, currentScopeIndex)
                     } else {
-                        leftValue = executionPhase(binNode.left, currentScopeIndex);
-                        rightValue = executionPhase(binNode.right, currentScopeIndex);
+                        leftStep = executionPhase(binNode.left, currentScopeIndex);
+                        rightStep = executionPhase(binNode.right, currentScopeIndex);
                     }
 
                     if (binNode.operator) {
-                        const value = eval(`${leftValue.value}${binNode.operator}${rightValue.value}`)
+                        const value = eval(`${leftStep.evaluatedValue?.value}${binNode.operator}${rightStep.evaluatedValue?.value}`)
                         const evaluatedValue = {
                             type: "primitive",
                             value
                         }
 
-                        removeMemVal(leftValue)
-                        removeMemVal(rightValue)
+                        removeMemVal(leftStep.evaluatedValue)
+                        removeMemVal(rightStep.evaluatedValue)
                         addMemVal(evaluatedValue)
-                        addStep({
+                        return addStep({
                             node: node,
                             phase: "execution",
                             scopeIndex: currentScopeIndex,
@@ -530,7 +531,7 @@ export const simulateExecution = (astNode: ESNode | null): ExecStep[] => {
                             evaluated: true,
                             evaluatedValue,
                         })
-                        return evaluatedValue
+
                     }
                 }
                 break;
@@ -538,10 +539,13 @@ export const simulateExecution = (astNode: ESNode | null): ExecStep[] => {
             case "ReturnStatement":
                 {
                     const returnNode = node as ReturnStatement;
-                    const returnValue = executionPhase(returnNode.argument, currentScopeIndex)
-                    removeMemVal(returnValue)
-                    return returnValue
+                    const lastStep = executionPhase(returnNode.argument, currentScopeIndex)
+                    if (lastStep) {
+                        removeMemVal(lastStep.evaluatedValue)
+                    }
+                    return lastStep
                 }
+                break;
 
             case "MemberExpression":
                 {
@@ -871,9 +875,6 @@ export const simulateExecution = (astNode: ESNode | null): ExecStep[] => {
                 console.warn(`Execution Pass: Unhandled node type - ${node.type}`)
                 break;
         }
-
-        // Default return value if no specific value evaluated
-        return
     }
 
     const destructionPhase = (astNode: ESNode, scopeIndex: number) => {
@@ -922,9 +923,9 @@ export const simulateExecution = (astNode: ESNode | null): ExecStep[] => {
                 strict = isStrict(astNode)
 
                 creationPhase(astNode, scopeIndex, strict)
-                const result = executionPhase(astNode.type === "Program" ? astNode : astNode.body, scopeIndex) // Start execution from the Program node in global scope
-                if (result.type === "error") {
-                    return result
+                const lastStep = executionPhase(astNode.type === "Program" ? astNode : astNode.body, scopeIndex) // Start execution from the Program node in global scope
+                if (lastStep?.evaluatedValue?.type === "error") {
+                    return lastStep
                 }
 
                 destructionPhase(astNode, scopeIndex)
