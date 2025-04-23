@@ -1,7 +1,7 @@
 import { ESNode, Program, VariableDeclarator, Identifier, Literal, VariableDeclaration, ArrayExpression, ObjectExpression, Property, ArrowFunctionExpression, ExpressionStatement } from "hermes-parser"
 import { ExecStep, JSValue, Scope, Heap, MemoryChange, HeapObject, HeapRef, Declaration, TDZ, ScopeType, PushScopeKind } from "../types/simulation"
 import { cloneDeep, result } from "lodash" // Import cloneDeep from lodash
-import { BinaryExpression, CallExpression, FunctionDeclaration, Node } from "typescript"
+import { BinaryExpression, CallExpression, FunctionDeclaration, Node, ReturnStatement } from "typescript"
 
 /**
  * Simulates the execution of JavaScript code represented by an AST.
@@ -264,19 +264,22 @@ export const simulateExecution = (astNode: ESNode | null): ExecStep[] => {
 
                                 lastValue = executionPhase(statement as ESNode, currentScopeIndex) // Keep cast
 
-                                if (lastValue.type === "error") {
-                                    return lastValue
-                                }
+                                if (lastValue) {
+                                    if (lastValue.type === "error") {
+                                        return lastValue
+                                    }
 
-                                // addStep({
-                                //     node: statement,
-                                //     phase: "execution",
-                                //     executing: false,
-                                //     executed: true,
-                                //     evaluated: false,
-                                //     scopeIndex: currentScopeIndex,
-                                //     memoryChange: { type: "none" },
-                                // })
+                                    addStep({
+                                        node: statement,
+                                        phase: "execution",
+                                        executing: false,
+                                        executed: true,
+                                        evaluating: false,
+                                        evaluated: false,
+                                        scopeIndex: currentScopeIndex,
+                                        memoryChange: { type: "none" },
+                                    })
+                                }
                             }
                         }
                     }
@@ -302,22 +305,34 @@ export const simulateExecution = (astNode: ESNode | null): ExecStep[] => {
                                 phase: "execution",
                                 scopeIndex: currentScopeIndex,
                                 memoryChange: { type: "none" },
+                                executing: true,
+                                executed: false,
+                                evaluating: false,
+                                evaluated: false,
                             })
 
                             lastValue = executionPhase(statement, currentScopeIndex)
 
-                            addStep({
-                                node: statement,
-                                phase: "execution",
-                                scopeIndex: currentScopeIndex,
-                                memoryChange: { type: "none" },
-                                evaluatedValue: lastValue,
-                            })
+                            if (lastValue) {
+                                if (lastValue.type === "error") {
+                                    return lastValue
+                                }
+                                console.log(111, lastValue)
+                                addStep({
+                                    node: statement,
+                                    phase: "execution",
+                                    scopeIndex: currentScopeIndex,
+                                    memoryChange: { type: "none" },
+                                    executing: false,
+                                    executed: true,
+                                    evaluating: false,
+                                    evaluated: false,
+                                })
+                            }
                         }
                     }
                     return lastValue
                 }
-                break;
 
             case "Literal":
                 {
@@ -390,7 +405,7 @@ export const simulateExecution = (astNode: ESNode | null): ExecStep[] => {
                                     executed: true,
                                     evaluating: false,
                                     evaluated: false,
-                                });
+                                })
                             }
                         }
                     }
@@ -519,6 +534,14 @@ export const simulateExecution = (astNode: ESNode | null): ExecStep[] => {
                     }
                 }
                 break;
+
+            case "ReturnStatement":
+                {
+                    const returnNode = node as ReturnStatement;
+                    const returnValue = executionPhase(returnNode.argument, currentScopeIndex)
+                    removeMemVal(returnValue)
+                    return returnValue
+                }
 
             case "MemberExpression":
                 {
@@ -850,7 +873,7 @@ export const simulateExecution = (astNode: ESNode | null): ExecStep[] => {
         }
 
         // Default return value if no specific value evaluated
-        return { type: "primitive", value: undefined }
+        return
     }
 
     const destructionPhase = (astNode: ESNode, scopeIndex: number) => {
