@@ -156,9 +156,7 @@ export const simulateExecution = (astNode: ESNode | null): ExecStep[] => {
 
     // --- Creation Pass --- 
     const creationPhase = (astNode: ESNode, scopeIndex: number, strict: boolean): void => {
-        // Create a new scope for the current node
         scopeIndex = pushScope(astNode)
-        console.log("Starting Creation Phase for scope:", scopeIndex)
 
         const declarations: Declaration[] = []
 
@@ -232,10 +230,13 @@ export const simulateExecution = (astNode: ESNode | null): ExecStep[] => {
             phase: "creation",
             scopeIndex,
             memoryChange: { type: "declaration", declarations, scopeIndex },
+            executing: false,
+            executed: false,
+            evaluating: false,
+            evaluated: false,
         })
 
-        console.log("Finished Creation Phase for scope:", scopeIndex)
-
+        console.log("Creation Phase:", scopeIndex)
         return scopeIndex
     }
 
@@ -904,16 +905,12 @@ export const simulateExecution = (astNode: ESNode | null): ExecStep[] => {
     }
 
     const destructionPhase = (astNode: ESNode, scopeIndex: number) => {
-        console.log("Destroying phase")
-        // remove scopeIndex from scopes and heap items in scopeIndex
-        if (scopeIndex !== 0) {
-            const heapItems = Object.values(scopes[scopeIndex].variables)
-                .filter((item): item is Extract<JSValue, { type: 'reference' }> => item.type === 'reference') // Use type predicate
-            heapItems.forEach(item => {
-                delete heap[item.ref] // Safe access now
-            })
-            scopes.splice(scopeIndex, 1)
-        }
+        const heapItems = Object.values(scopes[scopeIndex].variables)
+            .filter((item): item is Extract<JSValue, { type: 'reference' }> => item.type === 'reference') // Use type predicate
+        heapItems.forEach(item => {
+            delete heap[item.ref] // Safe access now
+        })
+        scopes.splice(scopeIndex, 1)
 
         addStep({
             node: astNode,
@@ -921,7 +918,12 @@ export const simulateExecution = (astNode: ESNode | null): ExecStep[] => {
             scopeIndex: scopeIndex,
             memoryChange: { type: "pop_scope", scopeIndex },
             evaluatedValue: undefined,
+            executing: false,
+            executed: false,
+            evaluating: false,
+            evaluated: false,
         })
+        console.log("Destruction Phase:", scopeIndex)
     }
 
     const isBlock = (node: ESNode): boolean => {
@@ -954,8 +956,10 @@ export const simulateExecution = (astNode: ESNode | null): ExecStep[] => {
                     return lastStep
                 }
 
-                destructionPhase(astNode, scopeIndex)
-                lastScopeIndex--
+                if (scopeIndex !== 0) {
+                    destructionPhase(astNode, scopeIndex)
+                    lastScopeIndex--
+                }
                 return lastStep
             } else {
                 return executionPhase(astNode, scopeIndex)
