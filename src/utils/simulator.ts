@@ -141,6 +141,10 @@ export const simulateExecution = (astNode: ESNode | null): ExecStep[] => {
             scopeIndex,
             memoryChange: { type: "push_scope", kind, scope },
             node: astNode,
+            executing: true,
+            executed: false,
+            evaluating: false,
+            evaluated: false,
         })
 
         return scopeIndex
@@ -230,7 +234,7 @@ export const simulateExecution = (astNode: ESNode | null): ExecStep[] => {
             phase: "creation",
             scopeIndex,
             memoryChange: { type: "declaration", declarations, scopeIndex },
-            executing: false,
+            executing: true,
             executed: false,
             evaluating: false,
             evaluated: false,
@@ -417,76 +421,66 @@ export const simulateExecution = (astNode: ESNode | null): ExecStep[] => {
             evaluated: false,
         })
 
-        const lastStep = executionPhase(astNode.callee, scopeIndex)
+        let lastStep = executionPhase(astNode.callee, scopeIndex)
+        const object = heap[lastStep.evaluatedValue?.ref]
+        if (object?.type === "function") {
+            addStep({
+                node: astNode,
+                phase: "execution",
+                scopeIndex,
+                memoryChange: { type: "none" },
+                executing: false,
+                executed: false,
+                evaluating: true,
+                evaluated: false,
+                evaluatedValue: lastStep.evaluatedValue,
+            })
 
-        return addStep({
+            lastStep = traverseAST(object.node as ESNode, scopeIndex, false)
+
+            return addStep({
+                node: astNode,
+                phase: "execution",
+                scopeIndex,
+                memoryChange: { type: "none" },
+                executing: false,
+                executed: false,
+                evaluating: false,
+                evaluated: true,
+                evaluatedValue: lastStep.evaluatedValue,
+            })
+        } else {
+            const error = { type: "error", value: 'TypeError: ' + varName + ' is not a function' } as const
+            return addStep({
+                node: astNode,
+                phase: "execution",
+                scopeIndex,
+                memoryChange: { type: "none" },
+                errorThrown: error,
+                executing: false,
+                executed: false,
+                evaluating: false,
+                evaluated: false,
+            })
+        }
+    }
+
+    const execIdentifier = (astNode: ESNode, scopeIndex: number): ExecStep | undefined => {
+        addStep({
             node: astNode,
             phase: "execution",
             scopeIndex,
             memoryChange: { type: "none" },
             executing: false,
             executed: false,
-            evaluating: false,
-            evaluated: true,
-            evaluatedValue: lastStep.evaluatedValue,
+            evaluating: true,
+            evaluated: false,
         })
 
-    }
-
-    const execIdentifier = (astNode: ESNode, scopeIndex: number): ExecStep | undefined => {
         const varName = (astNode as Identifier).name;
         const variable = lookupVariable(varName, scopeIndex)
         if (variable !== -1) {
             if (variable.value.type === "reference") {
-                const object = heap[variable.value.ref]
-                if (object?.type === "function") {
-                    addStep({
-                        node: astNode,
-                        phase: "execution",
-                        scopeIndex,
-                        memoryChange: { type: "none" },
-                        executing: false,
-                        executed: false,
-                        evaluating: true,
-                        evaluated: false,
-                    })
-
-                    const lastStep = traverseAST(object.node as ESNode, scopeIndex, false)
-
-                    addStep({
-                        node: astNode,
-                        phase: "execution",
-                        scopeIndex,
-                        memoryChange: { type: "none" },
-                        executing: false,
-                        executed: false,
-                        evaluating: false,
-                        evaluated: true,
-                        evaluatedValue: lastStep.evaluatedValue,
-                    })
-
-                    return lastStep
-                } else {
-                    const error = { type: "error", value: 'TypeError: ' + varName + ' is not a function' } as const
-                    return addStep({
-                        node: astNode,
-                        phase: "execution",
-                        scopeIndex,
-                        memoryChange: { type: "none" },
-                        errorThrown: error
-                    })
-                }
-            } else if (variable.value.type === "primitive") {
-                addStep({
-                    node: astNode,
-                    phase: "execution",
-                    scopeIndex,
-                    memoryChange: { type: "none" },
-                    executing: false,
-                    executed: false,
-                    evaluating: true,
-                    evaluated: false,
-                })
                 addMemVal(variable.value)
                 return addStep({
                     node: astNode,
@@ -499,8 +493,19 @@ export const simulateExecution = (astNode: ESNode | null): ExecStep[] => {
                     evaluated: true,
                     evaluatedValue: variable.value
                 })
-            } else {
-                return { type: "error", value: 'TypeError: ' + varName + ' is not a function' }
+            } else if (variable.value.type === "primitive") {
+                addMemVal(variable.value)
+                return addStep({
+                    node: astNode,
+                    phase: "execution",
+                    scopeIndex,
+                    memoryChange: { type: "none" },
+                    executing: false,
+                    executed: false,
+                    evaluating: false,
+                    evaluated: true,
+                    evaluatedValue: variable.value
+                })
             }
         } else {
             const error = { type: "error", value: 'ReferenceError: ' + varName + ' is not defined' } as const
