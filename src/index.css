@@ -202,8 +202,20 @@
 }
 
 .executing {
-  @apply bg-yellow-200 rounded;
+  @apply bg-yellow-200 dark:bg-amber-900/30 rounded;
 }
 /* .executing:not(:has(.executing)) > * {
   @apply bg-yellow-200 rounded;
 } */
+
+.executed {
+  @apply bg-green-200 dark:bg-emerald-900/30 rounded;
+}
+
+.evaluating {
+  @apply bg-amber-100 dark:bg-sky-900/30 rounded;
+}
+
+.evaluated {
+  @apply bg-emerald-100 dark:bg-emerald-900/30 rounded;
+}

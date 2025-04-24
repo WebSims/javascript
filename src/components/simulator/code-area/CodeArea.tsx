@@ -115,7 +115,7 @@ interface CodeAreaProps {
 
 const Statement = ({ st, parent, parens }) => {
     const { isExecuting: isExecutingParent } = useExecStep(parent)
-    const { isExecuting: isExecutingStatement } = useExecStep(st)
+    const { isExecuting: isExecutingStatement, isExecuted: isExecutedStatement } = useExecStep(st)
     const isExecuting = isExecutingParent || isExecutingStatement
 
     let component = <>UNKNWON STATEMENT</>;
@@ -171,7 +171,7 @@ const Statement = ({ st, parent, parens }) => {
     const title = _.get(decorations, st.category || "statement.UNKNOWN").tooltip
     const className = (st.category || "statement.UNKNOWN").split('.').map((__, i, all) =>
         _.get(decorations, all.slice(0, i + 1).join('.')).classN || ''
-    ).join(' ') + (isExecuting ? ' executing' : '')
+    ).join(' ') + (isExecuting ? ' executing' : '') + (isExecutedStatement ? ' executed' : '')
 
     return <div
         data-cheat-sheet-id={cheatSheetId}
@@ -192,7 +192,7 @@ const Def = ({ defBy, name, setBy, setTo, parens, parent }) => {
 // )
 
 const Expression = ({ fromAstOf, expr, parent, parens }: { fromAstOf?: any, expr: any, parent: any, parens: any }) => {
-    const { isExecuting } = useExecStep(expr)
+    const { isEvaluating, isEvaluated } = useExecStep(expr)
 
     if (fromAstOf) {
         const ast = astOf(fromAstOf)
@@ -319,7 +319,8 @@ const Expression = ({ fromAstOf, expr, parent, parens }: { fromAstOf?: any, expr
     const cheatSheetId = decoratorObject.cheatSheetId
     const className = (expr.category || "statement.UNKNOWN").split('.').map((__, i, all) =>
         _.get(decorations, all.slice(0, i + 1).join('.')).classN || ''
-    ).join(' ') + (isExecuting ? ' executing' : '')
+    ).join(' ') + (isEvaluating ? ' evaluating' : '') + (isEvaluated ? ' evaluated' : '')
+
     return <span
         data-cheat-sheet-id={cheatSheetId}
         className={className}
