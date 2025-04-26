@@ -945,7 +945,7 @@ export const simulateExecution = (astNode: ESNode | null): ExecStep[] => {
             memoryChange: { type: "pop_scope", scopeIndex },
             evaluatedValue: undefined,
             executing: false,
-            executed: false,
+            executed: true,
             evaluating: false,
             evaluated: false,
         })
