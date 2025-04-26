@@ -435,6 +435,7 @@ export const simulateExecution = (astNode: ESNode | null): ExecStep[] => {
                 evaluated: false,
                 evaluatedValue: lastStep.evaluatedValue,
             })
+            removeMemVal(lastStep?.evaluatedValue)
 
             lastStep = traverseAST(object.node as ESNode, scopeIndex, false)
 
