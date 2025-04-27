@@ -58,9 +58,60 @@ export const simulateExecution = (astNode: ESNode | null): ExecStep[] => {
         steps.push(step)
         return step
     }
-    const addExecutionStep = (node: ESNode, scopeIndex: number): ExecStep => {
+    const addPushScopeStep = (astNode: ESNode): ExecStep => {
+        const getPushScopeType = (astNode: ESNode): ScopeType => {
+            switch (astNode.type) {
+                case "Program":
+                    return "global"
+                case "FunctionDeclaration":
+                    return "function"
+                default:
+                    return "block"
+            }
+        }
+        const type = getPushScopeType(astNode)
+        const { scope, scopeIndex } = newScope(type)
+
+        const getPushScopeKind = (astNode: ESNode): PushScopeKind => {
+            switch (astNode.type) {
+                case "Program":
+                    return "program"
+                case "FunctionDeclaration":
+                    return "function"
+                case "TryStatement":
+                    return "try"
+                default:
+                    return "block"
+            }
+        }
+        const kind = getPushScopeKind(astNode)
+
         return addStep({
-            node,
+            phase: "creation",
+            scopeIndex,
+            memoryChange: { type: "push_scope", kind, scope },
+            node: astNode,
+            executing: true,
+            executed: false,
+            evaluating: false,
+            evaluated: false,
+        })
+    }
+    const addHoistingStep = (astNode: ESNode, scopeIndex: number, declarations: Declaration[]): ExecStep => {
+        return addStep({
+            node: astNode,
+            phase: "creation",
+            scopeIndex,
+            memoryChange: { type: "declaration", declarations, scopeIndex },
+            executing: true,
+            executed: false,
+            evaluating: false,
+            evaluated: false,
+        })
+    }
+    const addExecutionStep = (astNode: ESNode, scopeIndex: number): ExecStep => {
+        return addStep({
+            node: astNode,
             phase: "execution",
             scopeIndex,
             memoryChange: { type: "none" },
@@ -70,9 +121,9 @@ export const simulateExecution = (astNode: ESNode | null): ExecStep[] => {
             evaluated: false,
         })
     }
-    const addExecutedStep = (node: ESNode, scopeIndex: number, evaluatedValue?: JSValue): ExecStep => {
+    const addExecutedStep = (astNode: ESNode, scopeIndex: number, evaluatedValue?: JSValue): ExecStep => {
         return addStep({
-            node,
+            node: astNode,
             phase: "execution",
             scopeIndex,
             memoryChange: { type: "none" },
@@ -83,9 +134,9 @@ export const simulateExecution = (astNode: ESNode | null): ExecStep[] => {
             evaluatedValue,
         })
     }
-    const addEvaluatingStep = (node: ESNode, scopeIndex: number): ExecStep => {
+    const addEvaluatingStep = (astNode: ESNode, scopeIndex: number): ExecStep => {
         return addStep({
-            node,
+            node: astNode,
             phase: "execution",
             scopeIndex,
             memoryChange: { type: "none" },
@@ -95,9 +146,9 @@ export const simulateExecution = (astNode: ESNode | null): ExecStep[] => {
             evaluated: false,
         })
     }
-    const addEvaluatedStep = (node: ESNode, scopeIndex: number, evaluatedValue: JSValue): ExecStep => {
+    const addEvaluatedStep = (astNode: ESNode, scopeIndex: number, evaluatedValue: JSValue): ExecStep => {
         return addStep({
-            node,
+            node: astNode,
             phase: "execution",
             scopeIndex,
             memoryChange: { type: "none" },
@@ -108,12 +159,33 @@ export const simulateExecution = (astNode: ESNode | null): ExecStep[] => {
             evaluatedValue,
         })
     }
+    const addPopScopeStep = (astNode: ESNode, scopeIndex: number): ExecStep => {
+        const heapItems = Object.values(scopes[scopeIndex].variables)
+            .filter((item): item is Extract<JSValue, { type: 'reference' }> => item.type === 'reference')
+        heapItems.forEach(item => {
+            delete heap[item.ref]
+        })
+        scopes.splice(scopeIndex, 1)
+
+        return addStep({
+            node: astNode,
+            phase: "destruction",
+            scopeIndex: scopeIndex,
+            memoryChange: { type: "pop_scope", scopeIndex },
+            evaluatedValue: undefined,
+            executing: false,
+            executed: true,
+            evaluating: false,
+            evaluated: false,
+        })
+    }
 
     // --- Memory Manipulation Helpers (Simplified placeholders) ---
-    const newScope = (type: ScopeType): number => {
-        const newScopeIndex = scopes.length
-        scopes.push({ type, variables: {} })
-        return newScopeIndex
+    const newScope = (type: ScopeType): { scope: Scope, scopeIndex: number } => {
+        const scopeIndex = scopes.length
+        const scope = { type, variables: {} }
+        scopes.push(scope)
+        return { scope, scopeIndex }
     }
 
     const allocateHeapObject = (obj: HeapObject): HeapRef => {
@@ -155,52 +227,6 @@ export const simulateExecution = (astNode: ESNode | null): ExecStep[] => {
         return 0 // Indicate it wasn't found in declared scopes
     }
 
-    // ... more helpers for get/set property, value resolution, etc. ...
-    const pushScopeKind = (astNode: ESNode): PushScopeKind => {
-        switch (astNode.type) {
-            case "Program":
-                return "program"
-            case "FunctionDeclaration":
-                return "function"
-            case "TryStatement":
-                return "try"
-            default:
-                return "block"
-        }
-    }
-
-    const pushScopeType = (astNode: ESNode): ScopeType => {
-        switch (astNode.type) {
-            case "Program":
-                return "global"
-            case "FunctionDeclaration":
-                return "function"
-            default:
-                return "block"
-        }
-    }
-
-    const pushScope = (astNode: ESNode): number => {
-        const scopeIndex = scopes.length
-        const type = pushScopeType(astNode)
-        const scope = { type, variables: {} }
-        scopes.push(scope)
-
-        const kind = pushScopeKind(astNode)
-        addStep({
-            phase: "creation",
-            scopeIndex,
-            memoryChange: { type: "push_scope", kind, scope },
-            node: astNode,
-            executing: true,
-            executed: false,
-            evaluating: false,
-            evaluated: false,
-        })
-
-        return scopeIndex
-    }
-
     const addMemVal = (value: JSValue) => {
         memVal.push(value)
     }
@@ -211,7 +237,7 @@ export const simulateExecution = (astNode: ESNode | null): ExecStep[] => {
 
     // --- Creation Pass --- 
     const creationPhase = (astNode: ESNode, scopeIndex: number, strict: boolean): void => {
-        scopeIndex = pushScope(astNode)
+        scopeIndex = addPushScopeStep(astNode).scopeIndex
 
         const declarations: Declaration[] = []
 
@@ -280,19 +306,8 @@ export const simulateExecution = (astNode: ESNode | null): ExecStep[] => {
             }
         }
 
-        addStep({
-            node: astNode,
-            phase: "creation",
-            scopeIndex,
-            memoryChange: { type: "declaration", declarations, scopeIndex },
-            executing: true,
-            executed: false,
-            evaluating: false,
-            evaluated: false,
-        })
-
+        addHoistingStep(astNode, scopeIndex, declarations)
         console.log("Creation Phase:", scopeIndex)
-        return scopeIndex
     }
 
     // --- Execution Pass --- 
@@ -846,24 +861,7 @@ export const simulateExecution = (astNode: ESNode | null): ExecStep[] => {
     }
 
     const destructionPhase = (astNode: ESNode, scopeIndex: number) => {
-        const heapItems = Object.values(scopes[scopeIndex].variables)
-            .filter((item): item is Extract<JSValue, { type: 'reference' }> => item.type === 'reference') // Use type predicate
-        heapItems.forEach(item => {
-            delete heap[item.ref] // Safe access now
-        })
-        scopes.splice(scopeIndex, 1)
-
-        addStep({
-            node: astNode,
-            phase: "destruction",
-            scopeIndex: scopeIndex,
-            memoryChange: { type: "pop_scope", scopeIndex },
-            evaluatedValue: undefined,
-            executing: false,
-            executed: true,
-            evaluating: false,
-            evaluated: false,
-        })
+        addPopScopeStep(astNode, scopeIndex)
         console.log("Destruction Phase:", scopeIndex)
     }
 
