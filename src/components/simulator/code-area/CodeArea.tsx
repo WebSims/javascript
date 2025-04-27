@@ -59,6 +59,7 @@ const decorations = {
         expression: { tooltip: "Expression Evaluation Statement", cheatSheetId: "st-exp", classN: "text-slate-700" },
         declaration: { tooltip: "Variable declaration Statement", cheatSheetId: "st-dec", classN: "text-slate-700" },
         return: { tooltip: "Return Statement", cheatSheetId: "st-flow-return", classN: "text-purple-600" },
+        throw: { tooltip: "Throw Statement", cheatSheetId: "st-flow-throw", classN: "text-red-600" },
         class: { tooltip: "Class Declaration", cheatSheetId: "st-dec-class", classN: "text-blue-600" },
         UNKNOWN: { tooltip: "UNKNOWN Statement", classN: "bg-orange-400 hover:bg-orange-500" },
     },
@@ -166,6 +167,13 @@ const Statement = ({ st, parent, parens }) => {
         st.category = "statement.return"
         cheatSheetId = 'st-flow-return'
         component = <ReturnStatement expr={st.argument} parens={parens} parent={st} />
+    }
+
+    // ThrowStatement argument:expr
+    if (st.type == "ThrowStatement") {
+        st.category = "statement.throw"
+        cheatSheetId = 'st-flow-throw'
+        component = <ThrowSt expr={st.argument} parens={parens} parent={st} />
     }
 
     const title = _.get(decorations, st.category || "statement.UNKNOWN").tooltip
@@ -584,6 +592,18 @@ const NewConstructor = ({ expr, args, parent, parens }) => {
 const ReturnStatement = ({ expr, parens, parent }) => (
     <>
         <span className="text-purple-600 font-medium">return</span>
+        {expr && (
+            <>
+                <span className="mx-1"></span>
+                <Expression expr={expr} parens={parens} parent={parent} />
+            </>
+        )}
+    </>
+)
+
+const ThrowSt = ({ expr, parens, parent }: { expr: any, parens: any, parent: any }) => (
+    <>
+        <span className="text-red-600 font-medium">throw</span>
         {expr && (
             <>
                 <span className="mx-1"></span>
