@@ -63,10 +63,12 @@ const FUNCTION_CODE_SAMPLE = `
 const g = 1
 g + 2
 function a() {
-  function b() {
-    return 2
-  }
-    return
+function b(){
+  throw 1
+  const l = 13
+}
+  return b()
+  const h = 2
 }
 a()
 const c = 1

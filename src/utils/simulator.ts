@@ -322,6 +322,9 @@ export const simulateExecution = (astNode: ESNode | null): ExecStep[] => {
                     if (lastStep?.node?.type !== statement.type) {
                         addExecutedStep(statement, scopeIndex)
                     }
+                    if (['ReturnStatement', 'ThrowStatement'].includes(statement.type)) {
+                        return lastStep
+                    }
                 }
             }
         }
@@ -337,6 +340,9 @@ export const simulateExecution = (astNode: ESNode | null): ExecStep[] => {
                 lastStep = executionPhase(statement, scopeIndex)
                 if (lastStep?.node?.type !== statement.type) {
                     addExecutedStep(statement, scopeIndex)
+                }
+                if (['ReturnStatement', 'ThrowStatement'].includes(statement.type)) {
+                    return lastStep
                 }
             }
         }
@@ -514,6 +520,10 @@ export const simulateExecution = (astNode: ESNode | null): ExecStep[] => {
         }
     }
 
+    const execThrowStatement = (astNode: ESNode, scopeIndex: number): ExecStep | undefined => {
+        executionPhase(astNode.argument, scopeIndex)
+    }
+
     const executionPhase = (node: ESNode | null, currentScopeIndex: number): ExecStep | undefined => {
         if (!node) return { type: "primitive", value: undefined }
         console.log("Executing node:", node.type, "in scope:", currentScopeIndex)
@@ -529,6 +539,7 @@ export const simulateExecution = (astNode: ESNode | null): ExecStep[] => {
             case "BinaryExpression":
             case "LogicalExpression": return execBinaryExpression(node, currentScopeIndex)
             case "ReturnStatement": return execReturnStatement(node, currentScopeIndex)
+            case "ThrowStatement": return execThrowStatement(node, currentScopeIndex)
 
             case "MemberExpression":
                 {
