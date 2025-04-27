@@ -66,9 +66,10 @@ function a() {
   function b() {
     return 2
   }
-  return b() + 1
+    return
 }
 a()
+const c = 1
 `
 
 // const FUNCTION_CODE_SAMPLE = `

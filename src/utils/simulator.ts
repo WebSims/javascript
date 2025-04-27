@@ -268,16 +268,18 @@ export const simulateExecution = (astNode: ESNode | null): ExecStep[] => {
                             return lastStep
                         }
 
-                        addStep({
-                            node: statement,
-                            phase: "execution",
-                            executing: false,
-                            executed: true,
-                            evaluating: false,
-                            evaluated: false,
-                            scopeIndex,
-                            memoryChange: { type: "none" },
-                        })
+                        if (lastStep.node?.type !== statement.type) {
+                            addStep({
+                                node: statement,
+                                phase: "execution",
+                                executing: false,
+                                executed: true,
+                                evaluating: false,
+                                evaluated: false,
+                                scopeIndex,
+                                memoryChange: { type: "none" },
+                            })
+                        }
                     }
                 }
             }
@@ -308,19 +310,22 @@ export const simulateExecution = (astNode: ESNode | null): ExecStep[] => {
                         return lastStep
                     }
 
-                    addStep({
-                        node: statement,
-                        phase: "execution",
-                        scopeIndex,
-                        memoryChange: { type: "none" },
-                        executing: false,
-                        executed: true,
-                        evaluating: false,
-                        evaluated: false,
-                    })
+                    if (lastStep.node?.type !== statement.type) {
+                        addStep({
+                            node: statement,
+                            phase: "execution",
+                            scopeIndex,
+                            memoryChange: { type: "none" },
+                            executing: false,
+                            executed: true,
+                            evaluating: false,
+                            evaluated: false,
+                        })
+                    }
                 }
             }
         }
+
         return lastStep
     }
 
@@ -389,7 +394,7 @@ export const simulateExecution = (astNode: ESNode | null): ExecStep[] => {
                     const targetScopeIndex = writeVariable(varName, lastStep.evaluatedValue, scopeIndex)
 
                     removeMemVal(lastStep.evaluatedValue)
-                    addStep({
+                    return addStep({
                         node: astNode,
                         scopeIndex,
                         memoryChange: {
@@ -406,7 +411,6 @@ export const simulateExecution = (astNode: ESNode | null): ExecStep[] => {
                 }
             }
         }
-        return
     }
 
     const execCallExpression = (astNode: ESNode, scopeIndex: number): ExecStep | undefined => {
@@ -448,7 +452,7 @@ export const simulateExecution = (astNode: ESNode | null): ExecStep[] => {
                 executed: false,
                 evaluating: false,
                 evaluated: true,
-                evaluatedValue: lastStep.evaluatedValue,
+                evaluatedValue: lastStep?.evaluatedValue,
             })
         } else {
             const error = { type: "error", value: 'TypeError: ' + varName + ' is not a function' } as const
@@ -479,6 +483,21 @@ export const simulateExecution = (astNode: ESNode | null): ExecStep[] => {
         })
 
         const varName = (astNode as Identifier).name;
+        if (varName === 'undefiend') {
+            addMemVal({ type: "primitive", value: undefined })
+            return addStep({
+                node: astNode,
+                phase: "execution",
+                scopeIndex,
+                memoryChange: { type: "none" },
+                executing: false,
+                executed: false,
+                evaluating: false,
+                evaluated: true,
+                evaluatedValue: { type: "primitive", value: undefined }
+            })
+        }
+
         const variable = lookupVariable(varName, scopeIndex)
         if (variable !== -1) {
             if (variable.value.type === "reference") {
@@ -510,9 +529,9 @@ export const simulateExecution = (astNode: ESNode | null): ExecStep[] => {
             }
         } else {
             const error = { type: "error", value: 'ReferenceError: ' + varName + ' is not defined' } as const
-
+            console.log(error)
             return addStep({
-                node: node,
+                node: astNode,
                 phase: "execution",
                 scopeIndex,
                 memoryChange: { type: "none" },
@@ -590,7 +609,6 @@ export const simulateExecution = (astNode: ESNode | null): ExecStep[] => {
                             evaluated: true,
                             evaluatedValue,
                         })
-
                     }
                 }
                 break;
@@ -598,7 +616,22 @@ export const simulateExecution = (astNode: ESNode | null): ExecStep[] => {
             case "ReturnStatement":
                 {
                     const returnNode = node as ReturnStatement;
-                    return executionPhase(returnNode.argument, currentScopeIndex)
+                    if (returnNode.argument) {
+                        return executionPhase(returnNode.argument, currentScopeIndex)
+                    } else {
+                        addMemVal({ type: 'primitive', value: undefined })
+                        return addStep({
+                            node: node,
+                            phase: "execution",
+                            scopeIndex: currentScopeIndex,
+                            memoryChange: { type: "none" },
+                            executing: false,
+                            executed: true,
+                            evaluating: false,
+                            evaluated: false,
+                            evaluatedValue: { type: 'primitive', value: undefined }
+                        })
+                    }
                 }
 
             case "MemberExpression":
