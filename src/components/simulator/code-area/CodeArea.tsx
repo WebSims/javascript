@@ -62,6 +62,7 @@ const decorations = {
         throw: { tooltip: "Throw Statement", cheatSheetId: "st-flow-throw", classN: "text-red-600" },
         class: { tooltip: "Class Declaration", cheatSheetId: "st-dec-class", classN: "text-blue-600" },
         try: { tooltip: "Try Statement", cheatSheetId: "st-flow-try", classN: "text-green-600" },
+        catch: { tooltip: "Catch Clause", cheatSheetId: "st-flow-catch", classN: "text-red-600" },
         UNKNOWN: { tooltip: "UNKNOWN Statement", classN: "bg-orange-400 hover:bg-orange-500" },
     },
     expression: {
@@ -116,9 +117,10 @@ interface CodeAreaProps {
 }
 
 const Statement = ({ st, parent, parens }) => {
-    const { isExecuting: isExecutingParent } = useExecStep(parent)
+    const { isExecuting: isExecutingParent, isExecuted: isExecutedParent } = useExecStep(parent)
     const { isExecuting: isExecutingStatement, isExecuted: isExecutedStatement } = useExecStep(st)
     const isExecuting = isExecutingParent || isExecutingStatement
+    const isExecuted = isExecutedParent || isExecutedStatement
 
     let component = <>UNKNWON STATEMENT</>;
     let cheatSheetId = "statement.UNKNOWN"
@@ -184,10 +186,16 @@ const Statement = ({ st, parent, parens }) => {
         component = <TryStatement st={st} parent={parent} parens={parens} />
     }
 
+    if (st.type == "CatchClause") {
+        st.category = "statement.catch"
+        cheatSheetId = 'st-flow-catch'
+        component = <CatchClause st={st} parent={parent} parens={parens} />
+    }
+
     const title = _.get(decorations, st.category || "statement.UNKNOWN").tooltip
     const className = (st.category || "statement.UNKNOWN").split('.').map((__, i, all) =>
         _.get(decorations, all.slice(0, i + 1).join('.')).classN || ''
-    ).join(' ') + (isExecuting ? ' executing' : '') + (isExecutedStatement ? ' executed' : '')
+    ).join(' ') + (isExecuting ? ' executing' : '') + (isExecuted ? ' executed' : '')
 
     return <div
         data-cheat-sheet-id={cheatSheetId}
@@ -845,21 +853,7 @@ const TryStatement = ({ st, parent, parens }: { st: any, parent: any, parens: an
             </div>
             <span className="text-slate-500 font-bold ml-2">&#125;</span>
             {st.handler && (
-                <div className="mt-2">
-                    <span className="keyword keyword-catch text-red-700 font-bold mr-2">catch</span>
-                    {st.handler.param && (
-                        <span className="ml-1 text-blue-600">(
-                            {st.handler.param.name || ''}
-                            )</span>
-                    )}
-                    <span className="text-slate-500 font-bold ml-1">&#123;</span>
-                    <div className="ml-6 border-l-2 border-red-200 pl-4 my-1">
-                        {st.handler.body && st.handler.body.body && st.handler.body.body.length > 0 && st.handler.body.body.map((statement: any, i: number) => (
-                            <Statement key={i} st={statement} parent={st.handler.body} parens={parens} />
-                        ))}
-                    </div>
-                    <span className="text-slate-500 font-bold ml-2">&#125;</span>
-                </div>
+                <Statement st={st.handler} parent={st} parens={parens} />
             )}
             {st.finalizer && (
                 <div className="mt-2">
@@ -873,6 +867,26 @@ const TryStatement = ({ st, parent, parens }: { st: any, parent: any, parens: an
                     <span className="text-slate-500 font-bold ml-2">&#125;</span>
                 </div>
             )}
+        </div>
+    )
+}
+
+const CatchClause = ({ st, parent, parens }: { st: any, parent: any, parens: any }) => {
+    return (
+        <div className="mt-2">
+            <span className="keyword keyword-catch text-red-700 font-bold mr-2">catch</span>
+            {st.param && (
+                <span className="ml-1 text-blue-600">(
+                    {st.param.name || ''}
+                    )</span>
+            )}
+            <span className="text-slate-500 font-bold ml-1">&#123;</span>
+            <div className="ml-6 border-l-2 border-red-200 pl-4 my-1">
+                {st.body && st.body.body && st.body.body.length > 0 && st.body.body.map((statement: any, i: number) => (
+                    <Statement key={i} st={statement} parent={st.body} parens={parens} />
+                ))}
+            </div>
+            <span className="text-slate-500 font-bold ml-2">&#125;</span>
         </div>
     )
 }
