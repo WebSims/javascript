@@ -323,11 +323,21 @@ export const simulateExecution = (astNode: ESNode | null): ExecStep[] => {
                 if (statement.type !== "FunctionDeclaration") {
                     addExecutionStep(statement, scopeIndex)
                     lastStep = executionPhase(statement as ESNode, scopeIndex)
-                    if (lastStep?.node?.type !== statement.type && lastStep?.node?.type !== "ThrowStatement") {
-                        addExecutedStep(statement, scopeIndex)
-                    }
-                    if (statement.type === "ThrowStatement") {
+
+                    if (statement.type === "ReturnStatement") {
+                        if (lastStep?.node?.type !== statement.type) {
+                            addExecutedStep(statement, scopeIndex)
+                        }
+
                         return lastStep
+                    }
+
+                    if (statement.type === "TryStatement" || statement.type === "ThrowStatement") {
+                        return lastStep
+                    }
+
+                    if (lastStep?.node?.type !== statement.type) {
+                        return addExecutedStep(statement, scopeIndex)
                     }
                 }
             }
@@ -344,14 +354,14 @@ export const simulateExecution = (astNode: ESNode | null): ExecStep[] => {
                 lastStep = executionPhase(statement, scopeIndex)
 
                 if (statement.type === "ReturnStatement") {
-                    console.log(lastStep?.node, statement)
                     if (lastStep?.node?.type !== statement.type) {
                         addExecutedStep(statement, scopeIndex)
                     }
+
                     return lastStep
                 }
 
-                if (statement.type === "ThrowStatement") {
+                if (statement.type === "TryStatement" || statement.type === "ThrowStatement") {
                     return lastStep
                 }
 
@@ -442,6 +452,7 @@ export const simulateExecution = (astNode: ESNode | null): ExecStep[] => {
                 return lastStep
             } else {
                 console.log(lastStep)
+
                 return addEvaluatedStep(astNode, scopeIndex, lastStep?.evaluatedValue)
             }
         } else {
@@ -558,11 +569,17 @@ export const simulateExecution = (astNode: ESNode | null): ExecStep[] => {
     // --- TryStatement Execution ---
     const execTryStatement = (astNode: ESNode, scopeIndex: number): ExecStep | undefined => {
         traverseAST(astNode, scopeIndex, false)
-        return executionPhase(astNode.handler, scopeIndex)
+        const lastStep = executionPhase(astNode.handler, scopeIndex)
+        return lastStep
     }
 
     const execCatchClause = (astNode: ESNode, scopeIndex: number): ExecStep | undefined => {
-        return traverseAST(astNode, scopeIndex, false)
+        const lastStep = traverseAST(astNode, scopeIndex, false)
+        if (lastStep?.node?.type === "ReturnStatement") {
+            addExecutedStep(astNode, scopeIndex)
+            return lastStep
+        }
+        return lastStep
     }
 
     const executionPhase = (node: ESNode | null, currentScopeIndex: number): ExecStep | undefined => {
