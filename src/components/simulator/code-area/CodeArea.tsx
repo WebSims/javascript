@@ -62,8 +62,8 @@ const decorations = {
         return: { tooltip: "Return Statement", cheatSheetId: "st-flow-return", classN: "text-purple-600" },
         throw: { tooltip: "Throw Statement", cheatSheetId: "st-flow-throw", classN: "text-red-600" },
         class: { tooltip: "Class Declaration", cheatSheetId: "st-dec-class", classN: "text-blue-600" },
-        try: { tooltip: "Try Statement", cheatSheetId: "st-flow-try", classN: "text-green-600" },
-        catch: { tooltip: "Catch Clause", cheatSheetId: "st-flow-catch", classN: "text-red-600" },
+        try: { tooltip: "Try Statement", cheatSheetId: "st-error-trycatch", classN: "text-green-600" },
+        catch: { tooltip: "Catch Clause", cheatSheetId: "st-error-trycatch", classN: "text-red-600" },
         UNKNOWN: { tooltip: "UNKNOWN Statement", classN: "bg-orange-400 hover:bg-orange-500" },
     },
     expression: {
@@ -124,7 +124,7 @@ const Statement = ({ st, parent, parens }) => {
     const isExecuted = isExecutedParent || isExecutedStatement
 
     let component = <>UNKNWON STATEMENT</>;
-    let cheatSheetId = "statement.UNKNOWN"
+    let cheatSheetId
 
     if (st.type == "BlockStatement") {
         st.category = parent.category
@@ -160,45 +160,41 @@ const Statement = ({ st, parent, parens }) => {
     // FunctionDeclaration async:bool id:Identifier params:[] body:{BlockStatement body:[st]}
     if (st.type == "FunctionDeclaration") {
         st.category = "statement.declaration"
-        cheatSheetId = 'st-dec-func'
         component = <NewFn async={st.async} name={st.id.name} args={st.params} code={st.body} parens={parens} parent={st} />
     }
 
     // ClassDeclaration id:Identifier superClass:Identifier|null body:{ClassBody body:[MethodDefinition|PropertyDefinition]}
     if (st.type == "ClassDeclaration") {
         st.category = "statement.class"
-        cheatSheetId = 'st-dec-class'
         component = <NewClass name={st.id.name} superClass={st.superClass} body={st.body} parens={parens} parent={st} />
     }
 
     // ReturnStatement argument:expr
     if (st.type == "ReturnStatement") {
         st.category = "statement.return"
-        cheatSheetId = 'st-flow-return'
         component = <ReturnStatement expr={st.argument} parens={parens} parent={st} />
     }
 
     // ThrowStatement argument:expr
     if (st.type == "ThrowStatement") {
         st.category = "statement.throw"
-        cheatSheetId = 'st-flow-throw'
         component = <ThrowSt expr={st.argument} parens={parens} parent={st} />
     }
 
     // TryStatement block:BlockStatement handler:CatchClause|null finalizer:BlockStatement|null
     if (st.type == "TryStatement") {
         st.category = "statement.try"
-        cheatSheetId = 'st-flow-try'
         component = <TryStatement st={st} parent={parent} parens={parens} />
     }
 
     if (st.type == "CatchClause") {
         st.category = "statement.catch"
-        cheatSheetId = 'st-flow-catch'
         component = <CatchClause st={st} parent={parent} parens={parens} />
     }
 
-    const title = _.get(decorations, st.category || "statement.UNKNOWN").tooltip
+    const decoratorObject = _.get(decorations, st.category || "statement.UNKNOWN")
+    const title = decoratorObject.tooltip
+    cheatSheetId = cheatSheetId || decoratorObject.cheatSheetId
     const className = (st.category || "statement.UNKNOWN").split('.').map((__, i, all) =>
         _.get(decorations, all.slice(0, i + 1).join('.')).classN || ''
     ).join(' ') + (isExecuting ? ' executing' : '') + (isExecuted ? ' executed' : '')
