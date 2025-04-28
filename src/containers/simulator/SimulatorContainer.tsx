@@ -60,10 +60,9 @@ const e = (a + 1) * (b + 2) + (c - 3) / (d + 4)
 `
 
 const FUNCTION_CODE_SAMPLE = `
-const g = 1
-g + 2
 function a() {
 function b(){
+const gg = 'GG'
   throw 1
   const l = 13
 }

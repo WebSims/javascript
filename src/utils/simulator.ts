@@ -322,7 +322,10 @@ export const simulateExecution = (astNode: ESNode | null): ExecStep[] => {
                     if (lastStep?.node?.type !== statement.type) {
                         addExecutedStep(statement, scopeIndex)
                     }
-                    if (['ReturnStatement', 'ThrowStatement'].includes(statement.type)) {
+                    if (statement.type === "ReturnStatement") {
+                        return lastStep
+                    }
+                    if (statement.type === "ThrowStatement") {
                         return lastStep
                     }
                 }
@@ -341,7 +344,10 @@ export const simulateExecution = (astNode: ESNode | null): ExecStep[] => {
                 if (lastStep?.node?.type !== statement.type) {
                     addExecutedStep(statement, scopeIndex)
                 }
-                if (['ReturnStatement', 'ThrowStatement'].includes(statement.type)) {
+                if (statement.type === "ReturnStatement") {
+                    return lastStep
+                }
+                if (statement.type === "ThrowStatement") {
                     return lastStep
                 }
             }
@@ -424,7 +430,12 @@ export const simulateExecution = (astNode: ESNode | null): ExecStep[] => {
 
             lastStep = traverseAST(object.node as ESNode, scopeIndex, false)
 
-            return addEvaluatedStep(astNode, scopeIndex, lastStep?.evaluatedValue)
+            // if (lastStep?.node?.type === "ThrowStatement") {
+            //     return lastStep
+            // } else {
+            return addEvaluatedStep(astNode, scopeIndex, newlastStep?.evaluatedValue)
+            // }
+
         } else {
             const error = { type: "error", value: 'TypeError: ' + lastStep?.node.name + ' is not a function' } as const
             addStep({
@@ -521,7 +532,18 @@ export const simulateExecution = (astNode: ESNode | null): ExecStep[] => {
     }
 
     const execThrowStatement = (astNode: ESNode, scopeIndex: number): ExecStep | undefined => {
-        executionPhase(astNode.argument, scopeIndex)
+        const lastStep = executionPhase(astNode.argument, scopeIndex)
+        return addStep({
+            node: astNode,
+            phase: 'execution',
+            scopeIndex,
+            memoryChange: { type: 'none' },
+            errorThrown: lastStep?.evaluatedValue,
+            executing: false,
+            executed: true,
+            evaluating: false,
+            evaluated: false,
+        })
     }
 
     const executionPhase = (node: ESNode | null, currentScopeIndex: number): ExecStep | undefined => {
@@ -884,47 +906,39 @@ export const simulateExecution = (astNode: ESNode | null): ExecStep[] => {
         return node?.body[0]?.expression?.type === "Literal" && node?.body[0]?.expression?.value === "use strict"
     }
     // --- Simulation Execution --- 
-    function traverseAST(astNode: ESNode, scopeIndex: number, strict: boolean) {
-        try {
-            // Phase 1: Creation
-            // FunctionDeclaration - Function declarations are completely hoisted with their bodies
-            // VariableDeclaration - With var keyword (not let or const)
-            // ClassDeclaration - Class declarations are hoisted but remain uninitialized until the class expression is evaluated
+    function traverseAST(astNode: ESNode, scopeIndex: number, strict: boolean): ExecStep | undefined {
+        // Phase 1: Creation
+        // FunctionDeclaration - Function declarations are completely hoisted with their bodies
+        // VariableDeclaration - With var keyword (not let or const)
+        // ClassDeclaration - Class declarations are hoisted but remain uninitialized until the class expression is evaluated
 
-            // Phase 2: Execution
-            // executionPhase(astNode.type === "Program" ? astNode : astNode.body, scopeIndex) // Start execution from the Program node in global scope
+        // Phase 2: Execution
+        // executionPhase(astNode.type === "Program" ? astNode : astNode.body, scopeIndex) // Start execution from the Program node in global scope
 
-            // Phase 3: Destruction
-            if (isBlock(astNode)) {
-                lastScopeIndex++
-                scopeIndex = lastScopeIndex
-                strict = isStrict(astNode)
+        // Phase 3: Destruction
+        if (isBlock(astNode)) {
+            lastScopeIndex++
+            scopeIndex = lastScopeIndex
+            strict = isStrict(astNode)
 
-                creationPhase(astNode, scopeIndex, strict)
-                const lastStep = executionPhase(astNode.type === "Program" ? astNode : astNode.body, scopeIndex) // Start execution from the Program node in global scope
+            creationPhase(astNode, scopeIndex, strict)
+            const lastStep = executionPhase(astNode.type === "Program" ? astNode : astNode.body, scopeIndex) // Start execution from the Program node in global scope
 
-                if (scopeIndex !== 0) {
-                    destructionPhase(astNode, scopeIndex)
-                    lastScopeIndex--
-                }
-                return lastStep
-            } else {
-                return executionPhase(astNode, scopeIndex)
+            if (scopeIndex !== 0 && lastStep?.node?.type !== "ThrowStatement") {
+                destructionPhase(astNode, scopeIndex)
+                lastScopeIndex--
             }
-        } catch (error) {
-            console.error("Error during simulation:", error)
-            // Potentially add a final error step to the steps array
-            // addStep({
-            //     node: astNode, // Or find a better node association
-            //     pass: "normal",
-            //     scopeIndex: scopes.length - 1, // Last known scope
-            //     memoryChange: { type: "none" },
-            //     error: error instanceof Error ? error.message : String(error)
-            // })
+            return lastStep
+        } else {
+            return executionPhase(astNode, scopeIndex)
         }
     }
 
-    traverseAST(astNode, 0, false)
+    try {
+        traverseAST(astNode, 0, false)
+    } catch (error) {
+        console.error("Error during simulation:", error)
+    }
 
     console.log("Simulation finished. Steps:", steps.length)
     return steps
