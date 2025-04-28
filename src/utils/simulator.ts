@@ -362,6 +362,9 @@ export const simulateExecution = (astNode: ESNode | null): ExecStep[] => {
                 }
 
                 if (statement.type === "TryStatement" || statement.type === "ThrowStatement") {
+                    if (lastStep?.node?.type !== statement.type) {
+                        addExecutedStep(statement, scopeIndex)
+                    }
                     return lastStep
                 }
 
@@ -566,17 +569,17 @@ export const simulateExecution = (astNode: ESNode | null): ExecStep[] => {
 
     // --- TryStatement Execution ---
     const execTryStatement = (astNode: ESNode, scopeIndex: number): ExecStep | undefined => {
-        const lastStep = traverseAST(astNode, scopeIndex, false)
-        console.log(lastStep)
-        if (lastStep?.errorThrown) {
-            return executionPhase(astNode.handler, scopeIndex)
+        const lastStep1 = traverseAST(astNode, scopeIndex, false)
+        if (lastStep1?.errorThrown) {
+            const lastStep = executionPhase(astNode.handler, scopeIndex)
+            removeMemVal(lastStep1.errorThrown)
+            return lastStep
         }
-        return lastStep
+        return lastStep1
     }
 
     const execCatchClause = (astNode: ESNode, scopeIndex: number): ExecStep | undefined => {
-        const lastStep = traverseAST(astNode, scopeIndex, false)
-        return lastStep
+        return traverseAST(astNode, scopeIndex, false)
     }
 
     const executionPhase = (node: ESNode | null, currentScopeIndex: number): ExecStep | undefined => {
