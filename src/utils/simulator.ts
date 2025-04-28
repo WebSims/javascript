@@ -315,14 +315,19 @@ export const simulateExecution = (astNode: ESNode | null): ExecStep[] => {
     }
 
     // --- Execution Pass --- 
-    const execProgram = (astNode: ESNode, scopeIndex: number): ExecStep | undefined => {
-        const programBody = (astNode as Program).body as ESNode[] | undefined
+    const execBlockStatement = (astNode: ESNode, scopeIndex: number): ExecStep | undefined => {
+        const statements = astNode.body as ESNode[]
         let lastStep: ExecStep | undefined
-        if (Array.isArray(programBody)) {
-            for (const statement of programBody) {
+        if (Array.isArray(statements) && statements.length > 0) {
+            for (const statement of statements) {
                 if (statement.type !== "FunctionDeclaration") {
                     addExecutionStep(statement, scopeIndex)
                     lastStep = executionPhase(statement, scopeIndex)
+
+                    if (statement.type === "ExpressionStatement") {
+                        addExecutedStep(statement, scopeIndex)
+                        continue
+                    }
 
                     if (statement.type === "ReturnStatement" && lastStep?.node?.type !== "ThrowStatement") {
                         if (lastStep?.node?.type !== statement.type) {
@@ -333,43 +338,17 @@ export const simulateExecution = (astNode: ESNode | null): ExecStep[] => {
                     }
 
                     if (statement.type === "TryStatement" || statement.type === "ThrowStatement") {
+                        if (lastStep?.node?.type !== statement.type) {
+                            addExecutedStep(statement, scopeIndex)
+                        }
+                        if (!lastStep) continue
                         return lastStep
                     }
 
-                    if (lastStep?.node?.type !== statement.type && lastStep?.node?.type !== "ThrowStatement") {
+                    if (lastStep?.node?.type !== statement.type && lastStep?.node?.type !== "ThrowStatement" && statement.type !== "ExpressionStatement") {
                         return addExecutedStep(statement, scopeIndex)
                     }
-                }
-            }
-        }
-        return lastStep
-    }
 
-    const execBlockStatement = (astNode: ESNode, scopeIndex: number): ExecStep | undefined => {
-        const statements = astNode.body as ESNode[]
-        let lastStep: ExecStep | undefined
-        for (const statement of statements) {
-            if (statement.type !== "FunctionDeclaration") {
-                addExecutionStep(statement, scopeIndex)
-                lastStep = executionPhase(statement, scopeIndex)
-
-                if (statement.type === "ReturnStatement" && lastStep?.node?.type !== "ThrowStatement") {
-                    if (lastStep?.node?.type !== statement.type) {
-                        addExecutedStep(statement, scopeIndex)
-                    }
-
-                    return lastStep
-                }
-
-                if (statement.type === "TryStatement" || statement.type === "ThrowStatement") {
-                    if (lastStep?.node?.type !== statement.type) {
-                        addExecutedStep(statement, scopeIndex)
-                    }
-                    return lastStep
-                }
-
-                if (lastStep?.node?.type !== statement.type && lastStep?.node?.type !== "ThrowStatement") {
-                    return addExecutedStep(statement, scopeIndex)
                 }
             }
         }
@@ -587,9 +566,9 @@ export const simulateExecution = (astNode: ESNode | null): ExecStep[] => {
         console.log("Executing node:", node.type, "in scope:", currentScopeIndex)
 
         switch (node.type) {
-            case "Program": return execProgram(node, currentScopeIndex)
-            case "ExpressionStatement": return execExpressionStatement(node, currentScopeIndex)
+            case "Program": return execBlockStatement(node, currentScopeIndex)
             case "BlockStatement": return execBlockStatement(node, currentScopeIndex)
+            case "ExpressionStatement": return execExpressionStatement(node, currentScopeIndex)
             case "Literal": return execLiteral(node, currentScopeIndex)
             case "VariableDeclaration": return execVariableDeclaration(node, currentScopeIndex)
             case "CallExpression": return execCallExpression(node, currentScopeIndex)
@@ -964,7 +943,7 @@ export const simulateExecution = (astNode: ESNode | null): ExecStep[] => {
                 scopeIndex,
                 strict
             )
-            const block = astNode.type === "FunctionDeclaration" ? astNode.body :
+            const block: ESNode = astNode.type === "FunctionDeclaration" ? astNode.body :
                 astNode.type === "TryStatement" ? astNode.block :
                     astNode.type === "CatchClause" ? astNode.body :
                         astNode
@@ -972,7 +951,6 @@ export const simulateExecution = (astNode: ESNode | null): ExecStep[] => {
                 block,
                 scopeIndex
             )
-
             const isNodeInBody = (astNode: ESNode, body: ESNode[]) => {
                 return body.some(node => node.type === astNode.type && node.range[0] === astNode.range[0] && node.range[1] === astNode.range[1])
             }

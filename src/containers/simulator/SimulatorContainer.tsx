@@ -59,21 +59,30 @@ const d = (a + 1) + (b + 2) + (c + 3)
 const e = (a + 1) * (b + 2) + (c - 3) / (d + 4)
 `
 
-const FUNCTION_CODE_SAMPLE = `
-function b() {
-  throw 1
-  return 20
+const FUNCTION_CODE_SAMPLE = `function b() {
+  try {
+    throw 1
+  } catch (error) {
+  }
+  return 30
 }
+
 function a() {
   try {
     const c = 1
-    b()
+    try {
+      b()
+      throw 2
+      return 40
+    } catch (error) {
+      throw 3
+    }
   } catch (error) {
-   return 1 + 2
+   return 50
   }
 }
 a()
-`
+throw 6`
 
 // const FUNCTION_CODE_SAMPLE = `
 // function a() {
