@@ -187,11 +187,6 @@ const Statement = ({ st, parent, parens }) => {
         component = <TryStatement st={st} parent={parent} parens={parens} />
     }
 
-    if (st.type == "CatchClause") {
-        st.category = "statement.catch"
-        component = <CatchClause st={st} parent={parent} parens={parens} />
-    }
-
     const decoratorObject = _.get(decorations, st.category || "statement.UNKNOWN")
     const title = decoratorObject.tooltip
     cheatSheetId = cheatSheetId || decoratorObject.cheatSheetId
@@ -846,11 +841,13 @@ const TryStatement = ({ st, parent, parens }: { st: any, parent: any, parens: an
         >
             <span className="keyword keyword-try text-blue-700 font-bold mr-2">try</span>
             <Statement st={st.block} parent={st} parens={parens} />
-            {st.handler && (
-                <Statement st={st.handler} parent={st} parens={parens} />
-            )}
+            <span className="keyword keyword-catch text-red-700 font-bold mr-2">catch</span>
+            <span className="text-blue-600">(
+                {st.handler.param.name || ''}
+                )</span>
+            <Statement st={st.handler.body} parent={st} parens={parens} />
             {st.finalizer && (
-                <div className="mt-2">
+                <>
                     <span className="keyword keyword-finally text-purple-700 font-bold mr-2">finally</span>
                     <span className="text-slate-500 font-bold">&#123;</span>
                     <div className="ml-6 border-l-2 border-purple-200 pl-4 my-1">
@@ -859,7 +856,7 @@ const TryStatement = ({ st, parent, parens }: { st: any, parent: any, parens: an
                         ))}
                     </div>
                     <span className="text-slate-500 font-bold ml-2">&#125;</span>
-                </div>
+                </>
             )}
         </div>
     )
@@ -879,19 +876,6 @@ const BlockStatement = ({ st, parent, parens }: { st: any, parent: any, parens: 
     )
 }
 
-const CatchClause = ({ st, parent, parens }: { st: any, parent: any, parens: any }) => {
-    return (
-        <div className="mt-2">
-            <span className="keyword keyword-catch text-red-700 font-bold mr-2">catch</span>
-            {st.param && (
-                <span className="ml-1 text-blue-600">(
-                    {st.param.name || ''}
-                    )</span>
-            )}
-            <Statement st={st.body} parent={st} parens={parens} />
-        </div>
-    )
-}
 
 const CodeArea: React.FC<CodeAreaProps> = ({ fromAstOf, parent, parens, debug }) => {
     const { updateCodeStr, astOfCode, codeAreaRef } = useSimulatorStore()
