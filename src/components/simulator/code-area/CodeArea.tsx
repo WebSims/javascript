@@ -61,6 +61,7 @@ const decorations = {
         return: { tooltip: "Return Statement", cheatSheetId: "st-flow-return", classN: "text-purple-600" },
         throw: { tooltip: "Throw Statement", cheatSheetId: "st-flow-throw", classN: "text-red-600" },
         class: { tooltip: "Class Declaration", cheatSheetId: "st-dec-class", classN: "text-blue-600" },
+        try: { tooltip: "Try Statement", cheatSheetId: "st-flow-try", classN: "text-green-600" },
         UNKNOWN: { tooltip: "UNKNOWN Statement", classN: "bg-orange-400 hover:bg-orange-500" },
     },
     expression: {
@@ -174,6 +175,13 @@ const Statement = ({ st, parent, parens }) => {
         st.category = "statement.throw"
         cheatSheetId = 'st-flow-throw'
         component = <ThrowSt expr={st.argument} parens={parens} parent={st} />
+    }
+
+    // TryStatement block:BlockStatement handler:CatchClause|null finalizer:BlockStatement|null
+    if (st.type == "TryStatement") {
+        st.category = "statement.try"
+        cheatSheetId = 'st-flow-try'
+        component = <TryStatement st={st} parent={parent} parens={parens} />
     }
 
     const title = _.get(decorations, st.category || "statement.UNKNOWN").tooltip
@@ -813,6 +821,60 @@ const ClassMember = ({ member, parens, parent }) => {
         className={className}
         title={title}
     >{component}</div>
+}
+
+const TryStatement = ({ st, parent, parens }: { st: any, parent: any, parens: any }) => {
+    return (
+        <div
+            className="relative my-2"
+            tabIndex={0}
+            aria-label="Try statement block"
+            onClick={e => e.stopPropagation()}
+            onKeyDown={e => {
+                if (e.key === 'Enter' || e.key === ' ') e.stopPropagation()
+            }}
+        >
+            <div className="flex items-start">
+                <span className="keyword keyword-try text-blue-700 font-bold mr-2">try</span>
+                <span className="text-slate-500 font-bold">&#123;</span>
+            </div>
+            <div className="ml-6 border-l-2 border-blue-200 pl-4 my-1">
+                {st.block && st.block.body && st.block.body.length > 0 && st.block.body.map((statement: any, i: number) => (
+                    <Statement key={i} st={statement} parent={st.block} parens={parens} />
+                ))}
+            </div>
+            <span className="text-slate-500 font-bold ml-2">&#125;</span>
+            {st.handler && (
+                <div className="mt-2">
+                    <span className="keyword keyword-catch text-red-700 font-bold mr-2">catch</span>
+                    {st.handler.param && (
+                        <span className="ml-1 text-blue-600">(
+                            {st.handler.param.name || ''}
+                            )</span>
+                    )}
+                    <span className="text-slate-500 font-bold ml-1">&#123;</span>
+                    <div className="ml-6 border-l-2 border-red-200 pl-4 my-1">
+                        {st.handler.body && st.handler.body.body && st.handler.body.body.length > 0 && st.handler.body.body.map((statement: any, i: number) => (
+                            <Statement key={i} st={statement} parent={st.handler.body} parens={parens} />
+                        ))}
+                    </div>
+                    <span className="text-slate-500 font-bold ml-2">&#125;</span>
+                </div>
+            )}
+            {st.finalizer && (
+                <div className="mt-2">
+                    <span className="keyword keyword-finally text-purple-700 font-bold mr-2">finally</span>
+                    <span className="text-slate-500 font-bold">&#123;</span>
+                    <div className="ml-6 border-l-2 border-purple-200 pl-4 my-1">
+                        {st.finalizer.body && st.finalizer.body.length > 0 && st.finalizer.body.map((statement: any, i: number) => (
+                            <Statement key={i} st={statement} parent={st.finalizer} parens={parens} />
+                        ))}
+                    </div>
+                    <span className="text-slate-500 font-bold ml-2">&#125;</span>
+                </div>
+            )}
+        </div>
+    )
 }
 
 const CodeArea: React.FC<CodeAreaProps> = ({ fromAstOf, parent, parens, debug }) => {

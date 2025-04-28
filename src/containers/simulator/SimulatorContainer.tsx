@@ -60,18 +60,33 @@ const e = (a + 1) * (b + 2) + (c - 3) / (d + 4)
 `
 
 const FUNCTION_CODE_SAMPLE = `
-function a() {
-function b(){
-const gg = 'GG'
-  throw 1 + 1
-  const l = 13
+function b() {
+  throw 1
 }
-  return b()
-  const h = 2
+
+function a() {
+  try {
+    const c = 1
+    b()
+  } catch (error) {
+  
+  }
 }
 a()
-const c = 1
 `
+// const FUNCTION_CODE_SAMPLE = `
+// function a() {
+// function b(){
+// const gg = 'GG'
+//   throw 1 + 1
+//   const l = 13
+// }
+//   return b()
+//   const h = 2
+// }
+// a()
+// const c = 1
+// `
 
 // const FUNCTION_CODE_SAMPLE = `
 // const a = 2
