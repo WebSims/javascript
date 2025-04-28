@@ -58,6 +58,7 @@ const decorations = {
         classN: "bg-slate-50 rounded-md p-2 [&:has(div:hover)]:bg-slate-50 hover:bg-blue-50 transition-colors duration-150",
         expression: { tooltip: "Expression Evaluation Statement", cheatSheetId: "st-exp", classN: "text-slate-700" },
         declaration: { tooltip: "Variable declaration Statement", cheatSheetId: "st-dec", classN: "text-slate-700" },
+        block: { tooltip: "Block Statement", cheatSheetId: "st-block", classN: "text-slate-700" },
         return: { tooltip: "Return Statement", cheatSheetId: "st-flow-return", classN: "text-purple-600" },
         throw: { tooltip: "Throw Statement", cheatSheetId: "st-flow-throw", classN: "text-red-600" },
         class: { tooltip: "Class Declaration", cheatSheetId: "st-dec-class", classN: "text-blue-600" },
@@ -124,6 +125,11 @@ const Statement = ({ st, parent, parens }) => {
 
     let component = <>UNKNWON STATEMENT</>;
     let cheatSheetId = "statement.UNKNOWN"
+
+    if (st.type == "BlockStatement") {
+        st.category = "statement.block"
+        component = <BlockStatement st={st} parent={parent} parens={parens} />
+    }
 
     // VariableDeclaration kind:string declarations:VariableDeclarator[]
     // VariableDeclarator init:expr id:Identifier
@@ -842,16 +848,8 @@ const TryStatement = ({ st, parent, parens }: { st: any, parent: any, parens: an
                 if (e.key === 'Enter' || e.key === ' ') e.stopPropagation()
             }}
         >
-            <div className="flex items-start">
-                <span className="keyword keyword-try text-blue-700 font-bold mr-2">try</span>
-                <span className="text-slate-500 font-bold">&#123;</span>
-            </div>
-            <div className="ml-6 border-l-2 border-blue-200 pl-4 my-1">
-                {st.block && st.block.body && st.block.body.length > 0 && st.block.body.map((statement: any, i: number) => (
-                    <Statement key={i} st={statement} parent={st.block} parens={parens} />
-                ))}
-            </div>
-            <span className="text-slate-500 font-bold ml-2">&#125;</span>
+            <span className="keyword keyword-try text-blue-700 font-bold mr-2">try</span>
+            <Statement st={st.block} parent={parent} parens={parens} />
             {st.handler && (
                 <Statement st={st.handler} parent={st} parens={parens} />
             )}
@@ -868,6 +866,18 @@ const TryStatement = ({ st, parent, parens }: { st: any, parent: any, parens: an
                 </div>
             )}
         </div>
+    )
+}
+
+const BlockStatement = ({ st, parent, parens }: { st: any, parent: any, parens: any }) => {
+    return (
+        <>
+            <span className="text-slate-500 font-bold">&#123;</span>
+            {st && st.body && st.body.length > 0 && st.body.map((statement: any, i: number) => (
+                <Statement key={i} st={statement} parent={st} parens={parens} />
+            ))}
+            <span className="text-slate-500 font-bold ml-2">&#125;</span>
+        </>
     )
 }
 
