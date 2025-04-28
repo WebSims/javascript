@@ -326,9 +326,6 @@ export const simulateExecution = (astNode: ESNode | null): ExecStep[] => {
                     if (lastStep?.node?.type !== statement.type && lastStep?.node?.type !== "ThrowStatement") {
                         addExecutedStep(statement, scopeIndex)
                     }
-                    if (statement.type === "ReturnStatement") {
-                        return lastStep
-                    }
                     if (statement.type === "ThrowStatement") {
                         return lastStep
                     }
@@ -346,14 +343,20 @@ export const simulateExecution = (astNode: ESNode | null): ExecStep[] => {
                 addExecutionStep(statement, scopeIndex)
                 lastStep = executionPhase(statement, scopeIndex)
 
-                if (lastStep?.node?.type !== statement.type && lastStep?.node?.type !== "ThrowStatement") {
-                    return addExecutedStep(statement, scopeIndex)
-                }
                 if (statement.type === "ReturnStatement") {
+                    console.log(lastStep?.node, statement)
+                    if (lastStep?.node?.type !== statement.type) {
+                        addExecutedStep(statement, scopeIndex)
+                    }
                     return lastStep
                 }
+
                 if (statement.type === "ThrowStatement") {
                     return lastStep
+                }
+
+                if (lastStep?.node?.type !== statement.type) {
+                    return addExecutedStep(statement, scopeIndex)
                 }
             }
         }
@@ -438,6 +441,7 @@ export const simulateExecution = (astNode: ESNode | null): ExecStep[] => {
             if (lastStep?.node?.type === "ThrowStatement") {
                 return lastStep
             } else {
+                console.log(lastStep)
                 return addEvaluatedStep(astNode, scopeIndex, lastStep?.evaluatedValue)
             }
         } else {
@@ -528,7 +532,8 @@ export const simulateExecution = (astNode: ESNode | null): ExecStep[] => {
 
     const execReturnStatement = (astNode: ESNode, scopeIndex: number): ExecStep | undefined => {
         if (astNode.argument) {
-            return executionPhase(astNode.argument, scopeIndex)
+            const lastStep = executionPhase(astNode.argument, scopeIndex)
+            return lastStep
         } else {
             addMemVal({ type: 'primitive', value: undefined })
             return addExecutedStep(astNode, scopeIndex, { type: 'primitive', value: undefined })

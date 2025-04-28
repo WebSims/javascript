@@ -62,13 +62,14 @@ const e = (a + 1) * (b + 2) + (c - 3) / (d + 4)
 const FUNCTION_CODE_SAMPLE = `
 function b() {
   throw 1
+  return 20
 }
 function a() {
   try {
     const c = 1
     b()
   } catch (error) {
-    1 + 2
+   return 1 + 2
   }
 }
 a()
