@@ -58,7 +58,7 @@ export const simulateExecution = (astNode: ESNode | null): ExecStep[] => {
         steps.push(step)
         return step
     }
-    const addPushScopeStep = (astNode: ESNode): ExecStep => {
+    const addPushScopeStep = (astNode: ESNode, block: ESNode): ExecStep => {
         const getPushScopeType = (astNode: ESNode): ScopeType => {
             switch (astNode.type) {
                 case "Program":
@@ -80,6 +80,8 @@ export const simulateExecution = (astNode: ESNode | null): ExecStep[] => {
                     return "function"
                 case "TryStatement":
                     return "try"
+                case "CatchClause":
+                    return "catch"
                 default:
                     return "block"
             }
@@ -87,10 +89,10 @@ export const simulateExecution = (astNode: ESNode | null): ExecStep[] => {
         const kind = getPushScopeKind(astNode)
 
         return addStep({
+            node: block,
             phase: "creation",
             scopeIndex,
             memoryChange: { type: "push_scope", kind, scope },
-            node: astNode,
             executing: true,
             executed: false,
             evaluating: false,
@@ -237,12 +239,15 @@ export const simulateExecution = (astNode: ESNode | null): ExecStep[] => {
 
     // --- Creation Pass --- 
     const creationPhase = (astNode: ESNode, scopeIndex: number): void => {
-        scopeIndex = addPushScopeStep(astNode).scopeIndex
+        const block: ESNode = astNode.type === "FunctionDeclaration" ? astNode.body :
+            astNode.type === "TryStatement" ? astNode.block :
+                astNode.type === "CatchClause" ? astNode.body :
+                    astNode
+        scopeIndex = addPushScopeStep(astNode, block).scopeIndex
 
         const declarations: Declaration[] = []
-        const body = astNode.type === "CatchClause" ? astNode.body.body : astNode.body
 
-        for (const node of body) {
+        for (const node of block.body) {
             if (!node) continue
 
             switch (node.type) {
@@ -305,7 +310,7 @@ export const simulateExecution = (astNode: ESNode | null): ExecStep[] => {
             }
         }
 
-        addHoistingStep(astNode, scopeIndex, declarations)
+        addHoistingStep(block, scopeIndex, declarations)
         console.log("Creation Phase:", scopeIndex)
     }
 
@@ -532,17 +537,16 @@ export const simulateExecution = (astNode: ESNode | null): ExecStep[] => {
 
     const execThrowStatement = (astNode: ESNode, scopeIndex: number): ExecStep | undefined => {
         const lastStep = executionPhase(astNode.argument, scopeIndex)
-        // return lastStep
         return addStep({
             node: astNode,
             phase: 'execution',
             scopeIndex,
             memoryChange: { type: 'none' },
-            errorThrown: lastStep?.evaluatedValue,
             executing: false,
             executed: true,
             evaluating: false,
             evaluated: false,
+            errorThrown: lastStep?.evaluatedValue,
         })
     }
 
@@ -934,10 +938,7 @@ export const simulateExecution = (astNode: ESNode | null): ExecStep[] => {
             strict = false
 
             creationPhase(
-                astNode.type === "FunctionDeclaration" ? astNode.body :
-                    astNode.type === "TryStatement" ? astNode.block :
-                        astNode.type === "CatchClause" ? astNode.body :
-                            astNode,
+                astNode,
                 scopeIndex,
                 strict
             )

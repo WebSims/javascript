@@ -63,7 +63,6 @@ const FUNCTION_CODE_SAMPLE = `
 function b() {
   throw 1
 }
-
 function a() {
   try {
     const c = 1
@@ -74,6 +73,7 @@ function a() {
 }
 a()
 `
+
 // const FUNCTION_CODE_SAMPLE = `
 // function a() {
 // function b(){
