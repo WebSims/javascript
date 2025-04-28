@@ -127,7 +127,7 @@ const Statement = ({ st, parent, parens }) => {
     let cheatSheetId = "statement.UNKNOWN"
 
     if (st.type == "BlockStatement") {
-        st.category = "statement.block"
+        st.category = parent.category
         component = <BlockStatement st={st} parent={parent} parens={parens} />
     }
 
@@ -202,6 +202,14 @@ const Statement = ({ st, parent, parens }) => {
     const className = (st.category || "statement.UNKNOWN").split('.').map((__, i, all) =>
         _.get(decorations, all.slice(0, i + 1).join('.')).classN || ''
     ).join(' ') + (isExecuting ? ' executing' : '') + (isExecuted ? ' executed' : '')
+
+    if (st.type === "BlockStatement") {
+        return <span
+            data-cheat-sheet-id={cheatSheetId}
+            className={className}
+            title={title}
+        >{component}</span>
+    }
 
     return <div
         data-cheat-sheet-id={cheatSheetId}
@@ -445,15 +453,7 @@ const NewFn = ({ async, name, args, code, parent, parens }) => {
             <span className="keyword keyword-prefix keyword-fn">function</span>
             {name && <span className="ast-exp-fn-name">{name}</span>}
             <FnArgsDef args={args} parens={parens} parent={parent} />
-            <span className="text-slate-500 align-middle font-bold">&#123;</span>
-            {code.body && code.body.length > 0 && (
-                <div className="ml-4 space-y-1">
-                    {code.body.map((statement, i) =>
-                        <Statement key={i} st={statement} parent={parent} parens={parens} />
-                    )}
-                </div>
-            )}
-            <span className="text-slate-500 align-middle font-bold">&#125;</span>
+            <Statement st={code} parent={parent} parens={parens} />
         </>
     )
 }
@@ -849,7 +849,7 @@ const TryStatement = ({ st, parent, parens }: { st: any, parent: any, parens: an
             }}
         >
             <span className="keyword keyword-try text-blue-700 font-bold mr-2">try</span>
-            <Statement st={st.block} parent={parent} parens={parens} />
+            <Statement st={st.block} parent={st} parens={parens} />
             {st.handler && (
                 <Statement st={st.handler} parent={st} parens={parens} />
             )}
@@ -873,9 +873,11 @@ const BlockStatement = ({ st, parent, parens }: { st: any, parent: any, parens: 
     return (
         <>
             <span className="text-slate-500 font-bold">&#123;</span>
-            {st && st.body && st.body.length > 0 && st.body.map((statement: any, i: number) => (
-                <Statement key={i} st={statement} parent={st} parens={parens} />
-            ))}
+            <div className="ml-6 border-l-2 border-blue-200 pl-4 my-1">
+                {st && st.body && st.body.length > 0 && st.body.map((statement: any, i: number) => (
+                    <Statement key={i} st={statement} parent={st} parens={parens} />
+                ))}
+            </div>
             <span className="text-slate-500 font-bold ml-2">&#125;</span>
         </>
     )
@@ -890,13 +892,7 @@ const CatchClause = ({ st, parent, parens }: { st: any, parent: any, parens: any
                     {st.param.name || ''}
                     )</span>
             )}
-            <span className="text-slate-500 font-bold ml-1">&#123;</span>
-            <div className="ml-6 border-l-2 border-red-200 pl-4 my-1">
-                {st.body && st.body.body && st.body.body.length > 0 && st.body.body.map((statement: any, i: number) => (
-                    <Statement key={i} st={statement} parent={st.body} parens={parens} />
-                ))}
-            </div>
-            <span className="text-slate-500 font-bold ml-2">&#125;</span>
+            <Statement st={st.body} parent={st} parens={parens} />
         </div>
     )
 }
