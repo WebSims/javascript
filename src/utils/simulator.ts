@@ -943,54 +943,46 @@ export const simulateExecution = (astNode: ESNode | null): ExecStep[] => {
     }
     // --- Simulation Execution --- 
     function traverseAST(astNode: ESNode, scopeIndex: number, strict: boolean): ExecStep | undefined {
-        // Phase 1: Creation
-        // FunctionDeclaration - Function declarations are completely hoisted with their bodies
-        // VariableDeclaration - With var keyword (not let or const)
-        // ClassDeclaration - Class declarations are hoisted but remain uninitialized until the class expression is evaluated
-
-        // Phase 2: Execution
-        // executionPhase(astNode.type === "Program" ? astNode : astNode.body, scopeIndex) // Start execution from the Program node in global scope
-
-        // Phase 3: Destruction
-        if (isBlock(astNode)) {
-            lastScopeIndex++
-            scopeIndex = lastScopeIndex
-            strict = false
-
-            creationPhase(
-                astNode,
-                scopeIndex,
-                strict
-            )
-            const block: ESNode = astNode.type === "FunctionDeclaration" ? astNode.body :
-                astNode.type === "TryStatement" ? astNode.block :
-                    astNode.type === "CatchClause" ? astNode.body :
-                        astNode
-            const lastStep = executionPhase(
-                block,
-                scopeIndex
-            )
-            const isNodeInBody = (astNode: ESNode, body: ESNode[]) => {
-                return body.some(node => node.type === astNode.type && node.range[0] === astNode.range[0] && node.range[1] === astNode.range[1])
-            }
-
-            if (!isNodeInBody(lastStep?.node, block.body) && lastStep?.node.type === "ThrowStatement" && astNode.type !== "TryStatement") {
-                throw lastStep.errorThrown
-            }
-
-            if (scopeIndex !== 0) {
-                destructionPhase(
-                    astNode.type === "FunctionDeclaration" ? astNode.body :
-                        astNode.type === "TryStatement" ? astNode.block :
-                            astNode.type === "CatchClause" ? astNode.body :
-                                astNode,
-                    scopeIndex)
-                lastScopeIndex--
-            }
-            return lastStep
-        } else {
+        // Check for non-block nodes early to avoid unnecessary scope creation
+        if (!isBlock(astNode)) {
             return executionPhase(astNode, scopeIndex)
         }
+
+        // For block nodes, handle scope creation and execution
+        lastScopeIndex++
+        scopeIndex = lastScopeIndex
+
+        // Get the actual block to execute
+        const nodeType = astNode.type
+        const block = nodeType === "FunctionDeclaration" ? astNode.body :
+            nodeType === "TryStatement" ? astNode.block :
+                nodeType === "CatchClause" ? astNode.body :
+                    astNode
+
+        // Phase 1: Creation - hoisting and declarations
+        creationPhase(astNode, scopeIndex)
+
+        // Phase 2: Execution
+        const lastStep = executionPhase(block, scopeIndex)
+
+        // Handle throw statements outside of try blocks
+        if (lastStep?.node?.type === "ThrowStatement" &&
+            nodeType !== "TryStatement" &&
+            block.body?.some(node =>
+                !(node.type === lastStep.node.type &&
+                    node.range?.[0] === lastStep.node.range?.[0] &&
+                    node.range?.[1] === lastStep.node.range?.[1])
+            )) {
+            throw lastStep.errorThrown
+        }
+
+        // Phase 3: Destruction - except for global scope
+        if (scopeIndex !== 0) {
+            destructionPhase(block, scopeIndex)
+            lastScopeIndex--
+        }
+
+        return lastStep
     }
 
     try {
