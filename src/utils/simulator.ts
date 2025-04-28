@@ -947,11 +947,11 @@ export const simulateExecution = (astNode: ESNode | null): ExecStep[] => {
                 return body.some(node => node.type === astNode.type && node.range[0] === astNode.range[0] && node.range[1] === astNode.range[1])
             }
 
+            if (!isNodeInBody(lastStep?.node, block.body) && lastStep?.node.type === "ThrowStatement" && astNode.type !== "TryStatement") {
+                throw lastStep.errorThrown
+            }
 
             if (scopeIndex !== 0) {
-                if (!isNodeInBody(lastStep?.node, block.body) && lastStep?.node.type === "ThrowStatement" && astNode.type !== "TryStatement") {
-                    throw lastStep.errorThrown
-                }
                 destructionPhase(astNode, scopeIndex)
                 lastScopeIndex--
             }
