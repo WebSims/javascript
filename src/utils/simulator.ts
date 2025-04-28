@@ -236,11 +236,11 @@ export const simulateExecution = (astNode: ESNode | null): ExecStep[] => {
     }
 
     // --- Creation Pass --- 
-    const creationPhase = (astNode: ESNode, scopeIndex: number, strict: boolean): void => {
+    const creationPhase = (astNode: ESNode, scopeIndex: number): void => {
         scopeIndex = addPushScopeStep(astNode).scopeIndex
 
         const declarations: Declaration[] = []
-        const body = astNode.type === "FunctionDeclaration" ? astNode.body.body : astNode.body
+        const body = astNode.type === "FunctionDeclaration" || astNode.type === "CatchClause" ? astNode.body.body : astNode.type === "TryStatement" ? astNode.block.body : astNode.body
 
         for (const node of body) {
             if (!node) continue
@@ -315,11 +315,10 @@ export const simulateExecution = (astNode: ESNode | null): ExecStep[] => {
         let lastStep: ExecStep | undefined
         if (Array.isArray(programBody)) {
             for (const statement of programBody) {
-                if (!isBlock(statement)) {
+                if (statement.type !== "FunctionDeclaration") {
                     addExecutionStep(statement, scopeIndex)
                     lastStep = executionPhase(statement as ESNode, scopeIndex)
-
-                    if (lastStep?.node?.type !== statement.type) {
+                    if (lastStep?.node?.type !== statement.type && lastStep?.node?.type !== "ThrowStatement") {
                         addExecutedStep(statement, scopeIndex)
                     }
                     if (statement.type === "ReturnStatement") {
@@ -338,12 +337,12 @@ export const simulateExecution = (astNode: ESNode | null): ExecStep[] => {
         const statements = astNode.body as ESNode[]
         let lastStep: ExecStep | undefined
         for (const statement of statements) {
-            if (!isBlock(statement)) {
+            if (statement.type !== "FunctionDeclaration") {
                 addExecutionStep(statement, scopeIndex)
                 lastStep = executionPhase(statement, scopeIndex)
 
                 if (lastStep?.node?.type !== statement.type && lastStep?.node?.type !== "ThrowStatement") {
-                    addExecutedStep(statement, scopeIndex)
+                    return addExecutedStep(statement, scopeIndex)
                 }
                 if (statement.type === "ReturnStatement") {
                     return lastStep
@@ -533,6 +532,7 @@ export const simulateExecution = (astNode: ESNode | null): ExecStep[] => {
 
     const execThrowStatement = (astNode: ESNode, scopeIndex: number): ExecStep | undefined => {
         const lastStep = executionPhase(astNode.argument, scopeIndex)
+        // return lastStep
         return addStep({
             node: astNode,
             phase: 'execution',
@@ -548,16 +548,12 @@ export const simulateExecution = (astNode: ESNode | null): ExecStep[] => {
 
     // --- TryStatement Execution ---
     const execTryStatement = (astNode: ESNode, scopeIndex: number): ExecStep | undefined => {
-        const lastStep = traverseAST(astNode.block, scopeIndex, false)
+        traverseAST(astNode, scopeIndex, false)
         return executionPhase(astNode.handler, scopeIndex)
-        if (lastStep?.node?.type === "ThrowStatement") {
-            // return executionPhase(astNode.handler, scopeIndex)
-        }
     }
 
     const execCatchClause = (astNode: ESNode, scopeIndex: number): ExecStep | undefined => {
-        console.log(astNode)
-        const lastStep = traverseAST(astNode.body, scopeIndex, false)
+        return traverseAST(astNode, scopeIndex, false)
     }
 
     const executionPhase = (node: ESNode | null, currentScopeIndex: number): ExecStep | undefined => {
@@ -915,7 +911,7 @@ export const simulateExecution = (astNode: ESNode | null): ExecStep[] => {
     }
 
     const isBlock = (node: ESNode): boolean => {
-        return node.type === "Program" || node?.type === "BlockStatement" || node?.body?.type === "BlockStatement"
+        return node.type === "Program" || node?.type === "FunctionDeclaration" || node?.type === "TryStatement" || node?.type === "CatchClause"
     }
 
     const isStrict = (node: ESNode): boolean => {
@@ -935,12 +931,27 @@ export const simulateExecution = (astNode: ESNode | null): ExecStep[] => {
         if (isBlock(astNode)) {
             lastScopeIndex++
             scopeIndex = lastScopeIndex
-            strict = isStrict(astNode)
+            strict = false
 
             creationPhase(astNode, scopeIndex, strict)
-            const lastStep = executionPhase(astNode.type === "FunctionDeclaration" ? astNode.body : astNode, scopeIndex) // Start execution from the Program node in global scope
+            const block = astNode.type === "FunctionDeclaration" ? astNode.body :
+                astNode.type === "TryStatement" ? astNode.block :
+                    astNode.type === "CatchClause" ? astNode.body :
+                        astNode
+            const lastStep = executionPhase(
+                block,
+                scopeIndex
+            )
+
+            const isNodeInBody = (astNode: ESNode, body: ESNode[]) => {
+                return body.some(node => node.type === astNode.type && node.range[0] === astNode.range[0] && node.range[1] === astNode.range[1])
+            }
+
 
             if (scopeIndex !== 0) {
+                if (!isNodeInBody(lastStep?.node, block.body) && lastStep?.node.type === "ThrowStatement" && astNode.type !== "TryStatement") {
+                    throw lastStep.errorThrown
+                }
                 destructionPhase(astNode, scopeIndex)
                 lastScopeIndex--
             }
