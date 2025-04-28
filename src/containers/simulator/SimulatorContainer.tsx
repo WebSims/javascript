@@ -69,7 +69,7 @@ function a() {
     const c = 1
     b()
   } catch (error) {
-  
+    1 + 2
   }
 }
 a()

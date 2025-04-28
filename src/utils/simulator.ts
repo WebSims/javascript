@@ -237,8 +237,6 @@ export const simulateExecution = (astNode: ESNode | null): ExecStep[] => {
 
     // --- Creation Pass --- 
     const creationPhase = (astNode: ESNode, scopeIndex: number, strict: boolean): void => {
-        console.log(astNode)
-
         scopeIndex = addPushScopeStep(astNode).scopeIndex
 
         const declarations: Declaration[] = []
@@ -320,6 +318,7 @@ export const simulateExecution = (astNode: ESNode | null): ExecStep[] => {
                 if (!isBlock(statement)) {
                     addExecutionStep(statement, scopeIndex)
                     lastStep = executionPhase(statement as ESNode, scopeIndex)
+
                     if (lastStep?.node?.type !== statement.type) {
                         addExecutedStep(statement, scopeIndex)
                     }
@@ -342,7 +341,8 @@ export const simulateExecution = (astNode: ESNode | null): ExecStep[] => {
             if (!isBlock(statement)) {
                 addExecutionStep(statement, scopeIndex)
                 lastStep = executionPhase(statement, scopeIndex)
-                if (lastStep?.node?.type !== statement.type) {
+
+                if (lastStep?.node?.type !== statement.type && lastStep?.node?.type !== "ThrowStatement") {
                     addExecutedStep(statement, scopeIndex)
                 }
                 if (statement.type === "ReturnStatement") {
@@ -359,7 +359,7 @@ export const simulateExecution = (astNode: ESNode | null): ExecStep[] => {
     const execExpressionStatement = (astNode: ESNode, scopeIndex: number): ExecStep | undefined => {
         const expressionNode = (astNode as ExpressionStatement).expression
         const lastStep = executionPhase(expressionNode, scopeIndex)
-        if (lastStep.evaluatedValue) removeMemVal(lastStep.evaluatedValue)
+        if (lastStep?.evaluatedValue) removeMemVal(lastStep.evaluatedValue)
         return lastStep
     }
 
@@ -432,11 +432,10 @@ export const simulateExecution = (astNode: ESNode | null): ExecStep[] => {
             lastStep = traverseAST(object.node as ESNode, scopeIndex, false)
 
             if (lastStep?.node?.type === "ThrowStatement") {
-                throw lastStep?.errorThrown
+                return lastStep
             } else {
                 return addEvaluatedStep(astNode, scopeIndex, lastStep?.evaluatedValue)
             }
-
         } else {
             const error = { type: "error", value: 'TypeError: ' + lastStep?.node.name + ' is not a function' } as const
             addStep({
@@ -550,7 +549,15 @@ export const simulateExecution = (astNode: ESNode | null): ExecStep[] => {
     // --- TryStatement Execution ---
     const execTryStatement = (astNode: ESNode, scopeIndex: number): ExecStep | undefined => {
         const lastStep = traverseAST(astNode.block, scopeIndex, false)
-        return lastStep
+        return executionPhase(astNode.handler, scopeIndex)
+        if (lastStep?.node?.type === "ThrowStatement") {
+            // return executionPhase(astNode.handler, scopeIndex)
+        }
+    }
+
+    const execCatchClause = (astNode: ESNode, scopeIndex: number): ExecStep | undefined => {
+        console.log(astNode)
+        const lastStep = traverseAST(astNode.body, scopeIndex, false)
     }
 
     const executionPhase = (node: ESNode | null, currentScopeIndex: number): ExecStep | undefined => {
@@ -570,6 +577,7 @@ export const simulateExecution = (astNode: ESNode | null): ExecStep[] => {
             case "ReturnStatement": return execReturnStatement(node, currentScopeIndex)
             case "ThrowStatement": return execThrowStatement(node, currentScopeIndex)
             case "TryStatement": return execTryStatement(node, currentScopeIndex)
+            case "CatchClause": return execCatchClause(node, currentScopeIndex)
 
             case "MemberExpression":
                 {
@@ -932,7 +940,7 @@ export const simulateExecution = (astNode: ESNode | null): ExecStep[] => {
             creationPhase(astNode, scopeIndex, strict)
             const lastStep = executionPhase(astNode.type === "FunctionDeclaration" ? astNode.body : astNode, scopeIndex) // Start execution from the Program node in global scope
 
-            if (scopeIndex !== 0 && lastStep?.node?.type !== "ThrowStatement") {
+            if (scopeIndex !== 0) {
                 destructionPhase(astNode, scopeIndex)
                 lastScopeIndex--
             }
