@@ -318,40 +318,59 @@ export const simulateExecution = (astNode: ESNode | null): ExecStep[] => {
     const execBlockStatement = (astNode: ESNode, scopeIndex: number): ExecStep | undefined => {
         const statements = astNode.body as ESNode[]
         let lastStep: ExecStep | undefined
-        if (Array.isArray(statements) && statements.length > 0) {
-            for (const statement of statements) {
-                if (statement.type !== "FunctionDeclaration") {
-                    addExecutionStep(statement, scopeIndex)
-                    lastStep = executionPhase(statement, scopeIndex)
 
-                    if (statement.type === "ExpressionStatement") {
-                        addExecutedStep(statement, scopeIndex)
-                        continue
-                    }
+        if (!Array.isArray(statements) || statements.length === 0) {
+            return lastStep
+        }
 
-                    if (statement.type === "ReturnStatement" && lastStep?.node?.type !== "ThrowStatement") {
-                        if (lastStep?.node?.type !== statement.type) {
-                            addExecutedStep(statement, scopeIndex)
-                        }
+        for (const statement of statements) {
+            // Skip function declarations as they are already handled in the creation phase
+            if (statement.type === "FunctionDeclaration") {
+                continue
+            }
 
-                        return lastStep
-                    }
+            // Mark statement as executing
+            addExecutionStep(statement, scopeIndex)
+            lastStep = executionPhase(statement, scopeIndex)
 
-                    if (statement.type === "TryStatement" || statement.type === "ThrowStatement") {
-                        if (lastStep?.node?.type !== statement.type) {
-                            addExecutedStep(statement, scopeIndex)
-                        }
-                        if (!lastStep) continue
-                        return lastStep
-                    }
+            // Handle expression statements
+            if (statement.type === "ExpressionStatement") {
+                addExecutedStep(statement, scopeIndex)
+                continue
+            }
 
-                    if (lastStep?.node?.type !== statement.type && lastStep?.node?.type !== "ThrowStatement" && statement.type !== "ExpressionStatement") {
-                        return addExecutedStep(statement, scopeIndex)
-                    }
-
+            // Handle return statements - interrupt execution flow
+            if (statement.type === "ReturnStatement") {
+                // Only add executed step if the return statement itself hasn't thrown
+                if (lastStep?.node?.type !== "ThrowStatement" && lastStep?.node?.type !== statement.type) {
+                    addExecutedStep(statement, scopeIndex)
                 }
+                return lastStep
+            }
+
+            // Handle try and throw statements
+            if (statement.type === "TryStatement" || statement.type === "ThrowStatement") {
+                if (lastStep?.node?.type !== statement.type) {
+                    addExecutedStep(statement, scopeIndex)
+                }
+
+                if (lastStep) {
+                    return lastStep
+                }
+                continue
+            }
+
+            // Handle other statement types
+            const shouldAddExecutedStep =
+                lastStep?.node?.type !== statement.type &&
+                lastStep?.node?.type !== "ThrowStatement" &&
+                statement.type !== "ExpressionStatement";
+
+            if (shouldAddExecutedStep) {
+                return addExecutedStep(statement, scopeIndex)
             }
         }
+
         return lastStep
     }
 
