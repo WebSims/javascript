@@ -430,11 +430,11 @@ export const simulateExecution = (astNode: ESNode | null): ExecStep[] => {
 
             lastStep = traverseAST(object.node as ESNode, scopeIndex, false)
 
-            // if (lastStep?.node?.type === "ThrowStatement") {
-            //     return lastStep
-            // } else {
-            return addEvaluatedStep(astNode, scopeIndex, newlastStep?.evaluatedValue)
-            // }
+            if (lastStep?.node?.type === "ThrowStatement") {
+                throw lastStep?.errorThrown
+            } else {
+                return addEvaluatedStep(astNode, scopeIndex, lastStep?.evaluatedValue)
+            }
 
         } else {
             const error = { type: "error", value: 'TypeError: ' + lastStep?.node.name + ' is not a function' } as const

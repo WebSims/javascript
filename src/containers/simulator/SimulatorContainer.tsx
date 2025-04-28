@@ -63,7 +63,7 @@ const FUNCTION_CODE_SAMPLE = `
 function a() {
 function b(){
 const gg = 'GG'
-  throw 1
+  throw 1 + 1
   const l = 13
 }
   return b()
