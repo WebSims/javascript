@@ -321,6 +321,9 @@ export const simulateExecution = (astNode: ESNode | null): ExecStep[] => {
             // Handle expression statements
             if (statement.type === "ExpressionStatement") {
                 addExecutedStep(statement, scopeIndex)
+                if (lastStep?.errorThrown) {
+                    return lastStep
+                }
                 continue
             }
 
