@@ -64,6 +64,7 @@ const decorations = {
         class: { tooltip: "Class Declaration", cheatSheetId: "st-dec-class", classN: "text-blue-600" },
         try: { tooltip: "Try Statement", cheatSheetId: "st-error-trycatch", classN: "text-green-600" },
         catch: { tooltip: "Catch Clause", cheatSheetId: "st-error-trycatch", classN: "text-red-600" },
+        finally: { tooltip: "Finally Clause", cheatSheetId: "st-error-trycatchfinally", classN: "text-green-600" },
         UNKNOWN: { tooltip: "UNKNOWN Statement", classN: "bg-orange-400 hover:bg-orange-500" },
     },
     expression: {
@@ -127,6 +128,7 @@ const Statement = ({ st, parent, parens }) => {
     let cheatSheetId
 
     if (st.type == "BlockStatement") {
+        console.log(parent.category)
         st.category = parent.category
         component = <BlockStatement st={st} parent={parent} parens={parens} />
     }
@@ -847,12 +849,19 @@ const TryStatement = ({ st, parent, parens }: { st: any, parent: any, parens: an
                 )</span>
             <Statement st={st.handler.body} parent={st} parens={parens} />
             {st.finalizer && (
-                <>
-                    <span className="keyword keyword-finally text-purple-700 font-bold mr-2">finally</span>
-                    <Statement st={st.finalizer} parent={st} parens={parens} />
-                </>
+                <TryCatchFinallyStatement st={st.finalizer} parent={st} parens={parens} />
             )}
         </div>
+    )
+}
+
+const TryCatchFinallyStatement = ({ st, parent, parens }: { st: any, parent: any, parens: any }) => {
+    parent.category = "statement.finally"
+    return (
+        <>
+            <span className="keyword keyword-finally text-purple-700 font-bold mr-2">finally</span>
+            <Statement st={st} parent={parent} parens={parens} />
+        </>
     )
 }
 
