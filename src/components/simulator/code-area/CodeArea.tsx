@@ -849,13 +849,7 @@ const TryStatement = ({ st, parent, parens }: { st: any, parent: any, parens: an
             {st.finalizer && (
                 <>
                     <span className="keyword keyword-finally text-purple-700 font-bold mr-2">finally</span>
-                    <span className="text-slate-500 font-bold">&#123;</span>
-                    <div className="ml-6 border-l-2 border-purple-200 pl-4 my-1">
-                        {st.finalizer.body && st.finalizer.body.length > 0 && st.finalizer.body.map((statement: any, i: number) => (
-                            <Statement key={i} st={statement} parent={st.finalizer} parens={parens} />
-                        ))}
-                    </div>
-                    <span className="text-slate-500 font-bold ml-2">&#125;</span>
+                    <Statement st={st.finalizer} parent={st} parens={parens} />
                 </>
             )}
         </div>
