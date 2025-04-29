@@ -326,48 +326,15 @@ export const simulateExecution = (astNode: ESNode | null): ExecStep[] => {
                 throw new Error(errorMessage)
             }
 
-            // Determine if we should add an "executed" step
-            const isExecutionComplete =
-                statement.type !== "ExpressionStatement" && // Expression statements have their own handling
-                lastStep?.node?.type !== statement.type && // Avoid duplicating execution steps
-                lastStep?.node?.type !== "ThrowStatement"; // Don't mark as executed if a throw occurred
-
-            // Handle different statement types
-            switch (statement.type) {
-                case "ExpressionStatement":
-                    addExecutedStep(statement, scopeIndex)
-                    break
-
-                case "ReturnStatement":
-                    if (isExecutionComplete) {
-                        addExecutedStep(statement, scopeIndex)
-                    }
-                    return lastStep // Return interrupts execution flow
-
-                case "TryStatement":
-                case "ThrowStatement":
-                    if (lastStep?.node?.type !== statement.type) {
-                        addExecutedStep(statement, scopeIndex)
-                    }
-                    if (lastStep?.evaluatedValue) {
-                        return lastStep
-                    }
-                    break
-
-                default:
-                    if (isExecutionComplete) {
-                        addExecutedStep(statement, scopeIndex)
-                    }
-                    break
+            if (lastStep?.node?.type !== statement.type) {
+                addExecutedStep(statement, scopeIndex)
             }
 
             // Stop execution if an error was thrown (even if withinTryBlock)
-            if (lastStep?.errorThrown) {
+            if (lastStep?.errorThrown || lastStep?.evaluatedValue) {
                 return lastStep
             }
         }
-
-        return lastStep
     }
 
     const execExpressionStatement = (astNode: ESNode, scopeIndex: number, withinTryBlock: boolean): ExecStep | undefined => {
@@ -579,28 +546,28 @@ export const simulateExecution = (astNode: ESNode | null): ExecStep[] => {
 
         if (tryLastStep?.errorThrown) {
             const catchLastStep = executionPhase(astNode.handler, scopeIndex, withinTryBlock)
-            removeMemVal(tryLastStep.errorThrown)
+            removeMemVal(tryLastStep?.errorThrown)
 
             if (astNode.finalizer) {
-                removeMemVal(catchLastStep.evaluatedValue)
+                if (astNode.finalizer.body.length > 0) removeMemVal(catchLastStep?.evaluatedValue)
                 const finalizerStep = traverseAST(astNode.finalizer, scopeIndex, false, withinTryBlock)
-                return finalizerStep
+                return finalizerStep || catchLastStep
             }
 
             return catchLastStep
         }
 
         if (astNode.finalizer) {
-            removeMemVal(tryLastStep.evaluatedValue)
+            if (astNode.finalizer.body.length > 0) removeMemVal(tryLastStep?.evaluatedValue)
             const finalizerStep = traverseAST(astNode.finalizer, scopeIndex, false, withinTryBlock)
-            return finalizerStep
+            return finalizerStep || tryLastStep
         }
         return tryLastStep
     }
 
     const execCatchClause = (astNode: ESNode, scopeIndex: number, withinTryBlock: boolean): ExecStep | undefined => {
-        // Catch clause execution itself happens within the original try context status
-        return traverseAST(astNode, scopeIndex, false, withinTryBlock) // Pass withinTryBlock
+        const lastStep = traverseAST(astNode, scopeIndex, false, withinTryBlock)
+        return lastStep
     }
 
     const executionPhase = (node: ESNode | null, currentScopeIndex: number, withinTryBlock: boolean): ExecStep | undefined => {
@@ -1035,7 +1002,6 @@ export const simulateExecution = (astNode: ESNode | null): ExecStep[] => {
 
         // Phase 2: Execution
         const lastStep = executionPhase(block, scopeIndex, withinTryBlock)
-
         // Phase 3: Destruction - except for global scope
         if (scopeIndex !== 0) {
             destructionPhase(block, scopeIndex)
