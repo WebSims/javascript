@@ -128,7 +128,6 @@ const Statement = ({ st, parent, parens }) => {
     let cheatSheetId
 
     if (st.type == "BlockStatement") {
-        console.log(parent.category)
         st.category = parent.category
         component = <BlockStatement st={st} parent={parent} parens={parens} />
     }
