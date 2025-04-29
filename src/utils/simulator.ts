@@ -318,7 +318,6 @@ export const simulateExecution = (astNode: ESNode | null): ExecStep[] => {
             addExecutionStep(statement, scopeIndex)
             lastStep = executionPhase(statement, scopeIndex, withinTryBlock)
 
-            // Handle error propagation
             if (lastStep?.errorThrown && !withinTryBlock) {
                 const errorMessage = lastStep.errorThrown.type === 'error' &&
                     typeof lastStep.errorThrown.value === 'string' ?
@@ -330,12 +329,16 @@ export const simulateExecution = (astNode: ESNode | null): ExecStep[] => {
                 addExecutedStep(statement, scopeIndex)
             }
 
+            // Stop execution if an error was thrown (even if withinTryBlock)
+            if (lastStep?.errorThrown) {
+                return lastStep
+            }
+
             if (statement.type === "ExpressionStatement") {
                 continue
             }
 
-            // Stop execution if an error was thrown (even if withinTryBlock)
-            if (lastStep?.errorThrown || lastStep?.evaluatedValue) {
+            if (lastStep?.evaluatedValue) {
                 return lastStep
             }
         }
