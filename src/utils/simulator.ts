@@ -318,56 +318,52 @@ export const simulateExecution = (astNode: ESNode | null): ExecStep[] => {
             addExecutionStep(statement, scopeIndex)
             lastStep = executionPhase(statement, scopeIndex, withinTryBlock)
 
-            if (lastStep?.errorThrown) {
-                if (!withinTryBlock) {
-                    throw new Error(lastStep.errorThrown.value)
-                }
-                return lastStep
+            // Handle error propagation
+            if (lastStep?.errorThrown && !withinTryBlock) {
+                const errorMessage = lastStep.errorThrown.type === 'error' &&
+                    typeof lastStep.errorThrown.value === 'string' ?
+                    lastStep.errorThrown.value : 'Error thrown during execution'
+                throw new Error(errorMessage)
             }
 
-            // Handle expression statements
-            if (statement.type === "ExpressionStatement") {
-                addExecutedStep(statement, scopeIndex)
+            // Determine if we should add an "executed" step
+            const isExecutionComplete =
+                statement.type !== "ExpressionStatement" && // Expression statements have their own handling
+                lastStep?.node?.type !== statement.type && // Avoid duplicating execution steps
+                lastStep?.node?.type !== "ThrowStatement"; // Don't mark as executed if a throw occurred
 
-                if (lastStep?.errorThrown) {
-                    return lastStep
-                }
-                continue
-            }
-
-            // Handle return statements - interrupt execution flow
-            if (statement.type === "ReturnStatement") {
-                // Only add executed step if the return statement itself hasn't thrown
-                if (lastStep?.node?.type !== "ThrowStatement" && lastStep?.node?.type !== statement.type) {
+            // Handle different statement types
+            switch (statement.type) {
+                case "ExpressionStatement":
                     addExecutedStep(statement, scopeIndex)
-                }
-                return lastStep
-            }
+                    break
 
-            // Handle try and throw statements
-            if (statement.type === "TryStatement" || statement.type === "ThrowStatement") {
-                if (lastStep?.node?.type !== statement.type) {
-                    addExecutedStep(statement, scopeIndex)
-
-                }
-
-                if (lastStep) {
-                    if (!lastStep.evaluatedValue) {
-                        continue
+                case "ReturnStatement":
+                    if (isExecutionComplete) {
+                        addExecutedStep(statement, scopeIndex)
                     }
-                    return lastStep
-                }
-                continue
+                    return lastStep // Return interrupts execution flow
+
+                case "TryStatement":
+                case "ThrowStatement":
+                    if (lastStep?.node?.type !== statement.type) {
+                        addExecutedStep(statement, scopeIndex)
+                    }
+                    if (lastStep?.evaluatedValue) {
+                        return lastStep
+                    }
+                    break
+
+                default:
+                    if (isExecutionComplete) {
+                        addExecutedStep(statement, scopeIndex)
+                    }
+                    break
             }
 
-            // Handle other statement types
-            const shouldAddExecutedStep =
-                lastStep?.node?.type !== statement.type &&
-                lastStep?.node?.type !== "ThrowStatement" &&
-                statement.type !== "ExpressionStatement";
-
-            if (shouldAddExecutedStep) {
-                return addExecutedStep(statement, scopeIndex)
+            // Stop execution if an error was thrown (even if withinTryBlock)
+            if (lastStep?.errorThrown) {
+                return lastStep
             }
         }
 
