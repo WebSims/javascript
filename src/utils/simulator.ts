@@ -300,7 +300,7 @@ export const simulateExecution = (astNode: ESNode | null): ExecStep[] => {
     }
 
     // --- Execution Pass --- 
-    const execBlockStatement = (astNode: ESNode, scopeIndex: number): ExecStep | undefined => {
+    const execBlockStatement = (astNode: ESNode, scopeIndex: number, withinTryBlock: boolean): ExecStep | undefined => {
         const statements = astNode.body as ESNode[]
         let lastStep: ExecStep | undefined
 
@@ -316,11 +316,12 @@ export const simulateExecution = (astNode: ESNode | null): ExecStep[] => {
 
             // Mark statement as executing
             addExecutionStep(statement, scopeIndex)
-            lastStep = executionPhase(statement, scopeIndex)
+            lastStep = executionPhase(statement, scopeIndex, withinTryBlock)
 
             // Handle expression statements
             if (statement.type === "ExpressionStatement") {
                 addExecutedStep(statement, scopeIndex)
+
                 if (lastStep?.errorThrown) {
                     return lastStep
                 }
@@ -340,6 +341,11 @@ export const simulateExecution = (astNode: ESNode | null): ExecStep[] => {
             if (statement.type === "TryStatement" || statement.type === "ThrowStatement") {
                 if (lastStep?.node?.type !== statement.type) {
                     addExecutedStep(statement, scopeIndex)
+                }
+
+                if (lastStep?.node?.type === "ThrowStatement" && !withinTryBlock) {
+                    console.log(lastStep)
+                    throw new Error(lastStep.errorThrown.value)
                 }
 
                 if (lastStep) {
@@ -362,14 +368,14 @@ export const simulateExecution = (astNode: ESNode | null): ExecStep[] => {
         return lastStep
     }
 
-    const execExpressionStatement = (astNode: ESNode, scopeIndex: number): ExecStep | undefined => {
+    const execExpressionStatement = (astNode: ESNode, scopeIndex: number, withinTryBlock: boolean): ExecStep | undefined => {
         const expressionNode = (astNode as ExpressionStatement).expression
-        const lastStep = executionPhase(expressionNode, scopeIndex)
+        const lastStep = executionPhase(expressionNode, scopeIndex, withinTryBlock)
         if (lastStep?.evaluatedValue) removeMemVal(lastStep.evaluatedValue)
         return lastStep
     }
 
-    const execLiteral = (astNode: ESNode, scopeIndex: number): ExecStep | undefined => {
+    const execLiteral = (astNode: ESNode, scopeIndex: number, withinTryBlock: boolean): ExecStep | undefined => {
         addEvaluatingStep(astNode, scopeIndex)
 
         let evaluatedValue: JSValue;
@@ -392,7 +398,7 @@ export const simulateExecution = (astNode: ESNode | null): ExecStep[] => {
         return addEvaluatedStep(astNode, scopeIndex, evaluatedValue)
     }
 
-    const execVariableDeclaration = (astNode: ESNode, scopeIndex: number): ExecStep | undefined => {
+    const execVariableDeclaration = (astNode: ESNode, scopeIndex: number, withinTryBlock: boolean): ExecStep | undefined => {
         if (astNode.kind === "const" && astNode.declarations.length === 0) {
             console.warn("Unhandled const declaration pattern in execution:", astNode.kind)
         }
@@ -403,7 +409,7 @@ export const simulateExecution = (astNode: ESNode | null): ExecStep[] => {
                     const idNode = declarator.id as Identifier;
                     const varName = idNode.name;
 
-                    const lastStep = executionPhase(declarator.init, scopeIndex)
+                    const lastStep = executionPhase(declarator.init, scopeIndex, withinTryBlock)
                     const targetScopeIndex = writeVariable(varName, lastStep.evaluatedValue, scopeIndex)
 
                     removeMemVal(lastStep.evaluatedValue)
@@ -426,20 +432,24 @@ export const simulateExecution = (astNode: ESNode | null): ExecStep[] => {
         }
     }
 
-    const execCallExpression = (astNode: ESNode, scopeIndex: number): ExecStep | undefined => {
+    const execCallExpression = (astNode: ESNode, scopeIndex: number, withinTryBlock: boolean): ExecStep | undefined => {
         addEvaluatingStep(astNode, scopeIndex)
 
-        let lastStep = executionPhase(astNode.callee, scopeIndex)
+        let lastStep = executionPhase(astNode.callee, scopeIndex, withinTryBlock)
         const object = heap[lastStep.evaluatedValue?.ref]
         if (object?.type === "function") {
             addEvaluatingStep(astNode, scopeIndex)
             removeMemVal(lastStep?.evaluatedValue)
 
-            lastStep = traverseAST(object.node as ESNode, scopeIndex, false)
+            lastStep = traverseAST(object.node as ESNode, scopeIndex, false, withinTryBlock)
 
             if (lastStep?.node?.type === "ThrowStatement") {
                 return lastStep
             } else {
+                if (!lastStep?.evaluatedValue) {
+                    addMemVal({ type: "primitive", value: undefined })
+                    return addEvaluatedStep(astNode, scopeIndex, { type: "primitive", value: undefined })
+                }
                 return addEvaluatedStep(astNode, scopeIndex, lastStep?.evaluatedValue)
             }
         } else {
@@ -459,7 +469,7 @@ export const simulateExecution = (astNode: ESNode | null): ExecStep[] => {
         }
     }
 
-    const execIdentifier = (astNode: ESNode, scopeIndex: number): ExecStep | undefined => {
+    const execIdentifier = (astNode: ESNode, scopeIndex: number, withinTryBlock: boolean): ExecStep | undefined => {
         addEvaluatingStep(astNode, scopeIndex)
 
         const varName = (astNode as Identifier).name;
@@ -490,27 +500,32 @@ export const simulateExecution = (astNode: ESNode | null): ExecStep[] => {
                 evaluated: false,
                 errorThrown: error,
             })
-            throw Error(error.value)
+            // If not within a try block, throw a real error to halt simulation
+            if (!withinTryBlock) {
+                throw new Error(error.value)
+            }
+            // Otherwise, return the step indicating the error
+            return steps[steps.length - 1] // Return the created step
         }
     }
 
-    const execBinaryExpression = (astNode: ESNode, scopeIndex: number): ExecStep | undefined => {
+    const execBinaryExpression = (astNode: ESNode, scopeIndex: number, withinTryBlock: boolean): ExecStep | undefined => {
         addEvaluatingStep(astNode, scopeIndex)
 
         let leftStep: ExecStep | undefined
         let rightStep: ExecStep | undefined
 
         if (astNode.operator === "&&") {
-            leftStep = executionPhase(astNode.left, scopeIndex)
-            if (leftStep?.evaluatedValue?.value === true) rightStep = executionPhase(astNode.right, scopeIndex)
+            leftStep = executionPhase(astNode.left, scopeIndex, withinTryBlock)
+            if (leftStep?.evaluatedValue?.value === true) rightStep = executionPhase(astNode.right, scopeIndex, withinTryBlock)
             else rightStep = { type: "primitive", value: false }
         } else if (astNode.operator === "||") {
-            leftStep = executionPhase(astNode.left, scopeIndex)
+            leftStep = executionPhase(astNode.left, scopeIndex, withinTryBlock)
             if (leftStep?.evaluatedValue?.value === true) rightStep = { type: "primitive", value: true }
-            else rightStep = executionPhase(astNode.right, scopeIndex)
+            else rightStep = executionPhase(astNode.right, scopeIndex, withinTryBlock)
         } else {
-            leftStep = executionPhase(astNode.left, scopeIndex);
-            rightStep = executionPhase(astNode.right, scopeIndex);
+            leftStep = executionPhase(astNode.left, scopeIndex, withinTryBlock);
+            rightStep = executionPhase(astNode.right, scopeIndex, withinTryBlock);
         }
 
         if (astNode.operator) {
@@ -528,9 +543,9 @@ export const simulateExecution = (astNode: ESNode | null): ExecStep[] => {
         return
     }
 
-    const execReturnStatement = (astNode: ESNode, scopeIndex: number): ExecStep | undefined => {
+    const execReturnStatement = (astNode: ESNode, scopeIndex: number, withinTryBlock: boolean): ExecStep | undefined => {
         if (astNode.argument) {
-            const lastStep = executionPhase(astNode.argument, scopeIndex)
+            const lastStep = executionPhase(astNode.argument, scopeIndex, withinTryBlock)
             return lastStep
         } else {
             addMemVal({ type: 'primitive', value: undefined })
@@ -538,8 +553,8 @@ export const simulateExecution = (astNode: ESNode | null): ExecStep[] => {
         }
     }
 
-    const execThrowStatement = (astNode: ESNode, scopeIndex: number): ExecStep | undefined => {
-        const lastStep = executionPhase(astNode.argument, scopeIndex)
+    const execThrowStatement = (astNode: ESNode, scopeIndex: number, withinTryBlock: boolean): ExecStep | undefined => {
+        const lastStep = executionPhase(astNode.argument, scopeIndex, withinTryBlock)
         return addStep({
             node: astNode,
             phase: 'execution',
@@ -554,43 +569,66 @@ export const simulateExecution = (astNode: ESNode | null): ExecStep[] => {
     }
 
     // --- TryStatement Execution ---
-    const execTryStatement = (astNode: ESNode, scopeIndex: number): ExecStep | undefined => {
-        const lastStep1 = traverseAST(astNode, scopeIndex, false)
-        if (lastStep1?.errorThrown) {
-            const lastStep = executionPhase(astNode.handler, scopeIndex)
-            removeMemVal(lastStep1.errorThrown)
-            return lastStep
+    const execTryStatement = (astNode: ESNode, scopeIndex: number, withinTryBlock: boolean): ExecStep | undefined => {
+        // Execute the try block with withinTryBlock set to true
+        const tryLastStep = traverseAST(astNode, scopeIndex, false, true) // Pass true here
+
+        if (tryLastStep?.errorThrown) {
+            // If an error was caught, execute the handler (passing original withinTryBlock)
+            const catchLastStep = executionPhase(astNode.handler, scopeIndex, withinTryBlock) // Pass original withinTryBlock
+            removeMemVal(tryLastStep.errorThrown) // Clean up the error value from memVal
+
+            // Execute the finalizer if it exists (passing original withinTryBlock)
+            if (astNode.finalizer) {
+                // The result of the try-catch-finally is the result of the finalizer if it runs without error
+                // If the finalizer throws, that error propagates
+                return traverseAST(astNode.finalizer, scopeIndex, false, withinTryBlock) // Pass original withinTryBlock
+            }
+            // If no finalizer, the result is the result of the catch block
+            return catchLastStep
         }
-        return lastStep1
+
+        // If the try block completed without error, execute the finalizer if it exists
+        if (astNode.finalizer) {
+            // The result of the try-finally (no catch needed) is the result of the finalizer
+            // unless the finalizer throws. If the try block returned, the finalizer runs,
+            // but the try block's return value is preserved unless the finalizer throws/returns.
+            // (Simplification: we just return the finalizer's result for now)
+            return traverseAST(astNode.finalizer, scopeIndex, false, withinTryBlock) // Pass original withinTryBlock
+        }
+
+        // If try succeeded and no finalizer, the result is the result of the try block
+        return tryLastStep
     }
 
-    const execCatchClause = (astNode: ESNode, scopeIndex: number): ExecStep | undefined => {
-        return traverseAST(astNode, scopeIndex, false)
+    const execCatchClause = (astNode: ESNode, scopeIndex: number, withinTryBlock: boolean): ExecStep | undefined => {
+        // Catch clause execution itself happens within the original try context status
+        return traverseAST(astNode, scopeIndex, false, withinTryBlock) // Pass withinTryBlock
     }
 
-    const executionPhase = (node: ESNode | null, currentScopeIndex: number): ExecStep | undefined => {
+    const executionPhase = (node: ESNode | null, currentScopeIndex: number, withinTryBlock: boolean): ExecStep | undefined => {
         if (!node) return { type: "primitive", value: undefined }
-        console.log("Executing node:", node.type, "in scope:", currentScopeIndex)
+        console.log("Executing node:", node.type, "in scope:", currentScopeIndex, "withinTry:", withinTryBlock)
 
         switch (node.type) {
-            case "Program": return execBlockStatement(node, currentScopeIndex)
-            case "BlockStatement": return execBlockStatement(node, currentScopeIndex)
-            case "ExpressionStatement": return execExpressionStatement(node, currentScopeIndex)
-            case "Literal": return execLiteral(node, currentScopeIndex)
-            case "VariableDeclaration": return execVariableDeclaration(node, currentScopeIndex)
-            case "CallExpression": return execCallExpression(node, currentScopeIndex)
-            case "Identifier": return execIdentifier(node, currentScopeIndex)
+            case "Program": return execBlockStatement(node, currentScopeIndex, withinTryBlock)
+            case "BlockStatement": return execBlockStatement(node, currentScopeIndex, withinTryBlock)
+            case "ExpressionStatement": return execExpressionStatement(node, currentScopeIndex, withinTryBlock)
+            case "Literal": return execLiteral(node, currentScopeIndex, withinTryBlock)
+            case "VariableDeclaration": return execVariableDeclaration(node, currentScopeIndex, withinTryBlock)
+            case "CallExpression": return execCallExpression(node, currentScopeIndex, withinTryBlock)
+            case "Identifier": return execIdentifier(node, currentScopeIndex, withinTryBlock)
             case "BinaryExpression":
-            case "LogicalExpression": return execBinaryExpression(node, currentScopeIndex)
-            case "ReturnStatement": return execReturnStatement(node, currentScopeIndex)
-            case "ThrowStatement": return execThrowStatement(node, currentScopeIndex)
-            case "TryStatement": return execTryStatement(node, currentScopeIndex)
-            case "CatchClause": return execCatchClause(node, currentScopeIndex)
+            case "LogicalExpression": return execBinaryExpression(node, currentScopeIndex, withinTryBlock)
+            case "ReturnStatement": return execReturnStatement(node, currentScopeIndex, withinTryBlock)
+            case "ThrowStatement": return execThrowStatement(node, currentScopeIndex, withinTryBlock)
+            case "TryStatement": return execTryStatement(node, currentScopeIndex, withinTryBlock)
+            case "CatchClause": return execCatchClause(node, currentScopeIndex, withinTryBlock) // Pass withinTryBlock
 
             case "MemberExpression":
                 {
                     const memberNode = node as any; // Keep cast
-                    const objectValue = executionPhase(memberNode.object, currentScopeIndex); // Use const
+                    const objectValue = executionPhase(memberNode.object, currentScopeIndex, withinTryBlock); // Pass withinTryBlock
                     // Allow null and boolean as potential primitive property keys
                     let propertyKey: string | number | boolean | null | undefined | symbol | bigint = undefined;
                     let propertyKeyValue: JSValue | undefined = undefined;
@@ -599,8 +637,9 @@ export const simulateExecution = (astNode: ESNode | null): ExecStep[] => {
 
                     // 1. Determine the property key
                     if (memberNode.computed) {
-                        propertyKeyValue = executionPhase(memberNode.property, currentScopeIndex);
-                        if (propertyKeyValue.type === 'primitive') {
+                        const propertyStep = executionPhase(memberNode.property, currentScopeIndex, withinTryBlock); // Pass withinTryBlock
+                        propertyKeyValue = propertyStep?.evaluatedValue; // Get the evaluated value
+                        if (propertyKeyValue?.type === 'primitive') { // Check type on the evaluated value
                             propertyKey = propertyKeyValue.value; // Assign the primitive value directly
                         } else {
                             errorMsg = "TypeError: Computed property key must be primitive";
@@ -672,6 +711,10 @@ export const simulateExecution = (astNode: ESNode | null): ExecStep[] => {
                             errorMsg = `TypeError: Cannot read properties of ${objectValue.value === null ? 'null' : 'undefined'} (reading '${String(propertyKey)}')`;
                             console.error(errorMsg);
                             resultValue = { type: "primitive", value: undefined }; // Error state
+                            // If error occurs during property access and not within try, throw real error
+                            if (!withinTryBlock) {
+                                throw new Error(errorMsg)
+                            }
                         }
                     }
                     // If error occurred determining key, result remains undefined
@@ -706,9 +749,25 @@ export const simulateExecution = (astNode: ESNode | null): ExecStep[] => {
                             } else if ((elementNode as ESNode).type === 'SpreadElement') {
                                 errorMsg = "Spread elements in arrays not implemented";
                                 console.warn(errorMsg);
+                                // If error occurs and not within try, throw real error
+                                if (!withinTryBlock) throw new Error(errorMsg)
                                 break;
                             } else {
-                                elements.push(executionPhase(elementNode, currentScopeIndex));
+                                const elementStep = executionPhase(elementNode, currentScopeIndex, withinTryBlock) // Pass withinTryBlock
+                                // Check if executionPhase returned a step and has an evaluated value
+                                if (elementStep?.evaluatedValue) {
+                                    elements.push(elementStep.evaluatedValue)
+                                } else if (elementStep?.errorThrown) {
+                                    // If the element evaluation threw an error *within a try block*
+                                    // we might record it or handle differently, for now, treat as undefined
+                                    // If it threw outside a try, the simulation would have halted earlier
+                                    console.warn("Element evaluation resulted in an error step, pushing undefined for now.")
+                                    elements.push({ type: "primitive", value: undefined })
+                                } else {
+                                    // Handle cases where executionPhase returns undefined without error (should be rare)
+                                    console.warn("Element evaluation did not return a value or error step, pushing undefined.")
+                                    elements.push({ type: "primitive", value: undefined })
+                                }
                             }
                         }
                     }
@@ -783,7 +842,7 @@ export const simulateExecution = (astNode: ESNode | null): ExecStep[] => {
                                             }
                                         } else { continue; }
                                     } else {
-                                        value = executionPhase(property.value, currentScopeIndex);
+                                        value = executionPhase(property.value, currentScopeIndex, withinTryBlock);
                                     }
                                     if (key !== undefined) {
                                         properties[key] = value;
@@ -871,27 +930,54 @@ export const simulateExecution = (astNode: ESNode | null): ExecStep[] => {
                     let errorMsg: string | undefined = undefined;
 
                     // 1. Evaluate the test condition
-                    const testValue = executionPhase(condNode.test, currentScopeIndex);
+                    const testStep = executionPhase(condNode.test, currentScopeIndex, withinTryBlock); // Pass withinTryBlock
+                    const testValue = testStep?.evaluatedValue; // Get evaluated value
+                    let isTestTruthy = false // Initialize isTestTruthy here
 
-                    // 2. Determine truthiness (simplified)
-                    let isTestTruthy = false;
-                    if (testValue.type === 'primitive') {
-                        // Standard JS truthiness check
-                        isTestTruthy = Boolean(testValue.value);
-                    } else if (testValue.type === 'reference') {
-                        // Objects/Arrays/Functions are always truthy
-                        isTestTruthy = true;
+                    // Handle case where test evaluation itself throws (if withinTryBlock)
+                    if (testStep?.errorThrown) {
+                        // If the error occurred within a try block, it should be handled there.
+                        // If not, the simulation would have halted.
+                        // Here, we treat the condition as falsey due to error.
+                        console.warn("Conditional test evaluation resulted in an error.")
+                        // We could potentially return the error step directly: return testStep;
+                        // For simplicity now, treat as falsey.
+                        isTestTruthy = false;
+                        // If we want to propagate the error step:
+                        // return testStep;
+                    } else if (testValue) {
+                        if (testValue.type === 'primitive') {
+                            // Standard JS truthiness check
+                            isTestTruthy = Boolean(testValue.value);
+                        } else if (testValue.type === 'reference') {
+                            // Objects/Arrays/Functions are always truthy
+                            isTestTruthy = true;
+                        }
                     }
-                    // If testValue is undefined (e.g., due to an error), it remains falsey
+                    // If testValue is undefined (e.g. primitive undefined, or step had no value), it remains falsey
 
                     // 3. Evaluate the appropriate branch
-                    try {
+                    let resultStep: ExecStep | undefined;
+                    try { // Keep this inner try-catch for errors *within* the branch evaluation
                         if (isTestTruthy) {
-                            resultValue = executionPhase(condNode.consequent, currentScopeIndex);
+                            resultStep = executionPhase(condNode.consequent, currentScopeIndex, withinTryBlock); // Pass withinTryBlock
                         } else {
-                            resultValue = executionPhase(condNode.alternate, currentScopeIndex);
+                            resultStep = executionPhase(condNode.alternate, currentScopeIndex, withinTryBlock); // Pass withinTryBlock
+                        }
+                        resultValue = resultStep?.evaluatedValue ?? { type: "primitive", value: undefined }
+                        // Handle error propagation from the branch execution
+                        if (resultStep?.errorThrown) {
+                            // If the chosen branch threw an error (and withinTryBlock was true),
+                            // set the error message and potentially return the error step
+                            errorMsg = `Error during conditional branch execution: ${JSON.stringify(resultStep.errorThrown)}`
+                            // If we want the conditional expression itself to yield the error step:
+                            // return resultStep;
+                            // Otherwise, record errorMsg and let the addStep below handle it.
+                            resultValue = { type: "primitive", value: undefined } // Result is undefined due to error
                         }
                     } catch (e) {
+                        // This catch block handles errors thrown *outside* a try block
+                        // by the executionPhase calls above, or other synchronous errors.
                         errorMsg = `Error during conditional expression execution: ${e instanceof Error ? e.message : String(e)}`;
                         console.error(errorMsg);
                         resultValue = { type: "primitive", value: undefined }; // Indicate error
@@ -923,17 +1009,17 @@ export const simulateExecution = (astNode: ESNode | null): ExecStep[] => {
     }
 
     const isBlock = (node: ESNode): boolean => {
-        return node.type === "Program" || node?.type === "FunctionDeclaration" || node?.type === "TryStatement" || node?.type === "CatchClause"
+        return node.type === "Program" || node?.type === "FunctionDeclaration" || node?.type === "TryStatement" || node?.type === "CatchClause" || node?.type === "BlockStatement"
     }
 
     const isStrict = (node: ESNode): boolean => {
         return node?.body[0]?.expression?.type === "Literal" && node?.body[0]?.expression?.value === "use strict"
     }
     // --- Simulation Execution --- 
-    function traverseAST(astNode: ESNode, scopeIndex: number, strict: boolean): ExecStep | undefined {
+    function traverseAST(astNode: ESNode, scopeIndex: number, strict: boolean, withinTryBlock: boolean): ExecStep | undefined {
         // Check for non-block nodes early to avoid unnecessary scope creation
         if (!isBlock(astNode)) {
-            return executionPhase(astNode, scopeIndex)
+            return executionPhase(astNode, scopeIndex, withinTryBlock)
         }
 
         // For block nodes, handle scope creation and execution
@@ -951,18 +1037,7 @@ export const simulateExecution = (astNode: ESNode | null): ExecStep[] => {
         creationPhase(astNode, scopeIndex)
 
         // Phase 2: Execution
-        const lastStep = executionPhase(block, scopeIndex)
-
-        // Handle throw statements outside of try blocks
-        if (lastStep?.node?.type === "ThrowStatement" &&
-            nodeType !== "TryStatement" &&
-            block.body?.some(node =>
-                !(node.type === lastStep.node.type &&
-                    node.range?.[0] === lastStep.node.range?.[0] &&
-                    node.range?.[1] === lastStep.node.range?.[1])
-            )) {
-            throw lastStep.errorThrown
-        }
+        const lastStep = executionPhase(block, scopeIndex, withinTryBlock)
 
         // Phase 3: Destruction - except for global scope
         if (scopeIndex !== 0) {
@@ -974,9 +1049,19 @@ export const simulateExecution = (astNode: ESNode | null): ExecStep[] => {
     }
 
     try {
-        traverseAST(astNode, 0, false)
+        traverseAST(astNode, 0, false, false)
     } catch (error) {
-        console.error("Error during simulation:", error)
+        // Catch errors thrown by execThrowStatement (or others) when not withinTryBlock
+        console.error("Simulation halted due to uncaught error:", error instanceof Error ? error.message : String(error))
+        // Optionally add a final step indicating the halt?
+        // addStep({
+        //     node: astNode, // Or perhaps a special marker node?
+        //     phase: "halted",
+        //     scopeIndex: lastScopeIndex >= 0 ? lastScopeIndex : 0, // Best guess scope
+        //     memoryChange: { type: "none" },
+        //     executing: false, executed: false, evaluating: false, evaluated: false,
+        //     errorThrown: { type: "error", value: error instanceof Error ? error.message : String(error) }
+        // })
     }
 
     console.log("Simulation finished. Steps:", steps.length)
