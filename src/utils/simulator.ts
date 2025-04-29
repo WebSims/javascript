@@ -1,7 +1,6 @@
-import { ESNode, Program, VariableDeclarator, Identifier, Literal, VariableDeclaration, ArrayExpression, ObjectExpression, Property, ArrowFunctionExpression, ExpressionStatement } from "hermes-parser"
-import { ExecStep, JSValue, Scope, Heap, MemoryChange, HeapObject, HeapRef, Declaration, TDZ, ScopeType, PushScopeKind } from "../types/simulation"
-import { cloneDeep, result } from "lodash" // Import cloneDeep from lodash
-import { BinaryExpression, CallExpression, FunctionDeclaration, Node, ReturnStatement } from "typescript"
+import { ESNode, VariableDeclarator, Identifier, Literal, ArrayExpression, ObjectExpression, Property, ArrowFunctionExpression, ExpressionStatement } from "hermes-parser"
+import { ExecStep, JSValue, Scope, Heap, MemoryChange, HeapObject, HeapRef, Declaration, TDZ, ScopeType, PUSH_SCOPE_KIND } from "../types/simulation"
+import { cloneDeep } from "lodash" // Import cloneDeep from lodash
 
 /**
  * Simulates the execution of JavaScript code represented by an AST.
@@ -72,21 +71,7 @@ export const simulateExecution = (astNode: ESNode | null): ExecStep[] => {
         const type = getPushScopeType(astNode)
         const { scope, scopeIndex } = newScope(type)
 
-        const getPushScopeKind = (astNode: ESNode): PushScopeKind => {
-            switch (astNode.type) {
-                case "Program":
-                    return "program"
-                case "FunctionDeclaration":
-                    return "function"
-                case "TryStatement":
-                    return "try"
-                case "CatchClause":
-                    return "catch"
-                default:
-                    return "block"
-            }
-        }
-        const kind = getPushScopeKind(astNode)
+        const kind = PUSH_SCOPE_KIND[astNode.type as keyof typeof PUSH_SCOPE_KIND]
 
         return addStep({
             node: block,

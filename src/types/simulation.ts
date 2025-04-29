@@ -33,13 +33,20 @@ export type Scope = {
     // Add other scope-specific info if needed (e.g., is it a block scope?)
 }
 
+type PushScopeKind = "program" | "function" | "try" | "catch" | "finally" | "switch" | "loop" | "block"
+export const PUSH_SCOPE_KIND = {
+    Program: "program",
+    FunctionDeclaration: "function",
+    TryStatement: "try",
+    CatchClause: "catch",
+    FinallyClause: "finally",
+} as const satisfies Record<string, PushScopeKind>
+
 export type Declaration = {
     kind: "var" | "let" | "const" | "function" | "param" | "class",
     variableName: string,
     initialValue: JSValue
 }
-
-export type PushScopeKind = "program" | "function" | "try" | "catch" | "finally" | "switch" | "loop" | "block"
 // ----- Memory Change -----
 
 // Describes the specific memory modification in a step
