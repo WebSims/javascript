@@ -330,6 +330,10 @@ export const simulateExecution = (astNode: ESNode | null): ExecStep[] => {
                 addExecutedStep(statement, scopeIndex)
             }
 
+            if (statement.type === "ExpressionStatement") {
+                continue
+            }
+
             // Stop execution if an error was thrown (even if withinTryBlock)
             if (lastStep?.errorThrown || lastStep?.evaluatedValue) {
                 return lastStep
