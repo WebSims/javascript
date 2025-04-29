@@ -33,13 +33,21 @@ export type Scope = {
     // Add other scope-specific info if needed (e.g., is it a block scope?)
 }
 
-type PushScopeKind = "program" | "function" | "try" | "catch" | "finally" | "switch" | "loop" | "block"
+type PushScopeKind = "program" | "function" | "try" | "catch" | "finally" | "conditional" | "loop" | "block"
 export const PUSH_SCOPE_KIND = {
     Program: "program",
+    BlockStatement: "block",
     FunctionDeclaration: "function",
+    FunctionExpression: "function",
+    ArrowFunctionExpression: "function",
     TryStatement: "try",
     CatchClause: "catch",
     FinallyClause: "finally",
+    SwitchStatement: "conditional",
+    IfStatement: "conditional",
+    ForStatement: "loop",
+    WhileStatement: "loop",
+    DoWhileStatement: "loop",
 } as const satisfies Record<string, PushScopeKind>
 
 export type Declaration = {
