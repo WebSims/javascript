@@ -318,6 +318,13 @@ export const simulateExecution = (astNode: ESNode | null): ExecStep[] => {
             addExecutionStep(statement, scopeIndex)
             lastStep = executionPhase(statement, scopeIndex, withinTryBlock)
 
+            if (lastStep?.errorThrown) {
+                if (!withinTryBlock) {
+                    throw new Error(lastStep.errorThrown.value)
+                }
+                return lastStep
+            }
+
             // Handle expression statements
             if (statement.type === "ExpressionStatement") {
                 addExecutedStep(statement, scopeIndex)
@@ -341,14 +348,13 @@ export const simulateExecution = (astNode: ESNode | null): ExecStep[] => {
             if (statement.type === "TryStatement" || statement.type === "ThrowStatement") {
                 if (lastStep?.node?.type !== statement.type) {
                     addExecutedStep(statement, scopeIndex)
-                }
 
-                if (lastStep?.node?.type === "ThrowStatement" && !withinTryBlock) {
-                    console.log(lastStep)
-                    throw new Error(lastStep.errorThrown.value)
                 }
 
                 if (lastStep) {
+                    if (!lastStep.evaluatedValue) {
+                        continue
+                    }
                     return lastStep
                 }
                 continue
@@ -573,34 +579,26 @@ export const simulateExecution = (astNode: ESNode | null): ExecStep[] => {
 
     // --- TryStatement Execution ---
     const execTryStatement = (astNode: ESNode, scopeIndex: number, withinTryBlock: boolean): ExecStep | undefined => {
-        // Execute the try block with withinTryBlock set to true
         const tryLastStep = traverseAST(astNode, scopeIndex, false, true) // Pass true here
 
         if (tryLastStep?.errorThrown) {
-            // If an error was caught, execute the handler (passing original withinTryBlock)
-            const catchLastStep = executionPhase(astNode.handler, scopeIndex, withinTryBlock) // Pass original withinTryBlock
-            removeMemVal(tryLastStep.errorThrown) // Clean up the error value from memVal
+            const catchLastStep = executionPhase(astNode.handler, scopeIndex, withinTryBlock)
+            removeMemVal(tryLastStep.errorThrown)
 
-            // Execute the finalizer if it exists (passing original withinTryBlock)
             if (astNode.finalizer) {
-                // The result of the try-catch-finally is the result of the finalizer if it runs without error
-                // If the finalizer throws, that error propagates
-                return traverseAST(astNode.finalizer, scopeIndex, false, withinTryBlock) // Pass original withinTryBlock
+                removeMemVal(catchLastStep.evaluatedValue)
+                const finalizerStep = traverseAST(astNode.finalizer, scopeIndex, false, withinTryBlock)
+                return finalizerStep
             }
-            // If no finalizer, the result is the result of the catch block
+
             return catchLastStep
         }
 
-        // If the try block completed without error, execute the finalizer if it exists
         if (astNode.finalizer) {
-            // The result of the try-finally (no catch needed) is the result of the finalizer
-            // unless the finalizer throws. If the try block returned, the finalizer runs,
-            // but the try block's return value is preserved unless the finalizer throws/returns.
-            // (Simplification: we just return the finalizer's result for now)
-            return traverseAST(astNode.finalizer, scopeIndex, false, withinTryBlock) // Pass original withinTryBlock
+            removeMemVal(tryLastStep.evaluatedValue)
+            const finalizerStep = traverseAST(astNode.finalizer, scopeIndex, false, withinTryBlock)
+            return finalizerStep
         }
-
-        // If try succeeded and no finalizer, the result is the result of the try block
         return tryLastStep
     }
 
