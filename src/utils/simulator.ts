@@ -555,7 +555,7 @@ export const simulateExecution = (astNode: ESNode | null): ExecStep[] => {
             const catchLastStep = executionPhase(astNode.handler, scopeIndex, withinTryBlock)
             removeMemVal(tryLastStep?.errorThrown)
 
-            if (astNode.finalizer) {
+            if (astNode.finalizer && !catchLastStep?.errorThrown) {
                 if (astNode.finalizer.body.length > 0) removeMemVal(catchLastStep?.evaluatedValue)
                 const finalizerStep = traverseAST(astNode.finalizer, scopeIndex, false, withinTryBlock)
                 return finalizerStep || catchLastStep
