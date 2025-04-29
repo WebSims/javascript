@@ -410,23 +410,26 @@ export const simulateExecution = (astNode: ESNode | null): ExecStep[] => {
                     const varName = idNode.name;
 
                     const lastStep = executionPhase(declarator.init, scopeIndex, withinTryBlock)
-                    const targetScopeIndex = writeVariable(varName, lastStep.evaluatedValue, scopeIndex)
+                    if (lastStep?.evaluatedValue) {
+                        const targetScopeIndex = writeVariable(varName, lastStep.evaluatedValue, scopeIndex)
 
-                    removeMemVal(lastStep.evaluatedValue)
-                    return addStep({
-                        node: astNode,
-                        scopeIndex,
-                        memoryChange: {
-                            type: "write_variable",
-                            scopeIndex: targetScopeIndex,
-                            variableName: varName,
-                            value: lastStep.evaluatedValue,
-                        },
-                        executing: false,
-                        executed: true,
-                        evaluating: false,
-                        evaluated: false,
-                    })
+                        removeMemVal(lastStep.evaluatedValue)
+                        return addStep({
+                            node: astNode,
+                            scopeIndex,
+                            memoryChange: {
+                                type: "write_variable",
+                                scopeIndex: targetScopeIndex,
+                                variableName: varName,
+                                value: lastStep.evaluatedValue,
+                            },
+                            executing: false,
+                            executed: true,
+                            evaluating: false,
+                            evaluated: false,
+                        })
+                    }
+                    return lastStep
                 }
             }
         }
