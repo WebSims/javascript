@@ -1,6 +1,6 @@
 /* eslint-disable */
 
-import React, { useEffect } from "react"
+import React, { useEffect, useRef } from "react"
 import * as hermesParser from "hermes-parser"
 import * as _ from 'lodash'
 import { useSimulatorStore } from "@/hooks/useSimulatorStore"
@@ -119,8 +119,9 @@ interface CodeAreaProps {
 }
 
 const Statement = ({ st, parent, parens }) => {
-    const { isExecuting: isExecutingParent, isExecuted: isExecutedParent } = useExecStep(parent)
-    const { isExecuting: isExecutingStatement, isExecuted: isExecutedStatement } = useExecStep(st)
+    const elementRef = useRef<HTMLDivElement | HTMLSpanElement>(null)
+    const { isExecuting: isExecutingParent, isExecuted: isExecutedParent } = useExecStep(parent, elementRef)
+    const { isExecuting: isExecutingStatement, isExecuted: isExecutedStatement } = useExecStep(st, elementRef)
     const isExecuting = isExecutingParent || isExecutingStatement
     const isExecuted = isExecutedParent || isExecutedStatement
 
@@ -197,6 +198,7 @@ const Statement = ({ st, parent, parens }) => {
 
     if (st.type === "BlockStatement") {
         return <span
+            ref={elementRef}
             data-cheat-sheet-id={cheatSheetId}
             className={className}
             title={title}
@@ -204,6 +206,7 @@ const Statement = ({ st, parent, parens }) => {
     }
 
     return <div
+        ref={elementRef}
         data-cheat-sheet-id={cheatSheetId}
         className={className}
         title={title}

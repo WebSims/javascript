@@ -1,8 +1,8 @@
-import { useEffect, useState } from 'react'
+import { useEffect, useState, RefObject } from 'react'
 import { useSimulatorStore } from './useSimulatorStore'
 import { ESNode } from 'hermes-parser'
 
-export const useExecStep = (node?: ESNode) => {
+export const useExecStep = (node?: ESNode, ref?: RefObject<HTMLElement | null>) => {
     const { currentExecStep } = useSimulatorStore()
     const [isExecuting, setIsExecuting] = useState(false)
     const [isExecuted, setIsExecuted] = useState(false)
@@ -69,7 +69,13 @@ export const useExecStep = (node?: ESNode) => {
             setIsEvaluated(checkEvaluated(node))
         }
         // eslint-disable-next-line react-hooks/exhaustive-deps
-    }, [currentExecStep])
+    }, [currentExecStep, node])
+
+    useEffect(() => {
+        if ((isExecuting || isExecuted) && ref?.current) {
+            ref.current.scrollIntoView({ behavior: 'smooth', block: 'center' })
+        }
+    }, [isExecuting, isExecuted, ref])
 
     return {
         currentExecStep,
