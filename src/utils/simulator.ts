@@ -247,7 +247,10 @@ export const simulateExecution = (astNode: ESNode | null): ExecStep[] => {
                 } else if (param.type === "AssignmentPattern") {
                     const paramName = param.left.name
                     const defaultParamValue = param.right.value
-                    const paramValue: JSValue = memVal[0].value === undefined && (memVal[0].value = defaultParamValue)
+                    const paramValue: JSValue = memVal[0]
+                    if (paramValue.value === undefined) {
+                        paramValue.value = defaultParamValue
+                    }
                     memVal.shift()
                     const declaration = newDeclaration(paramName, "param", scopeIndex, paramValue)
                     if (declaration) declarations.push(declaration)
@@ -443,7 +446,6 @@ export const simulateExecution = (astNode: ESNode | null): ExecStep[] => {
         let lastStep = executionPhase(astNode.callee, scopeIndex, withinTryBlock)
         const object = heap[lastStep.evaluatedValue?.ref]
         if (object?.type === "function") {
-            console.log(astNode)
             for (const arg of astNode.arguments) {
                 executionPhase(arg, scopeIndex, withinTryBlock)
             }
@@ -482,7 +484,7 @@ export const simulateExecution = (astNode: ESNode | null): ExecStep[] => {
         addEvaluatingStep(astNode, scopeIndex)
 
         const varName = (astNode as Identifier).name;
-        if (varName === 'undefiend') {
+        if (varName === 'undefined') {
             addMemVal({ type: "primitive", value: undefined })
             return addEvaluatedStep(astNode, scopeIndex, { type: "primitive", value: undefined })
         }
@@ -582,7 +584,6 @@ export const simulateExecution = (astNode: ESNode | null): ExecStep[] => {
     // --- TryStatement Execution ---
     const execTryStatement = (astNode: ESNode, scopeIndex: number, withinTryBlock: boolean): ExecStep | undefined => {
         const tryLastStep = traverseAST(astNode, scopeIndex, false, true) // Pass true here
-        console.log(tryLastStep)
         if (tryLastStep?.errorThrown) {
             const catchLastStep = executionPhase(astNode.handler, scopeIndex, withinTryBlock)
             removeMemVal(tryLastStep?.errorThrown)
