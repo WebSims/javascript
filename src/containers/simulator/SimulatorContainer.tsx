@@ -58,22 +58,25 @@ const c = (a + 1) + (b + 2)
 const d = (a + 1) + (b + 2) + (c + 3)
 const e = (a + 1) * (b + 2) + (c - 3) / (d + 4)
 `
-const FUNCTION_CODE_SAMPLE = `function b(name, family = "Doe") {
-throw "Error"
+const FUNCTION_CODE_SAMPLE = `function greet(name, family = "Doe") {
 const first = "Hello, " + name + " " + family
     return first
 }
 
-function a() {
-    try {
-       const output = b('Mak', undefined, 28)
-       return output
-    } catch (error) {
-      return error
-    }
-    return 4
+function newError() {
+    throw "Error: "
 }
-a()`
+
+function run(greetFn) {
+    let output
+    try {
+        newError()
+    } catch (error) {
+       return greetFn
+    }
+    return output
+}
+run(greet('Mak', undefined, 28))`
 
 // const FUNCTION_CODE_SAMPLE = `
 // function a() {
