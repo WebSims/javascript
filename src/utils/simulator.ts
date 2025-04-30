@@ -538,7 +538,9 @@ export const simulateExecution = (astNode: ESNode | null): ExecStep[] => {
         }
 
         if (astNode.operator) {
-            const value = eval(`${leftStep?.evaluatedValue?.value}${astNode.operator}${rightStep?.evaluatedValue?.value}`)
+            const leftRaw = JSON.stringify(leftStep?.evaluatedValue?.value)
+            const rightRaw = JSON.stringify(rightStep?.evaluatedValue?.value)
+            const value = eval(`${leftRaw}${astNode.operator}${rightRaw}`)
             const evaluatedValue = {
                 type: "primitive",
                 value
