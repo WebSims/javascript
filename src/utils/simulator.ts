@@ -256,7 +256,7 @@ export const simulateExecution = (astNode: ESNode | null): ExecStep[] => {
                     const paramValue: JSValue = memVal[paramValueIndex]
                     memVal.splice(paramValueIndex, 1)
                     const declaration = newDeclaration(paramName, "param", scopeIndex, paramValue)
-                    if (declaration) declarations.push(declaration)
+                    if (declaration.parentNode) declarations.push(declaration)
                 } else if (param.type === "AssignmentPattern") {
                     const paramName = param.left.name
                     const defaultParamValue = param.right.value
@@ -277,12 +277,11 @@ export const simulateExecution = (astNode: ESNode | null): ExecStep[] => {
         }
         // Use for CatchClause
         if (astNode.param) {
-            console.log(astNode.param)
             const paramName = astNode.param.name
             const paramValueIndex = memVal.findIndex(item => item.parentNode === astNode)
             const paramValue: JSValue = memVal[paramValueIndex]
             memVal.splice(paramValueIndex, 1)
-            console.log(paramValue)
+            if (paramValue.parentNode) delete paramValue.parentNode
             const declaration = newDeclaration(paramName, "param", scopeIndex, paramValue)
             if (declaration) declarations.push(declaration)
         }
@@ -470,6 +469,7 @@ export const simulateExecution = (astNode: ESNode | null): ExecStep[] => {
         addEvaluatingStep(astNode, scopeIndex)
 
         let lastStep = executionPhase(astNode.callee, scopeIndex, withinTryBlock)
+
         const object = heap[lastStep.evaluatedValue?.ref]
         if (object?.type === "function") {
             for (const arg of astNode.arguments) {
@@ -638,6 +638,33 @@ export const simulateExecution = (astNode: ESNode | null): ExecStep[] => {
         return tryLastStep
     }
 
+    const execAssignmentExpression = (astNode: ESNode, scopeIndex: number, withinTryBlock: boolean): ExecStep | undefined => {
+        addEvaluatingStep(astNode, scopeIndex)
+        const leftStep = executionPhase(astNode.left, scopeIndex, withinTryBlock)
+        const rightStep = executionPhase(astNode.right, scopeIndex, withinTryBlock)
+        if (leftStep?.evaluatedValue && rightStep?.evaluatedValue) {
+            const targetScopeIndex = writeVariable(leftStep.node.name, rightStep.evaluatedValue, scopeIndex)
+            removeMemVal(leftStep.evaluatedValue)
+            removeMemVal(rightStep.evaluatedValue)
+            addMemVal(rightStep.evaluatedValue)
+            return addStep({
+                node: astNode,
+                scopeIndex,
+                memoryChange: {
+                    type: "write_variable",
+                    scopeIndex: targetScopeIndex,
+                    variableName: leftStep.node.name,
+                    value: rightStep.evaluatedValue,
+                },
+                executing: false,
+                executed: false,
+                evaluating: false,
+                evaluated: true,
+                evaluatedValue: rightStep.evaluatedValue,
+            })
+        }
+    }
+
     const executionPhase = (node: ESNode | null, currentScopeIndex: number, withinTryBlock: boolean): ExecStep | undefined => {
         if (!node) return { type: "primitive", value: undefined }
         console.log("Executing node:", node.type, "in scope:", currentScopeIndex, "withinTry:", withinTryBlock)
@@ -655,6 +682,7 @@ export const simulateExecution = (astNode: ESNode | null): ExecStep[] => {
             case "ReturnStatement": return execReturnStatement(node, currentScopeIndex, withinTryBlock)
             case "ThrowStatement": return execThrowStatement(node, currentScopeIndex, withinTryBlock)
             case "TryStatement": return execTryStatement(node, currentScopeIndex, withinTryBlock)
+            case "AssignmentExpression": return execAssignmentExpression(node, currentScopeIndex, withinTryBlock)
 
             case "MemberExpression":
                 {

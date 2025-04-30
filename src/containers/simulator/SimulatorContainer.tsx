@@ -72,7 +72,7 @@ function run(greet) {
     try {
         newError()
     } catch (error) {
-       return greet
+       output = greet
     }
     return output
 }
