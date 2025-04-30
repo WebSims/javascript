@@ -108,15 +108,14 @@ export type MemoryChange =
 // Represents a single step in the code execution simulation
 export type ExecStep = {
     index: number // Sequential step index
-    node?: ESNode // The primary AST node associated with this step
-    nodes?: ESNode[] // The nodes associated with this step (e.g., declarations)
+    node: ESNode // The primary AST node associated with this step
     phase: "initial" | "creation" | "execution" | "destruction" // Phase of execution
+    scopeIndex: number // Index into memorySnapshot.scopes for the *active* scope
     executing: boolean // Whether the step is currently being executed
     executed: boolean // Whether the step has been executed
     evaluating: boolean // Whether the step is currently evaluating an expression
     evaluated: boolean // Whether the step has evaluated an expression
     evaluatedValue?: JSValue // The result of evaluating this node (if it's an expression)
-    scopeIndex: number // Index into memorySnapshot.scopes for the *active* scope
     memoryChange: MemoryChange // Description of the memory effect of this step
     memorySnapshot: { // Snapshot of the entire memory state *after* this step's change
         scopes: Scope[] // The call stack (array of Scope objects)
