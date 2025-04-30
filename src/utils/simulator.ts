@@ -161,10 +161,41 @@ export const simulateExecution = (astNode: ESNode | null): ExecStep[] => {
         })
     }
     const addPopScopeStep = (astNode: ESNode, scopeIndex: number): ExecStep => {
-        const heapItems = Object.values(scopes[scopeIndex].variables)
+        const closingScope = scopes[scopeIndex]
+        const heapItemsToPotentiallyDelete = Object.values(closingScope.variables)
             .filter((item): item is Extract<JSValue, { type: 'reference' }> => item.type === 'reference')
-        heapItems.forEach(item => {
-            delete heap[item.ref]
+
+        heapItemsToPotentiallyDelete.forEach(itemToDelete => {
+            const refToDelete = itemToDelete.ref
+            let isReferencedElsewhere = false
+
+            // Check all *other* scopes
+            for (let i = 0; i < scopes.length; i++) {
+                if (i === scopeIndex) continue // Skip the scope being closed
+
+                const otherScope = scopes[i]
+                const variablesInOtherScope = Object.values(otherScope.variables)
+
+                for (const variableInOtherScope of variablesInOtherScope) {
+                    if (variableInOtherScope.type === 'reference' && variableInOtherScope.ref === refToDelete) {
+                        isReferencedElsewhere = true
+                        break // Found a reference, no need to check further in this scope
+                    }
+                }
+
+                if (isReferencedElsewhere) {
+                    break // Found a reference, no need to check other scopes
+                }
+            }
+
+            // Only delete if not referenced elsewhere
+            if (!isReferencedElsewhere) {
+                // console.log(`Deleting heap item ref: ${refToDelete} as it's no longer referenced.`);
+                delete heap[refToDelete]
+            }
+            // else {
+            // Optional: console.log(`Keeping heap item ref: ${refToDelete} as it's referenced in another scope.`);
+            // }
         })
         scopes.splice(scopeIndex, 1)
 
