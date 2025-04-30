@@ -161,7 +161,7 @@ const Statement = ({ st, parent, parens }) => {
     // FunctionDeclaration async:bool id:Identifier params:[] body:{BlockStatement body:[st]}
     if (st.type == "FunctionDeclaration") {
         st.category = "statement.declaration"
-        component = <NewFn async={st.async} name={st.id.name} args={st.params} code={st.body} parens={parens} parent={st} />
+        component = <NewFn async={st.async} name={st.id.name} params={st.params} code={st.body} parens={parens} parent={st} />
     }
 
     // ClassDeclaration id:Identifier superClass:Identifier|null body:{ClassBody body:[MethodDefinition|PropertyDefinition]}
@@ -265,7 +265,7 @@ const Expression = ({ fromAstOf, expr, parent, parens }: { fromAstOf?: any, expr
     // ArrowFunctionExpression params:[] body:expr|{BlockStatement body:[st]} async:bool expression:bool
     if (expr.type == "ArrowFunctionExpression") {
         expr.category = "expression.data.fnArr"
-        component = <NewFnArrow async={expr.async || false} args={expr.params} code={expr.body} parens={parens} parent={expr} />
+        component = <NewFnArrow async={expr.async || false} params={expr.params} code={expr.body} parens={parens} parent={expr} />
     }
 
     // Identifier name:string
@@ -410,7 +410,7 @@ const NewObj = ({ props, parent, parens }) => {
     </span>
 }
 
-const NewFnArrow = ({ async, args, code, parent, parens }) => {
+const NewFnArrow = ({ async, params, code, parent, parens }) => {
     let content;
     if (code.type == "BlockStatement") {
         content = <>
@@ -431,44 +431,44 @@ const NewFnArrow = ({ async, args, code, parent, parens }) => {
         <>
             {async && <span className="keyword keyword-prefix keyword-async">async</span>}
             {/* {name && <span className="ast-exp-fn-name">{name}</span>} */}
-            <FnArgsDef args={args} parens={parens} parent={parent} />
+            <FnParamsDef params={params} parens={parens} parent={parent} />
             <span className="align-middle font-bold">&nbsp;=&gt;&nbsp;</span>
             {content}
         </>
     )
 }
 
-const NewFn = ({ async, name, args, code, parent, parens }) => {
+const NewFn = ({ async, name, params, code, parent, parens }) => {
     return (
         <>
             {async && <span className="keyword keyword-prefix keyword-async">async</span>}
             <span className="keyword keyword-prefix keyword-fn">function</span>
             {name && <span className="ast-exp-fn-name">{name}</span>}
-            <FnArgsDef args={args} parens={parens} parent={parent} />
+            <FnParamsDef params={params} parens={parens} parent={parent} />
             <Statement st={code} parent={parent} parens={parens} />
         </>
     )
 }
 
-const FnArgsDef = ({ args, parent, parens }) => (
+const FnParamsDef = ({ params, parent, parens }) => (
     <>
         <span className="text-slate-500 align-middle font-bold">(</span>
-        {args.map((arg, i) => {
+        {params.map((param, i) => {
             let component
 
             // Identifier name:string
-            if (arg.type == "Identifier") {
-                component = <span className="text-blue-500">{arg.name}</span>
+            if (param.type == "Identifier") {
+                component = <span className="text-blue-500">{param.name}</span>
             }
 
             // AssignmentPattern left:Identifier right:exp
-            if (arg.type == "AssignmentPattern") {
-                component = <WriteVar name={arg.left.name} setBy="=" setTo={arg.right} parent={parent} parens={parens} />
+            if (param.type == "AssignmentPattern") {
+                component = <WriteVar name={param.left.name} setBy="=" setTo={param.right} parent={param} parens={parens} />
             }
 
             return <span key={i} className="ast-fn-def-arg">
                 {component}
-                {i < args.length - 1 &&
+                {i < params.length - 1 &&
                     <span className="align-middle font-bold">,&nbsp;</span>
                 }
             </span>
@@ -503,7 +503,7 @@ const ReadIndex = ({ expr, of, parent, parens }) => (
 )
 
 const WriteVar = ({ name, setBy, setTo, parent, parens }) => {
-    const { isExecuting: isIdExecuting } = useExecStep(parent.declarations[0].id)
+    const { isExecuting: isIdExecuting } = useExecStep(parent.type === "VariableDeclaration" ? parent.declarations[0].id : parent.left)
 
     return (
         <>
@@ -674,7 +674,7 @@ const MethodDefinition = ({ member, parens, parent }) => {
                     <span className="align-middle font-bold">]</span>
                 </>
             ) : keyComponent}
-            <FnArgsDef args={member.value.params} parens={parens} parent={parent} />
+            <FnParamsDef params={member.value.params} parens={parens} parent={parent} />
             <span className="align-middle font-bold ml-1">&#123;</span>
             {member.value.body && member.value.body.body && member.value.body.body.length > 0 && (
                 <div className="ml-4 space-y-1">
@@ -741,7 +741,7 @@ const ClassMethod = ({ member, parens, parent }) => {
                     <span className="text-xl align-middle font-bold">]</span>
                 </>
             ) : keyComponent}
-            <FnArgsDef args={member.value.params} parens={parens} parent={parent} />
+            <FnParamsDef params={member.value.params} parens={parens} parent={parent} />
             <span className="text-xl align-middle font-bold ml-1">&#123;</span>
             {member.value.body && member.value.body.body && member.value.body.body.length > 0 && (
                 <div className="ml-4 space-y-1">

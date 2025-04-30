@@ -58,19 +58,17 @@ const c = (a + 1) + (b + 2)
 const d = (a + 1) + (b + 2) + (c + 3)
 const e = (a + 1) * (b + 2) + (c - 3) / (d + 4)
 `
-const FUNCTION_CODE_SAMPLE = `function b() {
-  throw 1
-    return 10
+const FUNCTION_CODE_SAMPLE = `function b(name, family = "Doe") {
+const first = "Hello, " + name + " " + family
+    return first
 }
 
 function a() {
     try {
-       const output = b()
+       const output = b('Mak', undefined, 28)
        return output
     } catch (error) {
       return 2
-    } finally {
-      return 3
     }
     return 4
 }
