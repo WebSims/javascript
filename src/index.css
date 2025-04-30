@@ -219,3 +219,7 @@
 .evaluated {
   @apply bg-emerald-100 dark:bg-emerald-900/30 rounded;
 }
+
+.error-thrown {
+  @apply bg-red-100 dark:bg-red-900/30 rounded;
+}

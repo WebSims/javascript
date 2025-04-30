@@ -8,6 +8,7 @@ export const useExecStep = (node?: ESNode, ref?: RefObject<HTMLElement | null>) 
     const [isExecuted, setIsExecuted] = useState(false)
     const [isEvaluating, setIsEvaluating] = useState(false)
     const [isEvaluated, setIsEvaluated] = useState(false)
+    const [isErrorThrown, setIsErrorThrown] = useState(false)
 
     const checkExecuting = (node: ESNode): boolean => {
         if (!currentExecStep || !node) return false
@@ -61,12 +62,26 @@ export const useExecStep = (node?: ESNode, ref?: RefObject<HTMLElement | null>) 
         return false
     }
 
+    const checkErrorThrown = (node: ESNode): boolean => {
+        if (!currentExecStep || !node) return false
+        if (currentExecStep.node && node.range) {
+            return (
+                currentExecStep.node.range[0] === node.range[0] &&
+                currentExecStep.node.range[1] === node.range[1] &&
+                currentExecStep.node.type === node.type &&
+                currentExecStep.errorThrown !== undefined
+            )
+        }
+        return false
+    }
+
     useEffect(() => {
         if (node) {
             setIsExecuting(checkExecuting(node))
             setIsExecuted(checkExecuted(node))
             setIsEvaluating(checkEvaluating(node))
             setIsEvaluated(checkEvaluated(node))
+            setIsErrorThrown(checkErrorThrown(node))
         }
         // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [currentExecStep, node])
@@ -83,5 +98,6 @@ export const useExecStep = (node?: ESNode, ref?: RefObject<HTMLElement | null>) 
         isExecuted,
         isEvaluating,
         isEvaluated,
+        isErrorThrown,
     }
 } 

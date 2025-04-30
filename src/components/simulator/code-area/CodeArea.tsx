@@ -226,7 +226,7 @@ const Def = ({ defBy, name, setBy, setTo, parens, parent }) => {
 
 const Expression = ({ fromAstOf, expr, parent, parens }: { fromAstOf?: any, expr: any, parent: any, parens: any }) => {
     const exprRef = useRef<HTMLSpanElement>(null)
-    const { isEvaluating, isEvaluated } = useExecStep(expr, exprRef)
+    const { isEvaluating, isEvaluated, isErrorThrown } = useExecStep(expr, exprRef)
 
     if (fromAstOf) {
         const ast = astOf(fromAstOf)
@@ -353,7 +353,7 @@ const Expression = ({ fromAstOf, expr, parent, parens }: { fromAstOf?: any, expr
     const cheatSheetId = decoratorObject.cheatSheetId
     const className = (expr.category || "statement.UNKNOWN").split('.').map((__, i, all) =>
         _.get(decorations, all.slice(0, i + 1).join('.')).classN || ''
-    ).join(' ') + (isEvaluating ? ' evaluating' : '') + (isEvaluated ? ' evaluated' : '')
+    ).join(' ') + (isEvaluating ? ' evaluating' : '') + (isEvaluated ? ' evaluated' : '') + (isErrorThrown ? ' error-thrown' : '')
 
     return <span
         data-cheat-sheet-id={cheatSheetId}
