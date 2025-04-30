@@ -576,7 +576,7 @@ const Call = ({ expr, args, parent, parens }) => {
         <span className="text-slate-500 align-middle font-bold">(</span>
         {args.map((arg, i) => {
             return <>
-                <Expression key={i} expr={expr.callee.arg} parens={parens} parent={parent} />
+                <Expression key={i} expr={arg} parens={parens} parent={parent} />
                 {i < args.length - 1 &&
                     <span className="text-slate-500 align-middle font-bold">,</span>
                 }
