@@ -226,7 +226,10 @@ export const simulateExecution = (astNode: ESNode | null): ExecStep[] => {
         memVal = []
     }
 
+
     // --- Creation Pass --- 
+
+
     const creationPhase = (astNode: ESNode, scopeIndex: number): void => {
         const block: ESNode = astNode.type === "FunctionDeclaration" ? astNode.body :
             astNode.type === "TryStatement" ? astNode.block :
@@ -236,29 +239,38 @@ export const simulateExecution = (astNode: ESNode | null): ExecStep[] => {
 
         const declarations: Declaration[] = []
 
+        // Handle Parameters
+        const handleFunctionParam = (param: ESNode, scopeIndex: number): void => {
+            if (param.type === "Identifier") {
+                const paramName = param.name
+                const paramValue: JSValue = memVal[0]
+                memVal.shift()
+                const declaration = newDeclaration(paramName, "param", scopeIndex, paramValue)
+                if (declaration) declarations.push(declaration)
+            } else if (param.type === "AssignmentPattern") {
+                const paramName = param.left.name
+                const defaultParamValue = param.right.value
+                const paramValue: JSValue = memVal[0]
+                if (paramValue.value === undefined) {
+                    paramValue.value = defaultParamValue
+                }
+                memVal.shift()
+                const declaration = newDeclaration(paramName, "param", scopeIndex, paramValue)
+                if (declaration) declarations.push(declaration)
+            } else {
+                console.warn("Unhandled param type:", param.type)
+            }
+        }
+
         if (astNode.params) {
             for (const param of astNode.params) {
-                if (param.type === "Identifier") {
-                    const paramName = param.name
-                    const paramValue: JSValue = memVal[0]
-                    memVal.shift()
-                    const declaration = newDeclaration(paramName, "param", scopeIndex, paramValue)
-                    if (declaration) declarations.push(declaration)
-                } else if (param.type === "AssignmentPattern") {
-                    const paramName = param.left.name
-                    const defaultParamValue = param.right.value
-                    const paramValue: JSValue = memVal[0]
-                    if (paramValue.value === undefined) {
-                        paramValue.value = defaultParamValue
-                    }
-                    memVal.shift()
-                    const declaration = newDeclaration(paramName, "param", scopeIndex, paramValue)
-                    if (declaration) declarations.push(declaration)
-                } else {
-                    console.warn("Unhandled param type:", param.type)
-                }
+                handleFunctionParam(param, scopeIndex)
             }
             clearMemVal()
+        }
+        // Use for CatchClause
+        if (astNode.param) {
+            handleFunctionParam(astNode.param, scopeIndex)
         }
 
         for (const node of block.body) {
