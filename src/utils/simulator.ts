@@ -108,7 +108,7 @@ export const simulateExecution = (astNode: ESNode | null): ExecStep[] => {
             evaluated: false,
         })
     }
-    const addExecutedStep = (astNode: ESNode, scopeIndex: number, evaluatedValue?: JSValue): ExecStep => {
+    const addExecutedStep = (astNode: ESNode, scopeIndex: number, evaluatedValue?: JSValue, errorThrown?: JSValue): ExecStep => {
         return addStep({
             node: astNode,
             phase: "execution",
@@ -119,6 +119,7 @@ export const simulateExecution = (astNode: ESNode | null): ExecStep[] => {
             evaluating: false,
             evaluated: false,
             evaluatedValue,
+            errorThrown,
         })
     }
     const addEvaluatingStep = (astNode: ESNode, scopeIndex: number): ExecStep => {
@@ -144,6 +145,19 @@ export const simulateExecution = (astNode: ESNode | null): ExecStep[] => {
             evaluating: false,
             evaluated: true,
             evaluatedValue,
+        })
+    }
+    const addErrorThrownStep = (astNode: ESNode, scopeIndex: number, error: JSValue): ExecStep => {
+        return addStep({
+            node: astNode,
+            phase: "execution",
+            scopeIndex,
+            memoryChange: { type: "none" },
+            executing: false,
+            executed: false,
+            evaluating: false,
+            evaluated: false,
+            errorThrown: error,
         })
     }
     const addPopScopeStep = (astNode: ESNode, scopeIndex: number): ExecStep => {
@@ -373,10 +387,8 @@ export const simulateExecution = (astNode: ESNode | null): ExecStep[] => {
             lastStep = executionPhase(statement, scopeIndex, withinTryBlock)
 
             if (lastStep?.errorThrown && !withinTryBlock) {
-                const errorMessage = lastStep.errorThrown.type === 'error' &&
-                    typeof lastStep.errorThrown.value === 'string' ?
-                    lastStep.errorThrown.value : 'Error thrown during execution'
-                throw new Error(errorMessage)
+                console.error(lastStep.errorThrown.value)
+                return lastStep
             }
 
             if (lastStep?.node?.type !== statement.type) {
@@ -385,6 +397,7 @@ export const simulateExecution = (astNode: ESNode | null): ExecStep[] => {
 
             // Stop execution if an error was thrown (even if withinTryBlock)
             if (lastStep?.errorThrown) {
+                console.error(lastStep.errorThrown.value)
                 return lastStep
             }
 
@@ -401,6 +414,9 @@ export const simulateExecution = (astNode: ESNode | null): ExecStep[] => {
     const execExpressionStatement = (astNode: ESNode, scopeIndex: number, withinTryBlock: boolean): ExecStep | undefined => {
         const expressionNode = (astNode as ExpressionStatement).expression
         const lastStep = executionPhase(expressionNode, scopeIndex, withinTryBlock)
+        if (lastStep?.errorThrown) {
+            return lastStep
+        }
         if (lastStep?.evaluatedValue) removeMemVal(lastStep.evaluatedValue)
         return lastStep
     }
@@ -472,8 +488,17 @@ export const simulateExecution = (astNode: ESNode | null): ExecStep[] => {
         addEvaluatingStep(astNode, scopeIndex)
 
         let lastStep = executionPhase(astNode.callee, scopeIndex, withinTryBlock)
+        if (lastStep?.evaluatedValue === TDZ) {
+            const error = { type: "error", value: 'ReferenceError: Cannot access ' + lastStep?.node.name + ' before initialization' } as const
+            return addErrorThrownStep(astNode, scopeIndex, error)
+        }
 
         const object = heap[lastStep.evaluatedValue?.ref]
+        if (!object) {
+            const error = { type: "error", value: 'ReferenceError: ' + lastStep?.node.name + ' is not defined' } as const
+            return addErrorThrownStep(astNode, scopeIndex, error)
+        }
+
         if (object?.type === "function") {
             for (const arg of astNode.arguments) {
                 const argStep = executionPhase(arg, scopeIndex, withinTryBlock)
@@ -488,7 +513,7 @@ export const simulateExecution = (astNode: ESNode | null): ExecStep[] => {
 
             lastStep = traverseAST(object.node as ESNode, scopeIndex, false, withinTryBlock)
 
-            if (lastStep?.node?.type === "ThrowStatement") {
+            if (lastStep?.errorThrown) {
                 return lastStep
             } else {
                 if (!lastStep?.evaluatedValue) {
@@ -499,18 +524,7 @@ export const simulateExecution = (astNode: ESNode | null): ExecStep[] => {
             }
         } else {
             const error = { type: "error", value: 'TypeError: ' + lastStep?.node.name + ' is not a function' } as const
-            addStep({
-                node: astNode,
-                phase: "execution",
-                scopeIndex,
-                memoryChange: { type: "none" },
-                errorThrown: error,
-                executing: false,
-                executed: false,
-                evaluating: false,
-                evaluated: false,
-            })
-            throw Error(error.value)
+            return addErrorThrownStep(astNode, scopeIndex, error)
         }
     }
 
@@ -534,23 +548,7 @@ export const simulateExecution = (astNode: ESNode | null): ExecStep[] => {
             }
         } else {
             const error = { type: "error", value: 'ReferenceError: ' + varName + ' is not defined' } as const
-            addStep({
-                node: astNode,
-                phase: "execution",
-                scopeIndex,
-                memoryChange: { type: "none" },
-                executing: false,
-                executed: false,
-                evaluating: false,
-                evaluated: false,
-                errorThrown: error,
-            })
-            // If not within a try block, throw a real error to halt simulation
-            if (!withinTryBlock) {
-                throw new Error(error.value)
-            }
-            // Otherwise, return the step indicating the error
-            return steps[steps.length - 1] // Return the created step
+            return addErrorThrownStep(astNode, scopeIndex, error)
         }
     }
 
@@ -602,17 +600,7 @@ export const simulateExecution = (astNode: ESNode | null): ExecStep[] => {
 
     const execThrowStatement = (astNode: ESNode, scopeIndex: number, withinTryBlock: boolean): ExecStep | undefined => {
         const lastStep = executionPhase(astNode.argument, scopeIndex, withinTryBlock)
-        return addStep({
-            node: astNode,
-            phase: 'execution',
-            scopeIndex,
-            memoryChange: { type: 'none' },
-            executing: false,
-            executed: true,
-            evaluating: false,
-            evaluated: false,
-            errorThrown: lastStep?.evaluatedValue,
-        })
+        return addExecutedStep(astNode, scopeIndex, undefined, lastStep?.evaluatedValue)
     }
 
     // --- TryStatement Execution ---
@@ -1101,6 +1089,10 @@ export const simulateExecution = (astNode: ESNode | null): ExecStep[] => {
         // Phase 2: Execution
         const lastStep = executionPhase(block, scopeIndex, withinTryBlock)
         // Phase 3: Destruction - except for global scope
+        if (lastStep?.errorThrown && !withinTryBlock) {
+            throw new Error(lastStep.errorThrown.value)
+        }
+
         if (scopeIndex !== 0) {
             destructionPhase(block, scopeIndex)
             lastScopeIndex--
@@ -1109,21 +1101,7 @@ export const simulateExecution = (astNode: ESNode | null): ExecStep[] => {
         return lastStep
     }
 
-    try {
-        traverseAST(astNode, 0, false, false)
-    } catch (error) {
-        // Catch errors thrown by execThrowStatement (or others) when not withinTryBlock
-        console.error("Simulation halted due to uncaught error:", error instanceof Error ? error.message : String(error))
-        // Optionally add a final step indicating the halt?
-        // addStep({
-        //     node: astNode, // Or perhaps a special marker node?
-        //     phase: "halted",
-        //     scopeIndex: lastScopeIndex >= 0 ? lastScopeIndex : 0, // Best guess scope
-        //     memoryChange: { type: "none" },
-        //     executing: false, executed: false, evaluating: false, evaluated: false,
-        //     errorThrown: { type: "error", value: error instanceof Error ? error.message : String(error) }
-        // })
-    }
+    traverseAST(astNode, 0, false, false)
 
     console.log("Simulation finished. Steps:", steps.length)
     return steps
