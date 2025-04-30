@@ -96,7 +96,7 @@ export const simulateExecution = (astNode: ESNode | null): ExecStep[] => {
             evaluated: false,
         })
     }
-    const addExecutionStep = (astNode: ESNode, scopeIndex: number): ExecStep => {
+    const addExecutingStep = (astNode: ESNode, scopeIndex: number): ExecStep => {
         return addStep({
             node: astNode,
             phase: "execution",
@@ -369,7 +369,7 @@ export const simulateExecution = (astNode: ESNode | null): ExecStep[] => {
             }
 
             // Mark statement as executing
-            addExecutionStep(statement, scopeIndex)
+            addExecutingStep(statement, scopeIndex)
             lastStep = executionPhase(statement, scopeIndex, withinTryBlock)
 
             if (lastStep?.errorThrown && !withinTryBlock) {
