@@ -31,7 +31,7 @@ export const simulateExecution = (astNode: ESNode | null): ExecStep[] => {
     ]
     const scopes: Scope[] = []
     const heap: Heap = {} // Use const
-    const memVal: JSValue[] = []
+    let memVal: JSValue[] = []
     let nextRef: HeapRef = 0
     let lastScopeIndex = -1
     let stepCounter: number = 1
@@ -222,6 +222,10 @@ export const simulateExecution = (astNode: ESNode | null): ExecStep[] => {
         memVal.splice(memVal.indexOf(value), 1)
     }
 
+    const clearMemVal = () => {
+        memVal = []
+    }
+
     // --- Creation Pass --- 
     const creationPhase = (astNode: ESNode, scopeIndex: number): void => {
         const block: ESNode = astNode.type === "FunctionDeclaration" ? astNode.body :
@@ -231,6 +235,28 @@ export const simulateExecution = (astNode: ESNode | null): ExecStep[] => {
         scopeIndex = addPushScopeStep(astNode, block).scopeIndex
 
         const declarations: Declaration[] = []
+
+        if (astNode.params) {
+            for (const param of astNode.params) {
+                if (param.type === "Identifier") {
+                    const paramName = param.name
+                    const paramValue: JSValue = memVal[0]
+                    memVal.shift()
+                    const declaration = newDeclaration(paramName, "param", scopeIndex, paramValue)
+                    if (declaration) declarations.push(declaration)
+                } else if (param.type === "AssignmentPattern") {
+                    const paramName = param.left.name
+                    const defaultParamValue = param.right.value
+                    const paramValue: JSValue = memVal[0].value === undefined && (memVal[0].value = defaultParamValue)
+                    memVal.shift()
+                    const declaration = newDeclaration(paramName, "param", scopeIndex, paramValue)
+                    if (declaration) declarations.push(declaration)
+                } else {
+                    console.warn("Unhandled param type:", param.type)
+                }
+            }
+            clearMemVal()
+        }
 
         for (const node of block.body) {
             if (!node) continue
@@ -417,6 +443,10 @@ export const simulateExecution = (astNode: ESNode | null): ExecStep[] => {
         let lastStep = executionPhase(astNode.callee, scopeIndex, withinTryBlock)
         const object = heap[lastStep.evaluatedValue?.ref]
         if (object?.type === "function") {
+            console.log(astNode)
+            for (const arg of astNode.arguments) {
+                executionPhase(arg, scopeIndex, withinTryBlock)
+            }
             addEvaluatingStep(astNode, scopeIndex)
             removeMemVal(lastStep?.evaluatedValue)
 
@@ -550,7 +580,7 @@ export const simulateExecution = (astNode: ESNode | null): ExecStep[] => {
     // --- TryStatement Execution ---
     const execTryStatement = (astNode: ESNode, scopeIndex: number, withinTryBlock: boolean): ExecStep | undefined => {
         const tryLastStep = traverseAST(astNode, scopeIndex, false, true) // Pass true here
-
+        console.log(tryLastStep)
         if (tryLastStep?.errorThrown) {
             const catchLastStep = executionPhase(astNode.handler, scopeIndex, withinTryBlock)
             removeMemVal(tryLastStep?.errorThrown)
