@@ -597,8 +597,7 @@ export const simulateExecution = (astNode: ESNode | null): ExecStep[] => {
     const execTryStatement = (astNode: ESNode, scopeIndex: number, withinTryBlock: boolean): ExecStep | undefined => {
         const tryLastStep = traverseAST(astNode, scopeIndex, false, true) // Pass true here
         if (tryLastStep?.errorThrown) {
-            const catchLastStep = executionPhase(astNode.handler, scopeIndex, withinTryBlock)
-            removeMemVal(tryLastStep?.errorThrown)
+            const catchLastStep = traverseAST(astNode.handler, scopeIndex, false, withinTryBlock)
 
             if (astNode.finalizer && !catchLastStep?.errorThrown) {
                 if (astNode.finalizer.body.length > 0) removeMemVal(catchLastStep?.evaluatedValue)
@@ -615,11 +614,6 @@ export const simulateExecution = (astNode: ESNode | null): ExecStep[] => {
             return finalizerStep || tryLastStep
         }
         return tryLastStep
-    }
-
-    const execCatchClause = (astNode: ESNode, scopeIndex: number, withinTryBlock: boolean): ExecStep | undefined => {
-        const lastStep = traverseAST(astNode, scopeIndex, false, withinTryBlock)
-        return lastStep
     }
 
     const executionPhase = (node: ESNode | null, currentScopeIndex: number, withinTryBlock: boolean): ExecStep | undefined => {
@@ -639,7 +633,6 @@ export const simulateExecution = (astNode: ESNode | null): ExecStep[] => {
             case "ReturnStatement": return execReturnStatement(node, currentScopeIndex, withinTryBlock)
             case "ThrowStatement": return execThrowStatement(node, currentScopeIndex, withinTryBlock)
             case "TryStatement": return execTryStatement(node, currentScopeIndex, withinTryBlock)
-            case "CatchClause": return execCatchClause(node, currentScopeIndex, withinTryBlock) // Pass withinTryBlock
 
             case "MemberExpression":
                 {
