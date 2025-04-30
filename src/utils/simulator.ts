@@ -222,8 +222,12 @@ export const simulateExecution = (astNode: ESNode | null): ExecStep[] => {
         memVal.splice(memVal.indexOf(value), 1)
     }
 
-    const clearMemVal = () => {
-        memVal = []
+    const clearMemVal = (astNode?: ESNode) => {
+        if (astNode) {
+            memVal = memVal.filter(item => item.parentNode !== astNode)
+        } else {
+            memVal = []
+        }
     }
 
 
@@ -241,36 +245,46 @@ export const simulateExecution = (astNode: ESNode | null): ExecStep[] => {
 
         // Handle Parameters
         const handleFunctionParam = (param: ESNode, scopeIndex: number): void => {
-            if (param.type === "Identifier") {
-                const paramName = param.name
-                const paramValue: JSValue = memVal[0]
-                memVal.shift()
-                const declaration = newDeclaration(paramName, "param", scopeIndex, paramValue)
-                if (declaration) declarations.push(declaration)
-            } else if (param.type === "AssignmentPattern") {
-                const paramName = param.left.name
-                const defaultParamValue = param.right.value
-                const paramValue: JSValue = memVal[0]
-                if (paramValue.value === undefined) {
-                    paramValue.value = defaultParamValue
-                }
-                memVal.shift()
-                const declaration = newDeclaration(paramName, "param", scopeIndex, paramValue)
-                if (declaration) declarations.push(declaration)
-            } else {
-                console.warn("Unhandled param type:", param.type)
-            }
+
         }
 
         if (astNode.params) {
             for (const param of astNode.params) {
-                handleFunctionParam(param, scopeIndex)
+                if (param.type === "Identifier") {
+                    const paramName = param.name
+                    const paramValueIndex = memVal.findIndex(item => item.parentNode === astNode)
+                    const paramValue: JSValue = memVal[paramValueIndex]
+                    memVal.splice(paramValueIndex, 1)
+                    const declaration = newDeclaration(paramName, "param", scopeIndex, paramValue)
+                    if (declaration) declarations.push(declaration)
+                } else if (param.type === "AssignmentPattern") {
+                    const paramName = param.left.name
+                    const defaultParamValue = param.right.value
+                    const paramValueIndex = memVal.findIndex(item => item.parentNode === astNode)
+                    const paramValue: JSValue = memVal[paramValueIndex]
+                    if (paramValue.value === undefined) {
+                        paramValue.value = defaultParamValue
+                    }
+                    memVal.splice(paramValueIndex, 1)
+                    if (paramValue.parentNode) delete paramValue.parentNode
+                    const declaration = newDeclaration(paramName, "param", scopeIndex, paramValue)
+                    if (declaration) declarations.push(declaration)
+                } else {
+                    console.warn("Unhandled param type:", param.type)
+                }
             }
-            clearMemVal()
+            clearMemVal(astNode)
         }
         // Use for CatchClause
         if (astNode.param) {
-            handleFunctionParam(astNode.param, scopeIndex)
+            console.log(astNode.param)
+            const paramName = astNode.param.name
+            const paramValueIndex = memVal.findIndex(item => item.parentNode === astNode)
+            const paramValue: JSValue = memVal[paramValueIndex]
+            memVal.splice(paramValueIndex, 1)
+            console.log(paramValue)
+            const declaration = newDeclaration(paramName, "param", scopeIndex, paramValue)
+            if (declaration) declarations.push(declaration)
         }
 
         for (const node of block.body) {
@@ -459,7 +473,12 @@ export const simulateExecution = (astNode: ESNode | null): ExecStep[] => {
         const object = heap[lastStep.evaluatedValue?.ref]
         if (object?.type === "function") {
             for (const arg of astNode.arguments) {
-                executionPhase(arg, scopeIndex, withinTryBlock)
+                const argStep = executionPhase(arg, scopeIndex, withinTryBlock)
+                if (argStep?.evaluatedValue) {
+                    // Hack: rewrite the evaluatedValue to use as parameter for the function call
+                    removeMemVal(argStep.evaluatedValue)
+                    addMemVal({ ...argStep.evaluatedValue, parentNode: object.node })
+                }
             }
             addEvaluatingStep(astNode, scopeIndex)
             removeMemVal(lastStep?.evaluatedValue)
@@ -597,8 +616,11 @@ export const simulateExecution = (astNode: ESNode | null): ExecStep[] => {
     const execTryStatement = (astNode: ESNode, scopeIndex: number, withinTryBlock: boolean): ExecStep | undefined => {
         const tryLastStep = traverseAST(astNode, scopeIndex, false, true) // Pass true here
         if (tryLastStep?.errorThrown) {
-            const catchLastStep = traverseAST(astNode.handler, scopeIndex, false, withinTryBlock)
+            // Hack: rewrite the errorThrown to use as parameter for the catch block
+            removeMemVal(tryLastStep?.errorThrown)
+            addMemVal({ ...tryLastStep?.errorThrown, parentNode: astNode.handler })
 
+            const catchLastStep = traverseAST(astNode.handler, scopeIndex, false, withinTryBlock)
             if (astNode.finalizer && !catchLastStep?.errorThrown) {
                 if (astNode.finalizer.body.length > 0) removeMemVal(catchLastStep?.evaluatedValue)
                 const finalizerStep = traverseAST(astNode.finalizer, scopeIndex, false, withinTryBlock)

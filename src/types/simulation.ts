@@ -55,8 +55,12 @@ export type Declaration = {
     variableName: string,
     initialValue: JSValue
 }
-// ----- Memory Change -----
 
+export type MemVal = JSValue & {
+    parentNode?: ESNode
+}
+
+// ----- Memory Change -----
 // Describes the specific memory modification in a step
 export type MemoryChange =
     | { type: "none" }
@@ -117,7 +121,7 @@ export type ExecStep = {
     memorySnapshot: { // Snapshot of the entire memory state *after* this step's change
         scopes: Scope[] // The call stack (array of Scope objects)
         heap: Heap // The heap storing shared objects/arrays/functions
-        memVal: JSValue[]
+        memVal: MemVal[]
     }
     // TODO: instead of output and error, refactor to: 
     // consoleAdded: null | {type: "log" | "error" | 'info' | 'warn' | 'debug' | 'table' | ..., values: JSValue[]}
