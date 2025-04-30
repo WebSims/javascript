@@ -119,9 +119,9 @@ interface CodeAreaProps {
 }
 
 const Statement = ({ st, parent, parens }) => {
-    const elementRef = useRef<HTMLDivElement | HTMLSpanElement>(null)
-    const { isExecuting: isExecutingParent, isExecuted: isExecutedParent } = useExecStep(parent, elementRef)
-    const { isExecuting: isExecutingStatement, isExecuted: isExecutedStatement } = useExecStep(st, elementRef)
+    const stRef = useRef<HTMLDivElement | HTMLSpanElement>(null)
+    const { isExecuting: isExecutingParent, isExecuted: isExecutedParent } = useExecStep(parent, stRef)
+    const { isExecuting: isExecutingStatement, isExecuted: isExecutedStatement } = useExecStep(st, stRef)
     const isExecuting = isExecutingParent || isExecutingStatement
     const isExecuted = isExecutedParent || isExecutedStatement
 
@@ -198,7 +198,7 @@ const Statement = ({ st, parent, parens }) => {
 
     if (st.type === "BlockStatement") {
         return <span
-            ref={elementRef}
+            ref={stRef}
             data-cheat-sheet-id={cheatSheetId}
             className={className}
             title={title}
@@ -206,7 +206,7 @@ const Statement = ({ st, parent, parens }) => {
     }
 
     return <div
-        ref={elementRef}
+        ref={stRef}
         data-cheat-sheet-id={cheatSheetId}
         className={className}
         title={title}
@@ -225,7 +225,8 @@ const Def = ({ defBy, name, setBy, setTo, parens, parent }) => {
 // )
 
 const Expression = ({ fromAstOf, expr, parent, parens }: { fromAstOf?: any, expr: any, parent: any, parens: any }) => {
-    const { isEvaluating, isEvaluated } = useExecStep(expr)
+    const exprRef = useRef<HTMLSpanElement>(null)
+    const { isEvaluating, isEvaluated } = useExecStep(expr, exprRef)
 
     if (fromAstOf) {
         const ast = astOf(fromAstOf)
@@ -359,6 +360,7 @@ const Expression = ({ fromAstOf, expr, parent, parens }: { fromAstOf?: any, expr
         className={className}
         title={title}
         style={{ color: color }}
+        ref={exprRef}
     >
         {expr.parenthized && (
             <span className="text-slate-500 font-bold">(</span>

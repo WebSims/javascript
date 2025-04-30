@@ -72,10 +72,10 @@ export const useExecStep = (node?: ESNode, ref?: RefObject<HTMLElement | null>) 
     }, [currentExecStep, node])
 
     useEffect(() => {
-        if ((isExecuting || isExecuted) && ref?.current) {
+        if ((isExecuting || isExecuted || isEvaluating || isEvaluated) && ref?.current) {
             ref.current.scrollIntoView({ behavior: 'smooth', block: 'center' })
         }
-    }, [isExecuting, isExecuted, ref])
+    }, [isExecuting, isExecuted, isEvaluating, isEvaluated, ref])
 
     return {
         currentExecStep,

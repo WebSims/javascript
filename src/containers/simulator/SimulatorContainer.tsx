@@ -67,12 +67,12 @@ function newError() {
     throw "Error: "
 }
 
-function run(greetFn) {
+function run(greet) {
     let output
     try {
         newError()
     } catch (error) {
-       return greetFn
+       return greet
     }
     return output
 }
