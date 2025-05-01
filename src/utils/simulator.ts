@@ -489,6 +489,9 @@ export const simulateExecution = (astNode: ESNode | null): ExecStep[] => {
                     let value: JSValue = { type: "primitive", value: undefined }
                     if (declarator.init) {
                         const lastStep = executionPhase(declarator.init, scopeIndex, withinTryBlock)
+                        if (lastStep?.errorThrown) {
+                            return lastStep
+                        }
                         if (lastStep?.evaluatedValue) {
                             value = lastStep.evaluatedValue
                             removeMemVal(lastStep.evaluatedValue)
@@ -594,6 +597,7 @@ export const simulateExecution = (astNode: ESNode | null): ExecStep[] => {
             if (leftStep?.evaluatedValue?.value === true) rightStep = executionPhase(astNode.right, scopeIndex, withinTryBlock)
             else rightStep = { type: "primitive", value: false }
         } else if (astNode.operator === "||") {
+
             leftStep = executionPhase(astNode.left, scopeIndex, withinTryBlock)
             if (leftStep?.evaluatedValue?.value === true) rightStep = { type: "primitive", value: true }
             else rightStep = executionPhase(astNode.right, scopeIndex, withinTryBlock)
@@ -662,13 +666,33 @@ export const simulateExecution = (astNode: ESNode | null): ExecStep[] => {
 
     const execAssignmentExpression = (astNode: ESNode, scopeIndex: number, withinTryBlock: boolean): ExecStep | undefined => {
         addEvaluatingStep(astNode, scopeIndex)
+
+        if (astNode.left?.type !== 'Identifier') {
+            console.error("Assignment target must be an Identifier", astNode.left)
+            // TODO: Handle MemberExpression assignments (obj.prop = ...)
+            const error = { type: "error", value: 'ReferenceError: Invalid left-hand side in assignment' } as const
+            return addErrorThrownStep(astNode, scopeIndex, error)
+        }
+
         const leftStep = executionPhase(astNode.left, scopeIndex, withinTryBlock)
         const rightStep = executionPhase(astNode.right, scopeIndex, withinTryBlock)
+        if (rightStep?.errorThrown) {
+            return rightStep
+        }
+
         if (leftStep?.evaluatedValue && rightStep?.evaluatedValue) {
-            const targetScopeIndex = writeVariable(leftStep.node.name, rightStep.evaluatedValue, scopeIndex)
+            let value = rightStep.evaluatedValue.value
+            if (astNode.operator !== "=") {
+                const leftRaw = JSON.stringify(leftStep.evaluatedValue.value)
+                const rightRaw = JSON.stringify(rightStep.evaluatedValue.value)
+                value = eval(`${leftRaw}${astNode.operator.replace("=", "")}${rightRaw}`)
+            }
+            const evaluatedValue = { type: "primitive", value } as const
+            const targetScopeIndex = writeVariable(leftStep.node.name, evaluatedValue, scopeIndex)
+
             removeMemVal(leftStep.evaluatedValue)
             removeMemVal(rightStep.evaluatedValue)
-            addMemVal(rightStep.evaluatedValue)
+            addMemVal(evaluatedValue)
             return addStep({
                 node: astNode,
                 scopeIndex,
@@ -676,13 +700,13 @@ export const simulateExecution = (astNode: ESNode | null): ExecStep[] => {
                     type: "write_variable",
                     scopeIndex: targetScopeIndex,
                     variableName: leftStep.node.name,
-                    value: rightStep.evaluatedValue,
+                    value,
                 },
                 executing: false,
                 executed: false,
                 evaluating: false,
                 evaluated: true,
-                evaluatedValue: rightStep.evaluatedValue,
+                evaluatedValue,
             })
         }
     }
