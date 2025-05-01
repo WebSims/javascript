@@ -606,6 +606,10 @@ export const simulateExecution = (astNode: ESNode | null): ExecStep[] => {
             rightStep = executionPhase(astNode.right, scopeIndex, withinTryBlock);
         }
 
+        if (leftStep?.errorThrown || rightStep?.errorThrown) {
+            return leftStep || rightStep
+        }
+
         if (astNode.operator) {
             const leftRaw = JSON.stringify(leftStep?.evaluatedValue?.value)
             const rightRaw = JSON.stringify(rightStep?.evaluatedValue?.value)
@@ -620,7 +624,6 @@ export const simulateExecution = (astNode: ESNode | null): ExecStep[] => {
             addMemVal(evaluatedValue)
             return addEvaluatedStep(astNode, scopeIndex, evaluatedValue)
         }
-        return
     }
 
     const execReturnStatement = (astNode: ESNode, scopeIndex: number, withinTryBlock: boolean): ExecStep | undefined => {
@@ -676,8 +679,8 @@ export const simulateExecution = (astNode: ESNode | null): ExecStep[] => {
 
         const leftStep = executionPhase(astNode.left, scopeIndex, withinTryBlock)
         const rightStep = executionPhase(astNode.right, scopeIndex, withinTryBlock)
-        if (rightStep?.errorThrown) {
-            return rightStep
+        if (leftStep?.errorThrown || rightStep?.errorThrown) {
+            return leftStep || rightStep
         }
 
         if (leftStep?.evaluatedValue && rightStep?.evaluatedValue) {
