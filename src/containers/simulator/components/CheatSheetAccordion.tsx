@@ -19,7 +19,7 @@ interface CheatSheetAccordionProps {
 
 const CheatSheetAccordion: React.FC<CheatSheetAccordionProps> = ({ open = true, onOpenChange }) => {
     const { isDesktop } = useDeviceDetection()
-    const { cheatSheetRef, highlightedId } = useSimulatorStore()
+    const { cheatSheetRef, highlightedId, changeHighlightedId } = useSimulatorStore()
     const [isOpen, setIsOpen] = useState<boolean>(open)
 
     const handleOpenChange = (value: boolean) => {
@@ -38,6 +38,7 @@ const CheatSheetAccordion: React.FC<CheatSheetAccordionProps> = ({ open = true, 
             <Tabs
                 defaultValue={topLevelCategories[0]}
                 value={highlightedId?.split('-')[0]}
+                onValueChange={changeHighlightedId}
                 className='w-full h-full overflow-hidden'
             >
                 <div className='h-full w-full flex flex-col justify-center'>
