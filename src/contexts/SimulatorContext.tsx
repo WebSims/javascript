@@ -11,6 +11,8 @@ import { simulateExecution } from "@/utils/simulator"
 
 
 type SimulatorContextType = {
+    mode: 'CODE' | 'EXECUTION'
+    setMode: (mode: 'CODE' | 'EXECUTION') => void
     codeStr: string
     updateCodeStr: (codeStr: string) => void
     astOfCode: ESNode | ts.SourceFile | null
@@ -32,6 +34,7 @@ type SimulatorContextType = {
 const SimulatorContext = createContext<SimulatorContextType | undefined>(undefined)
 
 export const SimulatorProvider = ({ children }: { children: React.ReactNode }) => {
+    const [mode, setMode] = useState<'CODE' | 'EXECUTION'>('CODE')
     const [codeStr, setCodeStr] = useState<string>("")
     const [astOfCode, setAstOfCode] = useState<ESNode | ts.SourceFile | null>(astOf(codeStr))
     const [execSteps, setExecSteps] = useState<ExecStep[]>([])
@@ -129,6 +132,8 @@ export const SimulatorProvider = ({ children }: { children: React.ReactNode }) =
     return (
         <SimulatorContext.Provider
             value={{
+                mode,
+                setMode,
                 codeStr,
                 updateCodeStr,
                 astOfCode,
