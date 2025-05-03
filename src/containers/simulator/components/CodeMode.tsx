@@ -69,7 +69,7 @@ const CodeMode: React.FC = () => {
               <CodeEditor />
             </ResizablePanel>
             <ResizableHandle withHandle className="bg-slate-100 hover:bg-slate-200 transition-colors" />
-            <ResizablePanel className='p-2'>
+            <ResizablePanel>
               <CodeArea />
             </ResizablePanel>
           </ResizablePanelGroup >
@@ -90,15 +90,15 @@ const CodeMode: React.FC = () => {
     <ResizablePanelGroup direction="vertical">
       <ResizablePanel>
         <div className='p-2 h-full'>
-          <Tabs defaultValue="source" className='h-full overflow-auto'>
+          <Tabs defaultValue="SOURCE" className='h-full overflow-auto'>
             <TabsList>
-              <TabsTrigger value="source">Source</TabsTrigger>
-              <TabsTrigger value="parsed">Parsed</TabsTrigger>
+              <TabsTrigger value="SOURCE">Source</TabsTrigger>
+              <TabsTrigger value="PARSED">Parsed</TabsTrigger>
             </TabsList>
-            <TabsContent value="source">
+            <TabsContent value="SOURCE" className='h-full'>
               <CodeEditor />
             </TabsContent>
-            <TabsContent value="parsed">
+            <TabsContent value="PARSED">
               <CodeArea />
             </TabsContent>
           </Tabs>
