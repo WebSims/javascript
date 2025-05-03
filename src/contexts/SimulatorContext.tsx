@@ -70,9 +70,6 @@ export const SimulatorProvider = ({ children }: { children: React.ReactNode }) =
             }
         } catch (error) {
             console.error("Error parsing code:", error)
-            setAstOfCode(null)
-            setExecSteps([])
-            setCurrentExecStep(null)
         }
     }
 

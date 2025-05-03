@@ -884,14 +884,8 @@ const BlockStatement = ({ st, parent, parens }: { st: any, parent: any, parens: 
 }
 
 
-const CodeArea: React.FC<CodeAreaProps> = ({ fromAstOf, parent, parens, debug }) => {
-    const { updateCodeStr, astOfCode, codeAreaRef } = useSimulatorStore()
-
-    useEffect(() => {
-        if (fromAstOf) {
-            updateCodeStr(fromAstOf)
-        }
-    }, [fromAstOf])
+const CodeArea: React.FC<CodeAreaProps> = ({ parent, parens, debug }) => {
+    const { astOfCode, codeAreaRef } = useSimulatorStore()
 
     let isRoot = false
 

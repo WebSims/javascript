@@ -1,4 +1,5 @@
 import React, { useEffect, useState } from 'react'
+import Editor from '@monaco-editor/react'
 
 import {
   ResizableHandle,
@@ -10,6 +11,8 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import CodeArea from '@/components/simulator/code-area/CodeArea'
 import CheatSheetAccordion from './CheatSheetAccordion'
 import useDeviceDetection from '@/hooks/useDeviceDetection'
+import { useSimulatorStore } from '@/hooks/useSimulatorStore'
+import CodeEditor from '@/components/code-editor/CodeEditor'
 
 const FUNCTION_CODE_SAMPLE = `function greet(name, family = "Doe") {
 const first = "Hello, " + name + " " + family
@@ -29,14 +32,20 @@ function run(greet) {
     }
     return output
 }
+    
 run(greet('Mak', undefined, 28))`
 
 const CodeMode: React.FC = () => {
   const { isDesktop } = useDeviceDetection()
+  const { updateCodeStr } = useSimulatorStore()
 
   const [isCheatSheetOpen, setIsCheatSheetOpen] = useState(true)
   const [minSize, setMinSize] = useState(3.5)
 
+  useEffect(() => {
+    updateCodeStr(FUNCTION_CODE_SAMPLE)
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [])
 
   useEffect(() => {
     if (isCheatSheetOpen) {
@@ -52,18 +61,17 @@ const CodeMode: React.FC = () => {
     }
   }, [isCheatSheetOpen, isDesktop])
 
-  // Memoize the entire rendered output
   if (isDesktop) {
     return (
       <ResizablePanelGroup direction="vertical">
         <ResizablePanel>
           <ResizablePanelGroup direction="horizontal">
             <ResizablePanel>
-              Editor
+              <CodeEditor />
             </ResizablePanel>
             <ResizableHandle withHandle className="bg-slate-100 hover:bg-slate-200 transition-colors" />
             <ResizablePanel className='p-2'>
-              <CodeArea fromAstOf={FUNCTION_CODE_SAMPLE} />
+              <CodeArea />
             </ResizablePanel>
           </ResizablePanelGroup >
         </ResizablePanel>
@@ -88,9 +96,11 @@ const CodeMode: React.FC = () => {
               <TabsTrigger value="source">Source</TabsTrigger>
               <TabsTrigger value="parsed">Parsed</TabsTrigger>
             </TabsList>
-            <TabsContent value="source">Editor</TabsContent>
+            <TabsContent value="source">
+              <CodeEditor />
+            </TabsContent>
             <TabsContent value="parsed">
-              <CodeArea fromAstOf={FUNCTION_CODE_SAMPLE} />
+              <CodeArea />
             </TabsContent>
           </Tabs>
         </div>
