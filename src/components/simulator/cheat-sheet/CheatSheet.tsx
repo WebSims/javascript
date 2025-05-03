@@ -20,8 +20,8 @@ const CheatSheet = forwardRef<HTMLDivElement, CheatSheetProps>(({ ...props }, re
     return (
         <div className='flex h-full' ref={ref} {...props}>
             {topLevelCategories.map((category) => (
-                <div key={category} className="h-full w-full flex flex-col px-3 pb-3">
-                    <div>
+                <div key={category} className="h-full w-full flex flex-col p-2">
+                    <div className='cheat-sheet-item pb-0.5'>
                         <span
                             id={category}
                             className="inline-block rounded-md font-semibold px-1.5 py-0.5 text-gray-900"

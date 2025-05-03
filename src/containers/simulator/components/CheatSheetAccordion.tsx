@@ -1,4 +1,4 @@
-import React, { useState } from 'react'
+import React, { useEffect, useState } from 'react'
 import { ChevronDownIcon, ChevronUpIcon, BookOpenIcon } from 'lucide-react'
 
 import { Button } from '@/components/ui/button'
@@ -19,7 +19,7 @@ interface CheatSheetAccordionProps {
 
 const CheatSheetAccordion: React.FC<CheatSheetAccordionProps> = ({ open = true, onOpenChange }) => {
     const { isDesktop } = useDeviceDetection()
-    const { cheatSheetRef } = useSimulatorStore()
+    const { cheatSheetRef, highlightedId } = useSimulatorStore()
     const [isOpen, setIsOpen] = useState<boolean>(open)
 
     const handleOpenChange = (value: boolean) => {
@@ -35,17 +35,21 @@ const CheatSheetAccordion: React.FC<CheatSheetAccordionProps> = ({ open = true, 
 
     return (
         <div className='h-full' ref={cheatSheetRef}>
-            <Tabs defaultValue={topLevelCategories[0]} className='w-full h-full overflow-hidden'>
+            <Tabs
+                defaultValue={topLevelCategories[0]}
+                value={highlightedId?.split('-')[0]}
+                className='w-full h-full overflow-hidden'
+            >
                 <div className='h-full w-full flex flex-col justify-center'>
                     <div className={`flex items-center justify-between px-3 ${isOpen && isDesktop ? 'py-2 border-b border-slate-100' : 'py-1 text-sm'}`}>
                         {isOpen && !isDesktop ? (
                             <TabsList>
                                 {topLevelCategories.map((category) => (
-                                    <TabsTrigger key={category} value={category}>
-                                        <span id={category} className='py-0.5 px-1 rounded-md'>
+                                    <span className='cheat-sheet-item'>
+                                        <TabsTrigger key={category} value={category} id={category} >
                                             {(CHEAT_SHEET_DATA as CheatSheetDataType)[category]}
-                                        </span>
-                                    </TabsTrigger>
+                                        </TabsTrigger>
+                                    </span>
                                 ))}
                             </TabsList>
                         ) : (

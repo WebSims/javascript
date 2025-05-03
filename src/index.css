@@ -201,6 +201,14 @@
   }
 }
 
+.cheat-sheet-item {
+  @apply transition-colors duration-300;
+}
+
+.cheat-sheet-item .highlighted {
+  @apply !bg-red-300;
+}
+
 .executing {
   @apply bg-yellow-200 dark:bg-amber-900/30 rounded;
 }

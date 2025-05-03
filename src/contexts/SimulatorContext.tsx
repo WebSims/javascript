@@ -26,6 +26,7 @@ type SimulatorContextType = {
     codeAreaRef: React.RefObject<HTMLDivElement>
     cheatSheetRef: React.RefObject<HTMLDivElement>
     setSpeed: (speed: number) => void
+    highlightedId: string | null
 }
 
 const SimulatorContext = createContext<SimulatorContextType | undefined>(undefined)
@@ -37,14 +38,15 @@ export const SimulatorProvider = ({ children }: { children: React.ReactNode }) =
     const [currentExecStep, setCurrentExecStep] = useState<ExecStep | null>(null)
     const [isPlaying, setIsPlaying] = useState(false)
     const [speed, setSpeed] = useState(2)
+    const [highlightedId, setHighlightedId] = useState<string | null>(null)
 
     const codeAreaRef = useRef<HTMLDivElement>(null)
     const cheatSheetRef = useRef<HTMLDivElement>(null)
 
     useEffect(() => {
-        const cleanup = cheatSheetHighlighter(codeAreaRef, cheatSheetRef)
+        const cleanup = cheatSheetHighlighter(codeAreaRef, cheatSheetRef, setHighlightedId)
         return cleanup
-    }, [])
+    }, [astOfCode])
 
     const totalSteps = execSteps.length
 
@@ -141,7 +143,8 @@ export const SimulatorProvider = ({ children }: { children: React.ReactNode }) =
                 totalSteps,
                 codeAreaRef,
                 cheatSheetRef,
-                setSpeed
+                setSpeed,
+                highlightedId
             }}
         >
             {children}

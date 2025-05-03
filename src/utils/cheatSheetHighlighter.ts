@@ -2,7 +2,8 @@ import React from "react"
 
 export const cheatSheetHighlighter = (
     codeAreaRef: React.RefObject<HTMLDivElement>,
-    cheatSheetRef: React.RefObject<HTMLDivElement>
+    cheatSheetRef: React.RefObject<HTMLDivElement>,
+    onHighlight?: (id: string) => void
 ) => {
     if (!codeAreaRef.current || !cheatSheetRef.current) return () => { }
 
@@ -15,6 +16,7 @@ export const cheatSheetHighlighter = (
 
         const cheatSheetId = (element as HTMLElement).dataset.cheatSheetId
         if (!cheatSheetId) return
+        if (onHighlight) onHighlight(cheatSheetId)
 
         const paths: string[] = []
         let currentPath = ''
@@ -30,7 +32,7 @@ export const cheatSheetHighlighter = (
             const element = cheatSheet.querySelector(`#${path}`)
             if (!element) return
 
-            element.classList.add('bg-red-300', 'transition-colors', 'duration-300')
+            element.classList.add('cheat-sheet-item', 'highlighted')
             if (path === lastPath) {
                 element.scrollIntoView({ behavior: 'smooth', block: 'center' })
             }
@@ -38,9 +40,9 @@ export const cheatSheetHighlighter = (
     }
 
     const unhighlightCheatSheetItem = () => {
-        const highlightedElements = cheatSheet.querySelectorAll('.bg-red-300')
+        const highlightedElements = cheatSheet.querySelectorAll('.highlighted')
         highlightedElements.forEach((element) => {
-            element.classList.remove('bg-red-300')
+            element.classList.remove('highlighted')
         })
     }
 
