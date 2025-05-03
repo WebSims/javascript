@@ -34,7 +34,7 @@ run(greet('Mak', undefined, 28))`
 const CodeModeDesktop = ({ minSize, isCheatSheetOpen, setIsCheatSheetOpen }: { minSize: number, isCheatSheetOpen: boolean, setIsCheatSheetOpen: (isOpen: boolean) => void }) => {
   return (
     <ResizablePanelGroup direction="vertical">
-      <ResizablePanel>
+      <ResizablePanel defaultSize={70}>
         <ResizablePanelGroup direction="horizontal">
           <ResizablePanel>
             Editor
@@ -51,7 +51,6 @@ const CodeModeDesktop = ({ minSize, isCheatSheetOpen, setIsCheatSheetOpen }: { m
       <ResizableHandle withHandle className="bg-slate-100 hover:bg-slate-200 transition-colors" />
 
       <ResizablePanel
-        defaultSize={30}
         minSize={minSize}
         maxSize={isCheatSheetOpen ? 70 : 3.5}
       >
@@ -109,7 +108,6 @@ const CodeMode: React.FC = () => {
       <ResizableHandle withHandle className="bg-slate-100 hover:bg-slate-200 transition-colors" />
 
       <ResizablePanel
-        defaultSize={50}
         minSize={minSize}
         maxSize={isCheatSheetOpen ? 80 : 3.5}
       >
