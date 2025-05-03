@@ -1,5 +1,4 @@
 import React, { useEffect, useState } from 'react'
-import Editor from '@monaco-editor/react'
 
 import {
   ResizableHandle,
@@ -32,7 +31,7 @@ function run(greet) {
     }
     return output
 }
-    
+
 run(greet('Mak', undefined, 28))`
 
 const CodeMode: React.FC = () => {
