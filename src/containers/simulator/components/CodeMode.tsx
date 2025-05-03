@@ -42,9 +42,11 @@ const CodeMode: React.FC = () => {
   const [minSize, setMinSize] = useState(3.5)
 
   useEffect(() => {
-    updateCodeStr(FUNCTION_CODE_SAMPLE)
+    if (isDesktop) {
+      updateCodeStr(FUNCTION_CODE_SAMPLE)
+    }
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [])
+  }, [isDesktop])
 
   useEffect(() => {
     if (isCheatSheetOpen) {
@@ -76,7 +78,7 @@ const CodeMode: React.FC = () => {
         </ResizablePanel>
         <ResizableHandle withHandle className="bg-slate-100 hover:bg-slate-200 transition-colors" />
         <ResizablePanel
-          defaultSize={30}
+          defaultSize={minSize}
           minSize={minSize}
           maxSize={isCheatSheetOpen ? 70 : 3.5}
         >
@@ -110,7 +112,7 @@ const CodeMode: React.FC = () => {
       </ResizablePanel>
       <ResizableHandle withHandle className="bg-slate-100 hover:bg-slate-200 transition-colors" />
       <ResizablePanel
-        defaultSize={50}
+        defaultSize={minSize}
         minSize={minSize}
         maxSize={isCheatSheetOpen ? 80 : 3.5}
       >

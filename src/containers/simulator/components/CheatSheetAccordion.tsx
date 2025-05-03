@@ -32,14 +32,15 @@ const CheatSheetAccordion: React.FC<CheatSheetAccordionProps> = ({ open = true, 
     }
 
     const topLevelCategories = getTopLevelCategories()
+    const activeTab = highlightedId?.split('-')[0] ?? topLevelCategories[0]
 
     return (
         <div className='h-full' ref={cheatSheetRef}>
             <Tabs
-                defaultValue={topLevelCategories[0]}
-                value={highlightedId?.split('-')[0]}
+                defaultValue={activeTab}
+                value={activeTab}
                 onValueChange={changeHighlightedId}
-                className='w-full h-full overflow-hidden'
+                className='w-full h-full'
             >
                 <div className='h-full w-full flex flex-col justify-center'>
                     <div className={`flex items-center justify-between px-3 ${isOpen && isDesktop ? 'py-2 border-b border-slate-100' : 'py-1 text-sm'}`}>
@@ -80,17 +81,17 @@ const CheatSheetAccordion: React.FC<CheatSheetAccordionProps> = ({ open = true, 
                     <div
                         className={`overflow-hidden transition-all duration-300 ease-in-out ${isOpen ? 'h-[calc(100%-48px)] opacity-100' : 'h-0 opacity-0'}`}
                     >
-                        {isDesktop ? <CheatSheet /> :
-                            <div className='flex flex-col'>
-                                {topLevelCategories.map((category) => (
-                                    <TabsContent key={category} value={category} className='h-full'>
-                                        <CheatSheetBox
-                                            path={category}
-                                            data={CHEAT_SHEET_DATA as CheatSheetDataType}
-                                        />
-                                    </TabsContent>
-                                ))}
-                            </div>
+                        {isDesktop ? (
+                            <CheatSheet />
+                        ) :
+                            topLevelCategories.map((category) => (
+                                <TabsContent key={category} value={category} className='h-full'>
+                                    <CheatSheetBox
+                                        path={category}
+                                        data={CHEAT_SHEET_DATA as CheatSheetDataType}
+                                    />
+                                </TabsContent>
+                            ))
                         }
                     </div>
                 </div>
