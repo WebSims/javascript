@@ -36,7 +36,7 @@ run(greet('Mak', undefined, 28))`
 
 const CodeMode: React.FC = () => {
   const { isDesktop } = useDeviceDetection()
-  const { updateCodeStr } = useSimulatorStore()
+  const { updateCodeStr, codeStr } = useSimulatorStore()
 
   const [isCheatSheetOpen, setIsCheatSheetOpen] = useState(true)
   const [minSize, setMinSize] = useState(3.5)
@@ -90,7 +90,11 @@ const CodeMode: React.FC = () => {
     <ResizablePanelGroup direction="vertical">
       <ResizablePanel>
         <div className='p-2 h-full'>
-          <Tabs defaultValue="SOURCE" className='h-full overflow-auto'>
+          <Tabs
+            className='h-full overflow-auto'
+            defaultValue="SOURCE"
+            onValueChange={() => updateCodeStr(codeStr)}
+          >
             <TabsList>
               <TabsTrigger value="SOURCE">Source</TabsTrigger>
               <TabsTrigger value="PARSED">Parsed</TabsTrigger>

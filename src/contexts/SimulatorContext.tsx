@@ -50,7 +50,7 @@ export const SimulatorProvider = ({ children }: { children: React.ReactNode }) =
     useEffect(() => {
         const cleanup = cheatSheetHighlighter(codeAreaRef, cheatSheetRef, setHighlightedId)
         return cleanup
-    }, [codeStr])
+    }, [astOfCode])
 
     const totalSteps = execSteps.length
 
