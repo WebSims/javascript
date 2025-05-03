@@ -917,7 +917,7 @@ const CodeArea: React.FC<CodeAreaProps> = ({ fromAstOf, parent, parens, debug })
     const statements = astOfCode instanceof Array ? astOfCode : (astOfCode.body ? astOfCode.body : [astOfCode])
 
     return (
-        <div className="w-full h-full rounded-lg p-4 overflow-auto">
+        <div className="w-full h-full overflow-auto">
             <pre
                 ref={codeAreaRef}
                 className="font-mono space-y-1"
