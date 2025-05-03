@@ -20,9 +20,16 @@ const CheatSheet = forwardRef<HTMLDivElement, CheatSheetProps>(({ ...props }, re
     return (
         <div className='flex h-full' ref={ref} {...props}>
             {topLevelCategories.map((category) => (
-                <div key={category} className="h-full w-full px-3 pb-3">
+                <div key={category} className="h-full w-full flex flex-col px-3 pb-3">
+                    <div>
+                        <span
+                            id={category}
+                            className="inline-block rounded-md font-semibold px-1.5 py-0.5 text-gray-900"
+                        >
+                            {(CHEAT_SHEET_DATA as CheatSheetDataType)[category]}
+                        </span>
+                    </div>
                     <CheatSheetBox
-                        title={(CHEAT_SHEET_DATA as CheatSheetDataType)[category]}
                         path={category}
                         data={CHEAT_SHEET_DATA as CheatSheetDataType}
                     />
@@ -31,8 +38,5 @@ const CheatSheet = forwardRef<HTMLDivElement, CheatSheetProps>(({ ...props }, re
         </div>
     )
 })
-
-// Add display name for better debugging
-CheatSheet.displayName = 'CheatSheet'
 
 export default CheatSheet

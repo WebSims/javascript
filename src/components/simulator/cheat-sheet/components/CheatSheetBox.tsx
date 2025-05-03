@@ -9,12 +9,11 @@ export type CheatSheetItemType = {
 }
 
 interface CheatSheetBoxProps {
-    title: string
     path: string
     data: Record<string, string>
 }
 
-const CheatSheetBox: React.FC<CheatSheetBoxProps> = ({ title, path, data }) => {
+const CheatSheetBox: React.FC<CheatSheetBoxProps> = ({ path, data }) => {
     // Get all items that are descendants of this path
     const getDescendantItems = (parentPath: string): CheatSheetItemType[] => {
         const items: CheatSheetItemType[] = []
@@ -56,18 +55,12 @@ const CheatSheetBox: React.FC<CheatSheetBoxProps> = ({ title, path, data }) => {
 
     const items = getDescendantItems(path)
 
-    return (
-        <div className="h-full flex flex-col p-1">
-            <div>
-                <span id={path} className="inline-block rounded-md font-semibold px-1.5 py-0.5 text-gray-900">{title}</span>
-            </div>
-            {items.length > 0 && (
-                <div className="h-full overflow-y-auto px-1.5 py-0.5">
-                    <CheatSheetItems items={items} />
-                </div>
-            )}
+    return (items.length > 0 && (
+        <div className="h-full overflow-y-auto px-1.5 py-0.5">
+            <CheatSheetItems items={items} />
         </div>
-    )
+    ))
+
 }
 
 export default CheatSheetBox
