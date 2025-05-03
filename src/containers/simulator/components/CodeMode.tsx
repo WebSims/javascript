@@ -38,17 +38,18 @@ const CodeMode: React.FC = () => {
   const [minSize, setMinSize] = useState(3.5)
 
   useEffect(() => {
-    if (isDesktop) {
-      setMinSize(30)
-    } else {
-      setMinSize(50)
+    if (isCheatSheetOpen) {
+      if (isDesktop) {
+        setMinSize(30)
+      } else {
+        setMinSize(50)
+      }
+
+      const timeout = setTimeout(() => {
+        setMinSize(3.5)
+      })
+      return () => clearTimeout(timeout)
     }
-
-    const timeout = setTimeout(() => {
-      setMinSize(3.5)
-    })
-
-    return () => clearTimeout(timeout)
   }, [isCheatSheetOpen, isDesktop])
 
   if (isDesktop)
