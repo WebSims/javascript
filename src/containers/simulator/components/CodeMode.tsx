@@ -1,5 +1,4 @@
 import React, { useEffect, useState } from 'react'
-import { Code2Icon, TerminalIcon, MemoryStickIcon } from 'lucide-react'
 
 import {
   ResizableHandle,
@@ -10,12 +9,6 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 
 import CodeArea from '@/components/simulator/code-area/CodeArea'
 import CheatSheetAccordion from './CheatSheetAccordion'
-import Console from '@/components/simulator/console-output/ConsoleOutput'
-import ExecutionBar from '@/components/simulator/execution-bar/ExecutionBar'
-import { astOf } from '@/utils/ast'
-import { simulateExecution } from '@/utils/simulator'
-import { ESNode } from 'hermes-parser'
-import MemoryModelVisualizer from '@/components/simulator/memory-model/MemoryModelVisualizer'
 import useDeviceDetection from '@/hooks/useDeviceDetection'
 
 const FUNCTION_CODE_SAMPLE = `function greet(name, family = "Doe") {
@@ -38,7 +31,7 @@ function run(greet) {
 }
 run(greet('Mak', undefined, 28))`
 
-const CodeMode = () => {
+const CodeMode: React.FC = () => {
   const { isDesktop } = useDeviceDetection()
 
   const [isCheatSheetOpen, setIsCheatSheetOpen] = useState(true)
@@ -53,39 +46,39 @@ const CodeMode = () => {
 
     const timeout = setTimeout(() => {
       setMinSize(3.5)
-    }, 100)
+    })
 
     return () => clearTimeout(timeout)
   }, [isCheatSheetOpen, isDesktop])
 
+  if (isDesktop)
+    return (
+      <ResizablePanelGroup direction="vertical">
+        <ResizablePanel>
+          <ResizablePanelGroup direction="horizontal">
+            <ResizablePanel>
+              Editor
+            </ResizablePanel>
 
-  if (isDesktop) return (
-    <ResizablePanelGroup direction="vertical">
-      <ResizablePanel>
-        <ResizablePanelGroup direction="horizontal">
-          <ResizablePanel>
-            Editor
-          </ResizablePanel>
+            <ResizableHandle withHandle className="bg-slate-100 hover:bg-slate-200 transition-colors" />
 
-          <ResizableHandle withHandle className="bg-slate-100 hover:bg-slate-200 transition-colors" />
+            <ResizablePanel className='p-2'>
+              <CodeArea fromAstOf={FUNCTION_CODE_SAMPLE} />
+            </ResizablePanel>
+          </ResizablePanelGroup >
+        </ResizablePanel>
 
-          <ResizablePanel className='p-2'>
-            <CodeArea fromAstOf={FUNCTION_CODE_SAMPLE} />
-          </ResizablePanel>
-        </ResizablePanelGroup >
-      </ResizablePanel>
+        <ResizableHandle withHandle className="bg-slate-100 hover:bg-slate-200 transition-colors" />
 
-      <ResizableHandle withHandle className="bg-slate-100 hover:bg-slate-200 transition-colors" />
-
-      <ResizablePanel
-        defaultSize={30}
-        minSize={minSize}
-        maxSize={isCheatSheetOpen ? 70 : 3.5}
-      >
-        <CheatSheetAccordion onOpenChange={setIsCheatSheetOpen} />
-      </ResizablePanel>
-    </ ResizablePanelGroup>
-  )
+        <ResizablePanel
+          defaultSize={30}
+          minSize={minSize}
+          maxSize={isCheatSheetOpen ? 70 : 3.5}
+        >
+          <CheatSheetAccordion onOpenChange={setIsCheatSheetOpen} />
+        </ResizablePanel>
+      </ ResizablePanelGroup>
+    )
 
   return (
     <ResizablePanelGroup direction="vertical">
