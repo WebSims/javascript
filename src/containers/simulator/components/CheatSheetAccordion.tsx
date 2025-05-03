@@ -45,7 +45,10 @@ const CheatSheetAccordion: React.FC<CheatSheetAccordionProps> = ({ open = true, 
                         {isOpen && !isDesktop ? (
                             <TabsList>
                                 {topLevelCategories.map((category) => (
-                                    <span className='cheat-sheet-item'>
+                                    <span
+                                        key={category}
+                                        className='cheat-sheet-item'
+                                    >
                                         <TabsTrigger key={category} value={category} id={category} >
                                             {(CHEAT_SHEET_DATA as CheatSheetDataType)[category]}
                                         </TabsTrigger>
