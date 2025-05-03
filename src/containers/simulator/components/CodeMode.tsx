@@ -31,6 +31,36 @@ function run(greet) {
 }
 run(greet('Mak', undefined, 28))`
 
+const CodeModeDesktop = ({ minSize, isCheatSheetOpen, setIsCheatSheetOpen }: { minSize: number, isCheatSheetOpen: boolean, setIsCheatSheetOpen: (isOpen: boolean) => void }) => {
+  return (
+    <ResizablePanelGroup direction="vertical">
+      <ResizablePanel>
+        <ResizablePanelGroup direction="horizontal">
+          <ResizablePanel>
+            Editor
+          </ResizablePanel>
+
+          <ResizableHandle withHandle className="bg-slate-100 hover:bg-slate-200 transition-colors" />
+
+          <ResizablePanel className='p-2'>
+            <CodeArea fromAstOf={FUNCTION_CODE_SAMPLE} />
+          </ResizablePanel>
+        </ResizablePanelGroup >
+      </ResizablePanel>
+
+      <ResizableHandle withHandle className="bg-slate-100 hover:bg-slate-200 transition-colors" />
+
+      <ResizablePanel
+        defaultSize={30}
+        minSize={minSize}
+        maxSize={isCheatSheetOpen ? 70 : 3.5}
+      >
+        <CheatSheetAccordion onOpenChange={setIsCheatSheetOpen} />
+      </ResizablePanel>
+    </ ResizablePanelGroup>
+  )
+}
+
 const CodeMode: React.FC = () => {
   const { isDesktop } = useDeviceDetection()
 
@@ -44,7 +74,6 @@ const CodeMode: React.FC = () => {
       } else {
         setMinSize(50)
       }
-
       const timeout = setTimeout(() => {
         setMinSize(3.5)
       })
@@ -52,34 +81,13 @@ const CodeMode: React.FC = () => {
     }
   }, [isCheatSheetOpen, isDesktop])
 
-  if (isDesktop)
-    return (
-      <ResizablePanelGroup direction="vertical">
-        <ResizablePanel>
-          <ResizablePanelGroup direction="horizontal">
-            <ResizablePanel>
-              Editor
-            </ResizablePanel>
-
-            <ResizableHandle withHandle className="bg-slate-100 hover:bg-slate-200 transition-colors" />
-
-            <ResizablePanel className='p-2'>
-              <CodeArea fromAstOf={FUNCTION_CODE_SAMPLE} />
-            </ResizablePanel>
-          </ResizablePanelGroup >
-        </ResizablePanel>
-
-        <ResizableHandle withHandle className="bg-slate-100 hover:bg-slate-200 transition-colors" />
-
-        <ResizablePanel
-          defaultSize={30}
-          minSize={minSize}
-          maxSize={isCheatSheetOpen ? 70 : 3.5}
-        >
-          <CheatSheetAccordion onOpenChange={setIsCheatSheetOpen} />
-        </ResizablePanel>
-      </ ResizablePanelGroup>
-    )
+  if (isDesktop) {
+    return <CodeModeDesktop
+      minSize={minSize}
+      isCheatSheetOpen={isCheatSheetOpen}
+      setIsCheatSheetOpen={setIsCheatSheetOpen}
+    />
+  }
 
   return (
     <ResizablePanelGroup direction="vertical">
@@ -101,13 +109,13 @@ const CodeMode: React.FC = () => {
       <ResizableHandle withHandle className="bg-slate-100 hover:bg-slate-200 transition-colors" />
 
       <ResizablePanel
+        defaultSize={50}
         minSize={minSize}
         maxSize={isCheatSheetOpen ? 80 : 3.5}
       >
         <CheatSheetAccordion onOpenChange={setIsCheatSheetOpen} />
       </ResizablePanel>
     </ResizablePanelGroup >
-
   )
 }
 
