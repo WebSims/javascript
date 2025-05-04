@@ -27,7 +27,7 @@ const ExecutionBar = () => {
     }
 
     return (
-        <div className="min-h-12 w-full bg-white border-b border-slate-200 flex flex-col lg:flex-row lg:items-center gap-1 lg:gap-6 py-3 lg:px-3">
+        <div className="lg:h-12 w-full bg-white border-b border-slate-200 flex flex-col lg:flex-row lg:items-center gap-1 lg:gap-6 py-3 lg:px-3">
             <div className="flex items-center gap-1 lg:gap-3">
                 <TooltipProvider>
                     <Tooltip>

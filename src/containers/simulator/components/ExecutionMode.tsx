@@ -17,17 +17,20 @@ const ExecutionMode: React.FC = () => {
     if (isDesktop) {
         return (
             <ResizablePanelGroup direction="horizontal">
-                <ResizablePanel>
+                <ResizablePanel className='p-2'>
                     <MemoryModelVisualizer />
                 </ResizablePanel>
                 <ResizableHandle withHandle className="bg-slate-100 hover:bg-slate-200 transition-colors" />
                 <ResizablePanel>
                     <ResizablePanelGroup direction="vertical">
-                        <ResizablePanel>
+                        <ResizablePanel className='p-2'>
                             <CodeArea />
                         </ResizablePanel>
                         <ResizableHandle withHandle className="bg-slate-100 hover:bg-slate-200 transition-colors" />
-                        <ResizablePanel defaultSize={30}>
+                        <ResizablePanel
+                            className='p-2'
+                            defaultSize={30}
+                        >
                             <ConsoleOutput code={`console.log("Hello, world!");`} />
                         </ResizablePanel>
                     </ResizablePanelGroup>
