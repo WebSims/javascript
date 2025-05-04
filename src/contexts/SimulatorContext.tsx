@@ -56,21 +56,13 @@ export const SimulatorProvider = ({ children }: { children: React.ReactNode }) =
 
     const updateCodeStr = (newCodeStr: string) => {
         setCodeStr(newCodeStr)
-        try {
-            const ast = astOf(newCodeStr)
-            if (ast) {
-                const steps = simulateExecution(ast as ESNode)
-                console.log(steps)
-                setAstOfCode(ast)
-                setExecSteps(steps)
-                setCurrentExecStep(steps[0])
-            } else {
-                setAstOfCode(null)
-                setExecSteps([])
-                setCurrentExecStep(null)
-            }
-        } catch (error) {
-            console.error("Error parsing code:", error)
+        const ast = astOf(newCodeStr)
+        if (ast) {
+            const steps = simulateExecution(ast as ESNode)
+            console.log(steps)
+            setAstOfCode(ast)
+            setExecSteps(steps)
+            setCurrentExecStep(steps[0])
         }
     }
 
