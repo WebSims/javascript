@@ -282,7 +282,7 @@ const SimulatorContainer: React.FC = () => {
   const { mode, updateCodeStr } = useSimulatorStore()
 
   useEffect(() => {
-    updateCodeStr(FIBONACCI_CODE_SAMPLE)
+    updateCodeStr(FUNCTION_CODE_SAMPLE)
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [mode])
 
