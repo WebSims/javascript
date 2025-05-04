@@ -43,7 +43,7 @@ const CodeMode: React.FC = () => {
               <CodeEditor />
             </ResizablePanel>
             <ResizableHandle withHandle className="bg-slate-100 hover:bg-slate-200 transition-colors" />
-            <ResizablePanel>
+            <ResizablePanel className='p-2'>
               <CodeArea />
             </ResizablePanel>
           </ResizablePanelGroup >
@@ -62,25 +62,23 @@ const CodeMode: React.FC = () => {
 
   return (
     <ResizablePanelGroup direction="vertical">
-      <ResizablePanel>
-        <div className='p-2 h-full'>
-          <Tabs
-            className='h-full'
-            defaultValue="SOURCE"
-            onValueChange={() => updateCodeStr(codeStr)}
-          >
-            <TabsList>
-              <TabsTrigger value="SOURCE">Source</TabsTrigger>
-              <TabsTrigger value="PARSED">Parsed</TabsTrigger>
-            </TabsList>
-            <TabsContent value="SOURCE" className='h-full  overflow-auto'>
-              <CodeEditor />
-            </TabsContent>
-            <TabsContent value="PARSED" className='h-full overflow-auto'>
-              <CodeArea />
-            </TabsContent>
-          </Tabs>
-        </div>
+      <ResizablePanel className='p-1'>
+        <Tabs
+          className='h-full'
+          defaultValue="SOURCE"
+          onValueChange={() => updateCodeStr(codeStr)}
+        >
+          <TabsList>
+            <TabsTrigger value="SOURCE">Source</TabsTrigger>
+            <TabsTrigger value="PARSED">Parsed</TabsTrigger>
+          </TabsList>
+          <TabsContent value="SOURCE" className='h-full  overflow-auto'>
+            <CodeEditor />
+          </TabsContent>
+          <TabsContent value="PARSED" className='h-full overflow-auto'>
+            <CodeArea />
+          </TabsContent>
+        </Tabs>
       </ResizablePanel>
       <ResizableHandle withHandle className="bg-slate-100 hover:bg-slate-200 transition-colors" />
       <ResizablePanel

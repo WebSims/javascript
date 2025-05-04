@@ -43,7 +43,7 @@ const CheatSheetAccordion: React.FC<CheatSheetAccordionProps> = ({ open = true, 
                 className='w-full h-full'
             >
                 <div className='h-full w-full flex flex-col justify-center'>
-                    <div className={`flex items-center justify-between px-3 ${isOpen && isDesktop ? 'py-2 border-b border-slate-100' : 'py-1 text-sm'}`}>
+                    <div className={`flex items-center justify-between px-2 lg:px-3 ${isOpen && isDesktop ? 'py-2 border-b border-slate-100' : 'py-1 text-sm'}`}>
                         {isOpen && !isDesktop ? (
                             <TabsList>
                                 {topLevelCategories.map((category) => (
