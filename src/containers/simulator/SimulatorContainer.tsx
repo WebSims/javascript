@@ -1,8 +1,10 @@
 import React, { useEffect } from 'react'
 
 import CodeMode from './components/CodeMode'
-import { useSimulatorStore } from '@/hooks/useSimulatorStore'
 import MainLayout from '@/layouts/MainLayout'
+import ExecutionMode from './components/ExecutionMode'
+
+import { useSimulatorStore } from '@/hooks/useSimulatorStore'
 
 const CODE_SAMPLE = `
 let a;
@@ -281,6 +283,7 @@ const SimulatorContainer: React.FC = () => {
   return (
     <MainLayout>
       {mode === 'CODE' && <CodeMode />}
+      {mode === 'EXECUTION' && <ExecutionMode />}
     </MainLayout>
   )
 }
