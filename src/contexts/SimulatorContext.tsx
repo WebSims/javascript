@@ -12,7 +12,7 @@ import { simulateExecution } from "@/utils/simulator"
 
 type SimulatorContextType = {
     mode: 'CODE' | 'EXECUTION'
-    setMode: (mode: 'CODE' | 'EXECUTION') => void
+    toggleMode: () => void
     codeStr: string
     updateCodeStr: (codeStr: string) => void
     astOfCode: ESNode | ts.SourceFile | null
@@ -64,6 +64,10 @@ export const SimulatorProvider = ({ children }: { children: React.ReactNode }) =
             setExecSteps(steps)
             setCurrentExecStep(steps[0])
         }
+    }
+
+    const toggleMode = () => {
+        setMode(mode === 'CODE' ? 'EXECUTION' : 'CODE')
     }
 
     const togglePlaying = (state?: boolean) => {
@@ -127,7 +131,7 @@ export const SimulatorProvider = ({ children }: { children: React.ReactNode }) =
         <SimulatorContext.Provider
             value={{
                 mode,
-                setMode,
+                toggleMode,
                 codeStr,
                 updateCodeStr,
                 astOfCode,
