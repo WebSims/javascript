@@ -1,5 +1,5 @@
 import React from 'react'
-import { PlayIcon, PauseIcon, SkipBackIcon, SkipForwardIcon, RotateCcwIcon } from 'lucide-react'
+import { PlayIcon, PauseIcon, SkipBackIcon, SkipForwardIcon } from 'lucide-react'
 import { Slider } from "@/components/ui/slider"
 import { useSimulatorStore } from '@/hooks/useSimulatorStore'
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip'
@@ -12,7 +12,6 @@ const ExecutionBar = () => {
         stepForward,
         stepBackward,
         changeStep,
-        resetSimulation,
         totalSteps
     } = useSimulatorStore()
 
@@ -102,25 +101,6 @@ const ExecutionBar = () => {
                     <span className="text-gray-400"> / {totalSteps - 1}</span>
                 </div>
             </div>
-
-            <TooltipProvider>
-                <Tooltip>
-                    <TooltipTrigger asChild>
-                        <button
-                            onClick={resetSimulation}
-                            onKeyDown={(e) => handleKeyDown(e, resetSimulation)}
-                            className="p-2 rounded-full hover:bg-gray-100"
-                            aria-label="Reset simulation"
-                            tabIndex={0}
-                        >
-                            <RotateCcwIcon size={20} className="text-gray-700" />
-                        </button>
-                    </TooltipTrigger>
-                    <TooltipContent>
-                        <p>Reset simulation</p>
-                    </TooltipContent>
-                </Tooltip>
-            </TooltipProvider>
         </div>
     )
 }
