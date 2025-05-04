@@ -27,8 +27,8 @@ const ExecutionBar = () => {
     }
 
     return (
-        <div className="h-12 w-full bg-white border-b border-slate-200 px-3 flex items-center gap-6">
-            <div className="flex items-center gap-3">
+        <div className="min-h-12 w-full bg-white border-b border-slate-200 flex flex-col lg:flex-row lg:items-center gap-1 lg:gap-6 py-3 lg:px-3">
+            <div className="flex items-center gap-1 lg:gap-3">
                 <TooltipProvider>
                     <Tooltip>
                         <TooltipTrigger asChild>
@@ -87,7 +87,7 @@ const ExecutionBar = () => {
                 </TooltipProvider>
             </div>
 
-            <div className="flex-1 flex items-center gap-4">
+            <div className="w-full lg:flex-1 flex items-center gap-2 lg:gap-4 px-3 lg:px-0">
                 <Slider
                     value={[currentExecStep?.index ?? 0]}
                     min={0}
