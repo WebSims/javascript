@@ -93,7 +93,7 @@ const CodeMode: React.FC = () => {
       <ResizablePanel>
         <div className='p-2 h-full'>
           <Tabs
-            className='h-full overflow-auto'
+            className='h-full'
             defaultValue="SOURCE"
             onValueChange={() => updateCodeStr(codeStr)}
           >
@@ -101,10 +101,10 @@ const CodeMode: React.FC = () => {
               <TabsTrigger value="SOURCE">Source</TabsTrigger>
               <TabsTrigger value="PARSED">Parsed</TabsTrigger>
             </TabsList>
-            <TabsContent value="SOURCE" className='h-full'>
+            <TabsContent value="SOURCE" className='h-full  overflow-auto'>
               <CodeEditor />
             </TabsContent>
-            <TabsContent value="PARSED">
+            <TabsContent value="PARSED" className='h-full overflow-auto'>
               <CodeArea />
             </TabsContent>
           </Tabs>
