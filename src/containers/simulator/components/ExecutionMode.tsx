@@ -4,11 +4,38 @@ import { ResizableHandle } from '@/components/ui/resizable'
 import { ResizablePanel } from '@/components/ui/resizable'
 import { ResizablePanelGroup } from '@/components/ui/resizable'
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
+
 import CodeArea from '@/components/simulator/code-area/CodeArea'
 import MemoryModelVisualizer from '@/components/simulator/memory-model/MemoryModelVisualizer'
-import Console from '@/components/simulator/console-output/ConsoleOutput'
+import ConsoleOutput from '@/components/simulator/console-output/ConsoleOutput'
+
+import { useDeviceDetection } from '@/hooks/useDeviceDetection'
 
 const ExecutionMode: React.FC = () => {
+    const { isDesktop } = useDeviceDetection()
+
+    if (isDesktop) {
+        return (
+            <ResizablePanelGroup direction="horizontal">
+                <ResizablePanel>
+                    <MemoryModelVisualizer />
+                </ResizablePanel>
+                <ResizableHandle withHandle className="bg-slate-100 hover:bg-slate-200 transition-colors" />
+                <ResizablePanel>
+                    <ResizablePanelGroup direction="vertical">
+                        <ResizablePanel>
+                            <CodeArea />
+                        </ResizablePanel>
+                        <ResizableHandle withHandle className="bg-slate-100 hover:bg-slate-200 transition-colors" />
+                        <ResizablePanel defaultSize={30}>
+                            <ConsoleOutput code={`console.log("Hello, world!");`} />
+                        </ResizablePanel>
+                    </ResizablePanelGroup>
+                </ResizablePanel>
+            </ResizablePanelGroup>
+        )
+    }
+
     return (
         <div className='flex flex-col h-full'>
             <ExecutionBar />
@@ -27,7 +54,7 @@ const ExecutionMode: React.FC = () => {
                             <MemoryModelVisualizer />
                         </TabsContent>
                         <TabsContent value="CONSOLE">
-                            <Console code={`console.log("Hello, world!");`} />
+                            <ConsoleOutput code={`console.log("Hello, world!");`} />
                         </TabsContent>
                     </Tabs>
                 </ResizablePanel>
