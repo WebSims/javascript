@@ -17,23 +17,23 @@ const MainLayout: React.FC<MainLayoutProps> = ({ children }) => {
 
     return (
         <div className='h-screen'>
-            <header className='h-12 bg-background justify-between items-center flex px-3 border-b border-slate-200'>
+            <header className='h-12 bg-background flex justify-between items-center gap-2 px-3 border-b border-slate-200'>
                 <div className='lg:hidden'>
                     <MenuIcon className='w-6 h-6' />
                 </div>
 
-                <div className='hidden lg:flex w-full items-center gap-2'>
-                    <div className='font-bold text-lg'>
+                <div className='flex w-full items-center gap-2'>
+                    <div className='font-bold lg:text-lg'>
                         WebSims.org/js
                     </div>
-                    {isDesktop && mode === 'CODE' ? (
+                    {isDesktop && (mode === 'CODE' ? (
                         <nav className='flex items-center gap-2'>
                             example drop dropdown
                             <Button variant='ghost' size='icon'>
                                 <ChevronDownIcon className='w-4 h-4' />
                             </Button>
                         </nav>
-                    ) : <ExecutionBar />}
+                    ) : <ExecutionBar />)}
                 </div>
 
                 <div className='flex items-center gap-2'>
