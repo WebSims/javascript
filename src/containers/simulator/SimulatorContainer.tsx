@@ -97,6 +97,12 @@ const e = (a + 1) * (b + 2) + (c - 3) / (d + 4)
 // outerFunction();
 // `
 
+const FIBONACCI_CODE_SAMPLE = `
+function f(n) {
+  return n + 1
+}
+let fib5 = f(5); // 0 + 1 + 1 + 2 + 3 = 5
+`
 const FUNCTION_CODE_SAMPLE = `function functionThatSucceeds() {
   let result = "Starting functionThatSucceeds"
   result = "functionThatSucceeds completed successfully"
@@ -276,9 +282,9 @@ const SimulatorContainer: React.FC = () => {
   const { mode, updateCodeStr } = useSimulatorStore()
 
   useEffect(() => {
-    updateCodeStr(FUNCTION_CODE_SAMPLE)
+    updateCodeStr(FIBONACCI_CODE_SAMPLE)
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [])
+  }, [mode])
 
   return (
     <MainLayout>
