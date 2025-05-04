@@ -3,6 +3,7 @@ import React from 'react'
 import ExecutionBar from '@/components/simulator/execution-bar/ExecutionBar'
 import CodeMode from './components/CodeMode'
 import { useSimulatorStore } from '@/hooks/useSimulatorStore'
+import MainLayout from '@/layouts/MainLayout'
 
 const CODE_SAMPLE = `
 let a;
@@ -274,12 +275,9 @@ const SimulatorContainer: React.FC = () => {
   const { mode } = useSimulatorStore()
 
   return (
-    <div className="h-screen">
-      {mode === 'EXECUTION' && <ExecutionBar />}
-      <div className="h-[calc(100vh-50px)]">
-        {mode === 'CODE' && <CodeMode />}
-      </div>
-    </div>
+    <MainLayout>
+      {mode === 'CODE' && <CodeMode />}
+    </MainLayout>
   )
 }
 
