@@ -30,4 +30,4 @@ const useDeviceDetection = (breakpoint: number = MOBILE_BREAKPOINT): DeviceDetec
     return { isMobile, isDesktop: !isMobile }
 }
 
-export default useDeviceDetection 
+export { useDeviceDetection }

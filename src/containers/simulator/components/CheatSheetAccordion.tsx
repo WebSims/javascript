@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from 'react'
+import React, { useState } from 'react'
 import { ChevronDownIcon, ChevronUpIcon, BookOpenIcon } from 'lucide-react'
 
 import { Button } from '@/components/ui/button'
@@ -7,7 +7,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 
 import CHEAT_SHEET_DATA from '@/components/simulator/cheat-sheet/CheatSheetData.json'
 import CheatSheetBox from '@/components/simulator/cheat-sheet/components/CheatSheetBox'
-import useDeviceDetection from '@/hooks/useDeviceDetection'
+import { useDeviceDetection } from '@/hooks/useDeviceDetection'
 import CheatSheet from '@/components/simulator/cheat-sheet/CheatSheet'
 
 type CheatSheetDataType = Record<string, string>

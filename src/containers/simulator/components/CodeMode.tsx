@@ -9,7 +9,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 
 import CodeArea from '@/components/simulator/code-area/CodeArea'
 import CheatSheetAccordion from './CheatSheetAccordion'
-import useDeviceDetection from '@/hooks/useDeviceDetection'
+import { useDeviceDetection } from '@/hooks/useDeviceDetection'
 import { useSimulatorStore } from '@/hooks/useSimulatorStore'
 import CodeEditor from '@/components/code-editor/CodeEditor'
 
