@@ -428,7 +428,6 @@ export const simulateExecution = (astNode: ESNode | null): ExecStep[] => {
 
             // Stop execution if an error was thrown (even if withinTryBlock)
             if (lastStep?.errorThrown) {
-                console.error(lastStep.errorThrown.value)
                 return lastStep
             }
 
