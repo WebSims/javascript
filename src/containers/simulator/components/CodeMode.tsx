@@ -13,40 +13,12 @@ import { useDeviceDetection } from '@/hooks/useDeviceDetection'
 import { useSimulatorStore } from '@/hooks/useSimulatorStore'
 import CodeEditor from '@/components/code-editor/CodeEditor'
 
-const FUNCTION_CODE_SAMPLE = `function greet(name, family = "Doe") {
-const first = "Hello, " + name + " " + family
-    return first
-}
-
-function newError() {
-    throw "Error: "
-}
-
-function run(greet) {
-    let output
-    try {
-        newError()
-    } catch (error) {
-       output = greet
-    }
-    return output
-}
-
-run(greet('Mak', undefined, 28))`
-
 const CodeMode: React.FC = () => {
   const { isDesktop } = useDeviceDetection()
   const { updateCodeStr, codeStr } = useSimulatorStore()
 
   const [isCheatSheetOpen, setIsCheatSheetOpen] = useState(true)
   const [minSize, setMinSize] = useState(5)
-
-  useEffect(() => {
-    if (isDesktop) {
-      updateCodeStr(FUNCTION_CODE_SAMPLE)
-    }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [isDesktop])
 
   useEffect(() => {
     if (isCheatSheetOpen) {

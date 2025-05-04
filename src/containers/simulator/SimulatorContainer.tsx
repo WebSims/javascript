@@ -1,6 +1,5 @@
-import React from 'react'
+import React, { useEffect } from 'react'
 
-import ExecutionBar from '@/components/simulator/execution-bar/ExecutionBar'
 import CodeMode from './components/CodeMode'
 import { useSimulatorStore } from '@/hooks/useSimulatorStore'
 import MainLayout from '@/layouts/MainLayout'
@@ -272,7 +271,12 @@ class Student extends Person {
 }`
 
 const SimulatorContainer: React.FC = () => {
-  const { mode } = useSimulatorStore()
+  const { mode, updateCodeStr } = useSimulatorStore()
+
+  useEffect(() => {
+    updateCodeStr(FUNCTION_CODE_SAMPLE)
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [])
 
   return (
     <MainLayout>
