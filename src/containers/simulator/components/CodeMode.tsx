@@ -39,7 +39,7 @@ const CodeMode: React.FC = () => {
   const { updateCodeStr, codeStr } = useSimulatorStore()
 
   const [isCheatSheetOpen, setIsCheatSheetOpen] = useState(true)
-  const [minSize, setMinSize] = useState(3.5)
+  const [minSize, setMinSize] = useState(5)
 
   useEffect(() => {
     if (isDesktop) {
@@ -56,7 +56,7 @@ const CodeMode: React.FC = () => {
         setMinSize(50)
       }
       const timeout = setTimeout(() => {
-        setMinSize(3.5)
+        setMinSize(5)
       }, 100)
       return () => clearTimeout(timeout)
     }
@@ -80,7 +80,7 @@ const CodeMode: React.FC = () => {
         <ResizablePanel
           defaultSize={minSize}
           minSize={minSize}
-          maxSize={isCheatSheetOpen ? 70 : 3.5}
+          maxSize={isCheatSheetOpen ? 70 : 5}
         >
           <CheatSheetAccordion onOpenChange={setIsCheatSheetOpen} />
         </ResizablePanel>
@@ -114,7 +114,7 @@ const CodeMode: React.FC = () => {
       <ResizablePanel
         defaultSize={minSize}
         minSize={minSize}
-        maxSize={isCheatSheetOpen ? 80 : 3.5}
+        maxSize={isCheatSheetOpen ? 80 : 5}
       >
         <CheatSheetAccordion onOpenChange={setIsCheatSheetOpen} />
       </ResizablePanel>
