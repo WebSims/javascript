@@ -51,7 +51,7 @@ export const PUSH_SCOPE_KIND = {
 } as const satisfies Record<string, PushScopeKind>
 
 export type Declaration = {
-    kind: "var" | "let" | "const" | "function" | "param" | "class",
+    kind: "var" | "let" | "const" | "function" | "param" | "class" | "global",
     variableName: string,
     initialValue: JSValue
 }
@@ -108,7 +108,7 @@ export type MemoryChange =
 // Represents a single step in the code execution simulation
 export type ExecStep = {
     index: number // Sequential step index
-    node: ESNode // The primary AST node associated with this step
+    node?: ESNode // The primary AST node associated with this step
     phase: "initial" | "creation" | "execution" | "destruction" // Phase of execution
     scopeIndex: number // Index into memorySnapshot.scopes for the *active* scope
     executing: boolean // Whether the step is currently being executed

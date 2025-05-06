@@ -1,6 +1,6 @@
-import { ESNode, VariableDeclarator, Identifier, Literal, ArrayExpression, ObjectExpression, Property, ArrowFunctionExpression, ExpressionStatement } from "hermes-parser"
-import { ExecStep, JSValue, Scope, Heap, MemoryChange, HeapObject, HeapRef, Declaration, TDZ, ScopeType, PUSH_SCOPE_KIND } from "../types/simulation"
-import { cloneDeep } from "lodash" // Import cloneDeep from lodash
+import { ESNode, VariableDeclarator, Identifier, ArrowFunctionExpression, ExpressionStatement } from "hermes-parser"
+import { ExecStep, JSValue, Scope, Heap, MemoryChange, HeapObject, HeapRef, Declaration, TDZ, ScopeType, PUSH_SCOPE_KIND, MemVal } from "../types/simulation"
+import { cloneDeep, isArray } from "lodash" // Import cloneDeep from lodash
 
 /**
  * Simulates the execution of JavaScript code represented by an AST.
@@ -30,8 +30,8 @@ export const simulateExecution = (astNode: ESNode | null): ExecStep[] => {
         }
     ]
     const scopes: Scope[] = []
-    const heap: Heap = {} // Use const
-    let memVal: JSValue[] = []
+    const heap: Heap = {}
+    let memVal: MemVal[] = []
     let nextRef: HeapRef = 0
     let lastScopeIndex = -1
     let stepCounter: number = 1
@@ -279,19 +279,24 @@ export const simulateExecution = (astNode: ESNode | null): ExecStep[] => {
     // --- Creation Pass --- 
 
 
+    const getBlock = (astNode: ESNode): ESNode => {
+        switch (astNode.type) {
+            case "FunctionDeclaration":
+            case "ArrowFunctionExpression":
+            case "CatchClause":
+                return astNode.body as ESNode
+            case "TryStatement":
+                return astNode.block as ESNode
+            default:
+                return astNode
+        }
+    }
     const creationPhase = (astNode: ESNode, scopeIndex: number): void => {
-        const block: ESNode = astNode.type === "FunctionDeclaration" ? astNode.body :
-            astNode.type === "TryStatement" ? astNode.block :
-                astNode.type === "CatchClause" ? astNode.body :
-                    astNode
+        console.log(astNode)
+        const block: ESNode = getBlock(astNode)
         scopeIndex = addPushScopeStep(astNode, block).scopeIndex
 
         const declarations: Declaration[] = []
-
-        // Handle Parameters
-        const handleFunctionParam = (param: ESNode, scopeIndex: number): void => {
-
-        }
 
         if (astNode.params) {
             for (const param of astNode.params) {
@@ -331,79 +336,81 @@ export const simulateExecution = (astNode: ESNode | null): ExecStep[] => {
             if (declaration) declarations.push(declaration)
         }
 
-        for (const node of block.body) {
-            if (!node) continue
+        if (block.type === "BlockStatement") {
+            for (const node of block.body) {
+                if (!node) continue
 
-            switch (node.type) {
-                case "FunctionDeclaration":
-                    {
-                        // Check type string, id exists, and then CAST id to Identifier to access properties
-                        if (node.id) {
-                            // Cast node.id to Identifier AFTER checking it exists
-                            const idNode = node.id as Identifier
-                            if (idNode.type === 'Identifier') { // Check type on the casted object
-                                const functionName = idNode.name // Access name from casted object
-                                // 1. Allocate Function Object on Heap
-                                const functionObject: HeapObject = {
-                                    type: "function",
-                                    node: node
+                switch (node.type) {
+                    case "FunctionDeclaration":
+                        {
+                            // Check type string, id exists, and then CAST id to Identifier to access properties
+                            if (node.id) {
+                                // Cast node.id to Identifier AFTER checking it exists
+                                const idNode = node.id as Identifier
+                                if (idNode.type === 'Identifier') { // Check type on the casted object
+                                    const functionName = idNode.name // Access name from casted object
+                                    // 1. Allocate Function Object on Heap
+                                    const functionObject: HeapObject = {
+                                        type: "function",
+                                        node: node
+                                    }
+                                    const ref = allocateHeapObject(functionObject)
+
+                                    const declaration = newDeclaration(functionName, "function", scopeIndex, { type: "reference", ref })
+                                    if (declaration) declarations.push(declaration)
+                                } else {
+                                    console.warn("FunctionDeclaration id is not an Identifier?", idNode)
                                 }
-                                const ref = allocateHeapObject(functionObject)
-
-                                const declaration = newDeclaration(functionName, "function", scopeIndex, { type: "reference", ref })
-                                if (declaration) declarations.push(declaration)
                             } else {
-                                console.warn("FunctionDeclaration id is not an Identifier?", idNode)
+                                console.warn("Hoisting unnamed FunctionDeclaration?", node)
                             }
-                        } else {
-                            console.warn("Hoisting unnamed FunctionDeclaration?", node)
                         }
-                    }
-                    break;
+                        break;
 
-                case "VariableDeclaration":
-                    {
-                        if (node.kind === "var") {
-                            for (const declarator of (node.declarations as VariableDeclarator[])) {
-                                if (declarator.id?.type === "Identifier") {
-                                    const idNode = declarator.id as Identifier
-                                    const varName = idNode.name
+                    case "VariableDeclaration":
+                        {
+                            if (node.kind === "var") {
+                                for (const declarator of (node.declarations as VariableDeclarator[])) {
+                                    if (declarator.id?.type === "Identifier") {
+                                        const idNode = declarator.id as Identifier
+                                        const varName = idNode.name
+                                        const initialValue: JSValue = { type: "primitive", value: undefined }
+                                        const declaration = newDeclaration(varName, "var", scopeIndex, initialValue)
+                                        if (declaration) declarations.push(declaration)
+                                    } else {
+                                        console.warn("Unhandled var declaration pattern in creation:", declarator.id?.type)
+                                    }
+                                }
+                            }
+                            if (node.kind === "let" || node.kind === "const") {
+                                for (const declarator of (node.declarations as VariableDeclarator[])) {
+                                    if (declarator.id?.type === "Identifier") {
+                                        const idNode = declarator.id as Identifier
+                                        const varName = idNode.name
+                                        const initialValue: JSValue = TDZ
+                                        const declaration = newDeclaration(varName, node.kind, scopeIndex, initialValue)
+                                        if (declaration) declarations.push(declaration)
+                                    } else {
+                                        console.warn("Unhandled let/const declaration pattern in creation:", declarator.id?.type)
+                                    }
+                                }
+                            }
+                        }
+                        break;
+                    case "ExpressionStatement":
+                        {
+                            const expression = node.expression
+                            if (expression.type === "AssignmentExpression") {
+                                const varName = expression.left.name
+                                const variable = lookupVariable(varName, scopeIndex)
+                                if (variable === -1) {
                                     const initialValue: JSValue = { type: "primitive", value: undefined }
-                                    const declaration = newDeclaration(varName, "var", scopeIndex, initialValue)
+                                    const declaration = newDeclaration(varName, "global", 0, initialValue)
                                     if (declaration) declarations.push(declaration)
-                                } else {
-                                    console.warn("Unhandled var declaration pattern in creation:", declarator.id?.type)
                                 }
                             }
                         }
-                        if (node.kind === "let" || node.kind === "const") {
-                            for (const declarator of (node.declarations as VariableDeclarator[])) {
-                                if (declarator.id?.type === "Identifier") {
-                                    const idNode = declarator.id as Identifier
-                                    const varName = idNode.name
-                                    const initialValue: JSValue = TDZ
-                                    const declaration = newDeclaration(varName, node.kind, scopeIndex, initialValue)
-                                    if (declaration) declarations.push(declaration)
-                                } else {
-                                    console.warn("Unhandled let/const declaration pattern in creation:", declarator.id?.type)
-                                }
-                            }
-                        }
-                    }
-                    break;
-                case "ExpressionStatement":
-                    {
-                        const expression = node.expression
-                        if (expression.type === "AssignmentExpression") {
-                            const varName = expression.left.name
-                            const variable = lookupVariable(varName, scopeIndex)
-                            if (variable === -1) {
-                                const initialValue: JSValue = { type: "primitive", value: undefined }
-                                const declaration = newDeclaration(varName, "var", 0, initialValue)
-                                if (declaration) declarations.push(declaration)
-                            }
-                        }
-                    }
+                }
             }
         }
 
@@ -422,7 +429,7 @@ export const simulateExecution = (astNode: ESNode | null): ExecStep[] => {
 
         for (const statement of statements) {
             // Skip function declarations as they are already handled in the creation phase
-            if (statement.type === "FunctionDeclaration") {
+            if (statement.type === "FunctionDeclaration" || statement.type === "ArrowFunctionExpression") {
                 continue
             }
 
@@ -546,6 +553,7 @@ export const simulateExecution = (astNode: ESNode | null): ExecStep[] => {
         }
 
         if (object?.type === "function") {
+            console.log(object)
             for (const arg of astNode.arguments) {
                 const argStep = executionPhase(arg, scopeIndex, withinTryBlock)
                 if (argStep?.evaluatedValue) {
@@ -858,6 +866,19 @@ export const simulateExecution = (astNode: ESNode | null): ExecStep[] => {
         return addEvaluatedStep(astNode, scopeIndex, evaluatedValue)
     }
 
+    const execArrowFunctionExpression = (astNode: ESNode, scopeIndex: number, withinTryBlock: boolean): ExecStep | undefined => {
+        addEvaluatingStep(astNode, scopeIndex)
+
+        const functionObject: HeapObject = {
+            type: "function",
+            node: astNode,
+        }
+
+        const ref = allocateHeapObject(functionObject)
+        addMemVal({ type: "reference", ref })
+        return addEvaluatedStep(astNode, scopeIndex, { type: "reference", ref })
+    }
+
     const executionPhase = (node: ESNode | null, currentScopeIndex: number, withinTryBlock: boolean): ExecStep | undefined => {
         if (!node) return
         console.log("Executing node:", node.type, "in scope:", currentScopeIndex, "withinTry:", withinTryBlock)
@@ -880,39 +901,7 @@ export const simulateExecution = (astNode: ESNode | null): ExecStep[] => {
             case "ArrayExpression": return execArrayExpression(node, currentScopeIndex, withinTryBlock)
             case "ObjectExpression": return execObjectExpression(node, currentScopeIndex, withinTryBlock)
             case "MemberExpression": return execMemberExpression(node, currentScopeIndex, withinTryBlock)
-
-            case "ArrowFunctionExpression":
-                {
-                    const arrowFuncNode = node as ArrowFunctionExpression;
-
-                    // 1. Allocate Function Object on Heap
-                    const functionObject: HeapObject = {
-                        type: "function",
-                        definitionNode: arrowFuncNode, // Store the node itself
-                        // CRUCIAL: Arrow functions capture scope lexically
-                        closureScopeIndex: currentScopeIndex,
-                        // name: undefined // Arrow functions are anonymous unless inferred
-                    };
-                    const ref = allocateHeapObject(functionObject);
-                    const resultValue: JSValue = { type: "reference", ref };
-
-                    // 2. Create Step for the expression evaluation
-                    addStep({
-                        node: node,
-                        pass: "normal",
-                        scopeIndex: currentScopeIndex,
-                        memoryChange: {
-                            type: "create_heap_object",
-                            ref: ref,
-                            value: functionObject,
-                        },
-                        evaluatedValue: resultValue, // The reference to the new function
-                    });
-
-                    return resultValue;
-                }
-            // No break needed after return
-
+            case "ArrowFunctionExpression": return execArrowFunctionExpression(node, currentScopeIndex, withinTryBlock)
             default:
                 console.warn(`Execution Pass: Unhandled node type - ${node.type}`)
                 break;
@@ -925,12 +914,20 @@ export const simulateExecution = (astNode: ESNode | null): ExecStep[] => {
     }
 
     const isBlock = (node: ESNode): boolean => {
-        return node.type === "Program" || node?.type === "FunctionDeclaration" || node?.type === "TryStatement" || node?.type === "CatchClause" || node?.type === "BlockStatement"
+        return (
+            node.type === "Program" ||
+            node?.type === "FunctionDeclaration" ||
+            node?.type === "TryStatement" ||
+            node?.type === "CatchClause" ||
+            node?.type === "ArrowFunctionExpression" ||
+            node?.type === "BlockStatement"
+        )
     }
 
     const isStrict = (node: ESNode): boolean => {
         return node?.body[0]?.expression?.type === "Literal" && node?.body[0]?.expression?.value === "use strict"
     }
+
     // --- Simulation Execution --- 
     function traverseAST(astNode: ESNode, scopeIndex: number, strict: boolean, withinTryBlock: boolean): ExecStep | undefined {
         // Check for non-block nodes early to avoid unnecessary scope creation
@@ -943,11 +940,7 @@ export const simulateExecution = (astNode: ESNode | null): ExecStep[] => {
         scopeIndex = lastScopeIndex
 
         // Get the actual block to execute
-        const nodeType = astNode.type
-        const block = nodeType === "FunctionDeclaration" ? astNode.body :
-            nodeType === "TryStatement" ? astNode.block :
-                nodeType === "CatchClause" ? astNode.body :
-                    astNode
+        const block = getBlock(astNode)
 
         // Phase 1: Creation - hoisting and declarations
         creationPhase(astNode, scopeIndex)
