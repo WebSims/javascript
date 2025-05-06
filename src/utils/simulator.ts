@@ -768,7 +768,6 @@ export const simulateExecution = (astNode: ESNode | null): ExecStep[] => {
 
         const elements: JSValue[] = []
         for (const element of astNode.elements) {
-            console.log(element)
             if (element) {
                 const elementStep = executionPhase(element, scopeIndex, withinTryBlock)
                 if (elementStep?.errorThrown) return elementStep
