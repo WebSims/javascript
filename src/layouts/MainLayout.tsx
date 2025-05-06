@@ -16,7 +16,7 @@ const MainLayout: React.FC<MainLayoutProps> = ({ children }) => {
     const { mode, toggleMode } = useSimulatorStore()
 
     return (
-        <div className='h-dvh'>
+        <div className='h-screen'>
             <header className='h-12 bg-background flex justify-between items-center gap-2 px-3 border-b border-slate-200'>
                 <div className='lg:hidden'>
                     <MenuIcon className='w-6 h-6' />
