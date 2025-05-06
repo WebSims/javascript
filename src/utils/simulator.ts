@@ -391,6 +391,16 @@ export const simulateExecution = (astNode: ESNode | null): ExecStep[] => {
                         }
                     }
                     break;
+                case "ExpressionStatement":
+                    {
+                        const expression = node.expression
+                        if (expression.type === "AssignmentExpression") {
+                            const varName = expression.left.name
+                            const initialValue = { type: "primitive", value: undefined }
+                            const declaration = newDeclaration(varName, "var", scopeIndex, initialValue)
+                            if (declaration) declarations.push(declaration)
+                        }
+                    }
             }
         }
 
@@ -683,14 +693,19 @@ export const simulateExecution = (astNode: ESNode | null): ExecStep[] => {
         }
 
         if (leftStep?.evaluatedValue && rightStep?.evaluatedValue) {
-            let value = rightStep.evaluatedValue.value
-            if (astNode.operator !== "=") {
-                const leftRaw = JSON.stringify(leftStep.evaluatedValue.value)
-                const rightRaw = JSON.stringify(rightStep.evaluatedValue.value)
-                value = eval(`${leftRaw}${astNode.operator.replace("=", "")}${rightRaw}`)
+            let targetScopeIndex = scopeIndex
+            let evaluatedValue = rightStep.evaluatedValue
+            if (leftStep.evaluatedValue.type === "reference") {
+                targetScopeIndex = writeVariable(leftStep.node.name, rightStep.evaluatedValue, scopeIndex)
+            } else {
+                if (astNode.operator !== "=") {
+                    const leftRaw = JSON.stringify(leftStep.evaluatedValue.value)
+                    const rightRaw = JSON.stringify(rightStep.evaluatedValue.value)
+                    const value = eval(`${leftRaw}${astNode.operator.replace("=", "")}${rightRaw}`)
+                    evaluatedValue = { type: "primitive", value } as const
+                }
+                targetScopeIndex = writeVariable(leftStep.node.name, evaluatedValue, scopeIndex)
             }
-            const evaluatedValue = { type: "primitive", value } as const
-            const targetScopeIndex = writeVariable(leftStep.node.name, evaluatedValue, scopeIndex)
 
             removeMemVal(leftStep.evaluatedValue)
             removeMemVal(rightStep.evaluatedValue)
@@ -702,7 +717,7 @@ export const simulateExecution = (astNode: ESNode | null): ExecStep[] => {
                     type: "write_variable",
                     scopeIndex: targetScopeIndex,
                     variableName: leftStep.node.name,
-                    value,
+                    value: evaluatedValue,
                 },
                 executing: false,
                 executed: false,
