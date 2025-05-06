@@ -584,6 +584,8 @@ export const simulateExecution = (astNode: ESNode | null): ExecStep[] => {
         addEvaluatingStep(astNode, scopeIndex)
 
         let lastStep = executionPhase(astNode.callee, scopeIndex, withinTryBlock)
+        if (lastStep?.errorThrown) return lastStep
+
         if (lastStep?.evaluatedValue === TDZ) {
             const error = { type: "error", value: 'ReferenceError: Cannot access ' + lastStep?.node.name + ' before initialization' } as const
             return addErrorThrownStep(astNode, scopeIndex, error)
@@ -656,21 +658,32 @@ export const simulateExecution = (astNode: ESNode | null): ExecStep[] => {
 
         if (astNode.operator === "&&") {
             leftStep = executionPhase(astNode.left, scopeIndex, withinTryBlock)
-            if (leftStep?.evaluatedValue?.value === true) rightStep = executionPhase(astNode.right, scopeIndex, withinTryBlock)
-            else rightStep = { type: "primitive", value: false }
-        } else if (astNode.operator === "||") {
+            if (leftStep?.errorThrown) return leftStep
 
+            if (leftStep?.evaluatedValue?.value === true) {
+                rightStep = executionPhase(astNode.right, scopeIndex, withinTryBlock)
+                if (rightStep?.errorThrown) return rightStep
+            } else {
+                rightStep = { type: "primitive", value: false }
+            }
+        } else if (astNode.operator === "||") {
             leftStep = executionPhase(astNode.left, scopeIndex, withinTryBlock)
-            if (leftStep?.evaluatedValue?.value === true) rightStep = { type: "primitive", value: true }
-            else rightStep = executionPhase(astNode.right, scopeIndex, withinTryBlock)
+            if (leftStep?.errorThrown) return leftStep
+
+            if (leftStep?.evaluatedValue?.value === true) {
+                rightStep = { type: "primitive", value: true }
+            } else {
+                rightStep = executionPhase(astNode.right, scopeIndex, withinTryBlock)
+                if (rightStep?.errorThrown) return rightStep
+            }
         } else {
             leftStep = executionPhase(astNode.left, scopeIndex, withinTryBlock);
+            if (leftStep?.errorThrown) return leftStep
+
             rightStep = executionPhase(astNode.right, scopeIndex, withinTryBlock);
+            if (rightStep?.errorThrown) return rightStep
         }
 
-        if (leftStep?.errorThrown || rightStep?.errorThrown) {
-            return leftStep || rightStep
-        }
 
         if (astNode.operator) {
             const leftRaw = JSON.stringify(leftStep?.evaluatedValue?.value)
