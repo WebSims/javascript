@@ -57,12 +57,13 @@ export const simulateExecution = (astNode: ESNode | null): ExecStep[] => {
         steps.push(step)
         return step
     }
-    const addPushScopeStep = (astNode: ESNode, block: ESNode): ExecStep => {
+    const addPushScopeStep = (astNode: ESNode): ExecStep => {
         const getPushScopeType = (astNode: ESNode): ScopeType => {
             switch (astNode.type) {
                 case "Program":
                     return "global"
                 case "FunctionDeclaration":
+                case "ArrowFunctionExpression":
                     return "function"
                 default:
                     return "block"
@@ -73,6 +74,20 @@ export const simulateExecution = (astNode: ESNode | null): ExecStep[] => {
 
         const kind = PUSH_SCOPE_KIND[astNode.type as keyof typeof PUSH_SCOPE_KIND]
 
+        if (astNode.type !== "BlockStatement") {
+            return addStep({
+                node: astNode,
+                phase: "creation",
+                scopeIndex,
+                memoryChange: { type: "push_scope", kind, scope },
+                executing: false,
+                executed: false,
+                evaluating: true,
+                evaluated: false,
+            })
+        }
+
+        const block: ESNode = getBlock(astNode)
         return addStep({
             node: block,
             phase: "creation",
@@ -85,8 +100,22 @@ export const simulateExecution = (astNode: ESNode | null): ExecStep[] => {
         })
     }
     const addHoistingStep = (astNode: ESNode, scopeIndex: number, declarations: Declaration[]): ExecStep => {
+        if (astNode.type !== "BlockStatement") {
+            return addStep({
+                node: astNode,
+                phase: "creation",
+                scopeIndex,
+                memoryChange: { type: "declaration", declarations, scopeIndex },
+                executing: false,
+                executed: false,
+                evaluating: true,
+                evaluated: false,
+            })
+        }
+
+        const block = getBlock(astNode)
         return addStep({
-            node: astNode,
+            node: block,
             phase: "creation",
             scopeIndex,
             memoryChange: { type: "declaration", declarations, scopeIndex },
@@ -199,6 +228,21 @@ export const simulateExecution = (astNode: ESNode | null): ExecStep[] => {
         })
         scopes.splice(scopeIndex, 1)
 
+        if (astNode.type !== "BlockStatement") {
+            return addStep({
+                node: astNode,
+                phase: "destruction",
+                scopeIndex: scopeIndex,
+                memoryChange: { type: "pop_scope", scopeIndex },
+                evaluatedValue: undefined,
+                executing: false,
+                executed: false,
+                evaluating: false,
+                evaluated: true,
+            })
+        }
+
+        astNode = getBlock(astNode)
         return addStep({
             node: astNode,
             phase: "destruction",
@@ -248,6 +292,7 @@ export const simulateExecution = (astNode: ESNode | null): ExecStep[] => {
 
     const writeVariable = (name: string, value: JSValue, scopeIndex: number): number => {
         const lookup = lookupVariable(name, scopeIndex)
+        console.log(lookup)
         if (lookup !== -1) {
             scopes[lookup.scopeIndex].variables[name] = value
             return lookup.scopeIndex
@@ -292,9 +337,7 @@ export const simulateExecution = (astNode: ESNode | null): ExecStep[] => {
         }
     }
     const creationPhase = (astNode: ESNode, scopeIndex: number): void => {
-        console.log(astNode)
-        const block: ESNode = getBlock(astNode)
-        scopeIndex = addPushScopeStep(astNode, block).scopeIndex
+        scopeIndex = addPushScopeStep(astNode).scopeIndex
 
         const declarations: Declaration[] = []
 
@@ -336,7 +379,8 @@ export const simulateExecution = (astNode: ESNode | null): ExecStep[] => {
             if (declaration) declarations.push(declaration)
         }
 
-        if (block.type === "BlockStatement") {
+        const block: ESNode = getBlock(astNode)
+        if (block.type === "Program" || block.type === "BlockStatement") {
             for (const node of block.body) {
                 if (!node) continue
 
@@ -414,7 +458,7 @@ export const simulateExecution = (astNode: ESNode | null): ExecStep[] => {
             }
         }
 
-        addHoistingStep(block, scopeIndex, declarations)
+        addHoistingStep(astNode, scopeIndex, declarations)
         console.log("Creation Phase:", scopeIndex)
     }
 
@@ -953,7 +997,7 @@ export const simulateExecution = (astNode: ESNode | null): ExecStep[] => {
         }
 
         if (scopeIndex !== 0) {
-            destructionPhase(block, scopeIndex)
+            destructionPhase(astNode, scopeIndex)
             lastScopeIndex--
         }
 
