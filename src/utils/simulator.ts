@@ -1120,7 +1120,11 @@ export const simulateExecution = (astNode: ESNode | null): ExecStep[] => {
         return lastStep
     }
 
-    traverseAST(astNode, 0, false, false)
+    try {
+        traverseAST(astNode, 0, false, false)
+    } catch (e) {
+        console.log(e)
+    }
 
     console.log("Simulation finished. Steps:", steps.length)
     return steps
