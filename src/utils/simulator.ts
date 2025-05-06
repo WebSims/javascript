@@ -396,9 +396,12 @@ export const simulateExecution = (astNode: ESNode | null): ExecStep[] => {
                         const expression = node.expression
                         if (expression.type === "AssignmentExpression") {
                             const varName = expression.left.name
-                            const initialValue: JSValue = { type: "primitive", value: undefined }
-                            const declaration = newDeclaration(varName, "var", 0, initialValue)
-                            if (declaration) declarations.push(declaration)
+                            const variable = lookupVariable(varName, scopeIndex)
+                            if (variable === -1) {
+                                const initialValue: JSValue = { type: "primitive", value: undefined }
+                                const declaration = newDeclaration(varName, "var", 0, initialValue)
+                                if (declaration) declarations.push(declaration)
+                            }
                         }
                     }
             }
