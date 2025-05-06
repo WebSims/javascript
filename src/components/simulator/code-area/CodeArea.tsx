@@ -79,7 +79,7 @@ const decorations = {
             arr: { tooltip: "Data: NEW array", cheatSheetId: "data-array", classN: "text-slate-700" },
             obj: { tooltip: "Data: NEW object", cheatSheetId: "data-object", classN: "text-slate-700" },
             fn: { tooltip: "Data: NEW anonymous function", cheatSheetId: "data-function", classN: "text-purple-600" },
-            fnArr: { tooltip: "Data: NEW arrow function", cheatSheetId: "data-arrow", classN: "text-purple-600" },
+            fnArr: { tooltip: "Data: NEW arrow function", cheatSheetId: "data-arrow", classN: "contents text-purple-600" },
         },
         read: {
             classN: "ast-exp-read",
@@ -418,17 +418,7 @@ const NewObj = ({ props, parent, parens }) => {
 const NewFnArrow = ({ async, params, code, parent, parens }) => {
     let content;
     if (code.type == "BlockStatement") {
-        content = <>
-            <span className="align-middle font-bold">&#123;<br /></span>
-            {code.body && code.body.length > 0 &&
-                <div className="ml-4 space-y-2">
-                    {code.body.map((statement, i) =>
-                        <Statement key={i} st={statement} parent={parent} parens={parens} />
-                    )}
-                </div>
-            }
-            <span className="align-middle font-bold">&#125;</span>
-        </>
+        content = <Statement st={code} parent={parent} parens={parens} />
     } else {
         content = <Expression expr={code} parens={parens} parent={parent} />
     }
