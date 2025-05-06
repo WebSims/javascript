@@ -82,6 +82,10 @@
   --delay-child3-goBack: calc(var(--delay-child3-standOut) + var(--duration-standOut) + var(--duration-wait));
 }
 
+.display-unset {
+  display: unset;
+}
+
 /* .ast-st {
   background-color: rgba(0, 0, 0, 0.07);
   padding: 10px 10px;

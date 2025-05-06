@@ -79,7 +79,7 @@ const decorations = {
             arr: { tooltip: "Data: NEW array", cheatSheetId: "data-array", classN: "text-slate-700" },
             obj: { tooltip: "Data: NEW object", cheatSheetId: "data-object", classN: "text-slate-700" },
             fn: { tooltip: "Data: NEW anonymous function", cheatSheetId: "data-function", classN: "text-purple-600" },
-            fnArr: { tooltip: "Data: NEW arrow function", cheatSheetId: "data-arrow", classN: "display-[unset] text-purple-600" },
+            fnArr: { tooltip: "Data: NEW arrow function", cheatSheetId: "data-arrow", classN: "display-unset text-purple-600" },
         },
         read: {
             classN: "ast-exp-read",
