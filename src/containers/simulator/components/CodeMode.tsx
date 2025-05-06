@@ -65,14 +65,14 @@ const CodeMode: React.FC = () => {
       <ResizablePanel className='p-1'>
         <Tabs
           className='h-full'
-          defaultValue="SOURCE"
+          defaultValue="EDITOR"
           onValueChange={() => updateCodeStr(codeStr)}
         >
           <TabsList>
-            <TabsTrigger value="SOURCE">Source</TabsTrigger>
+            <TabsTrigger value="EDITOR">Editor</TabsTrigger>
             <TabsTrigger value="PARSED">Parsed</TabsTrigger>
           </TabsList>
-          <TabsContent value="SOURCE" className='h-full  overflow-auto'>
+          <TabsContent value="EDITOR" className='h-full  overflow-auto'>
             <CodeEditor />
           </TabsContent>
           <TabsContent value="PARSED" className='h-full overflow-auto'>
