@@ -290,17 +290,90 @@ export const simulateExecution = (astNode: ESNode | null): ExecStep[] => {
         // Step generation happens in the passes
     }
 
-    const writeVariable = (name: string, value: JSValue, scopeIndex: number): number => {
+    const writeVariable = (name: string, value: JSValue, scopeIndex: number, path?: string): number => {
         const lookup = lookupVariable(name, scopeIndex)
-        if (lookup !== -1) {
-            scopes[lookup.scopeIndex].variables[name] = value
-            return lookup.scopeIndex
+
+        const effectivePath = (path && path.length > 0) ? path : undefined
+
+        if (lookup === -1 && !effectivePath) {
+            console.warn(`Attempted to write to undeclared variable ${name} (assigning to global)`)
+            scopes[0].variables[name] = value
+            return 0
+        } else if (lookup === -1 && effectivePath) {
+            console.error(`Cannot set path '${effectivePath}' on undeclared variable '${name}'`)
+            return -1
         }
-        // Handle potential ReferenceError or global assignment (if intended)
-        console.warn(`Attempted to write to undeclared variable ${name}`)
-        // For simplicity, let's assign to global if not found (like non-strict mode)
-        scopes[0].variables[name] = value // Or throw error
-        return 0 // Indicate it wasn't found in declared scopes
+
+        if (lookup === -1) {
+            console.error("Internal error: lookupVariable returned -1 unexpectedly after initial checks.")
+            return -1
+        }
+        const baseVarScopeIndex = lookup.scopeIndex
+
+        if (effectivePath) {
+            const baseVarCurrentValue = scopes[baseVarScopeIndex].variables[name]
+            if (baseVarCurrentValue.type !== 'reference') {
+                console.error(`TypeError: Cannot set path '${effectivePath}' on non-object variable '${name}'`)
+                return -1
+            }
+
+            const heapObjRef = baseVarCurrentValue.ref
+            let currentHeapLevel = heap[heapObjRef]
+
+            if (!currentHeapLevel) {
+                console.error(`ReferenceError: Broken heap reference for variable '${name}' (ref: ${heapObjRef})`)
+                return -1
+            }
+
+            const pathSegments = effectivePath.split('.')
+            for (let i = 0; i < pathSegments.length - 1; i++) {
+                const segment = pathSegments[i]
+                if (currentHeapLevel.type === 'object') {
+                    let nextLevelVal = currentHeapLevel.properties[segment]
+                    if (!nextLevelVal || nextLevelVal.type !== 'reference') {
+                        const newNestedObj: HeapObject = { type: "object", properties: {} }
+                        const newNestedRef = allocateHeapObject(newNestedObj)
+                        currentHeapLevel.properties[segment] = { type: "reference", ref: newNestedRef }
+                        currentHeapLevel = newNestedObj
+                    } else {
+                        currentHeapLevel = heap[nextLevelVal.ref]
+                        if (!currentHeapLevel) {
+                            console.error(`ReferenceError: Broken reference in path for ${name}.${effectivePath} at ${segment}`)
+                            return -1
+                        }
+                    }
+                } else if (currentHeapLevel.type === 'array') {
+                    console.error(`TypeError: Cannot set property '${segment}' on array via dot-path. currentHeapLevel type is 'array'.`)
+                    return -1
+                } else {
+                    console.error(`TypeError: Cannot traverse path segment '${segment}' in '${name}.${effectivePath}'. Not an object.`)
+                    return -1
+                }
+            }
+
+            const finalSegment = pathSegments[pathSegments.length - 1]
+            if (currentHeapLevel.type === 'object') {
+                currentHeapLevel.properties[finalSegment] = value
+            } else if (currentHeapLevel.type === 'array') {
+                const index = Number(finalSegment)
+                if (Number.isInteger(index) && index >= 0) {
+                    while (currentHeapLevel.elements.length <= index) {
+                        currentHeapLevel.elements.push({ type: "primitive", value: undefined })
+                    }
+                    currentHeapLevel.elements[index] = value
+                } else {
+                    console.error(`TypeError: Final path segment '${finalSegment}' for array must be a numeric index.`)
+                    return -1
+                }
+            } else {
+                console.error(`TypeError: Final target for path '${name}.${effectivePath}' is not an object or array.`)
+                return -1
+            }
+            return baseVarScopeIndex
+        } else {
+            scopes[baseVarScopeIndex].variables[name] = value
+            return baseVarScopeIndex
+        }
     }
 
     const addMemVal = (value: JSValue) => {
@@ -745,32 +818,39 @@ export const simulateExecution = (astNode: ESNode | null): ExecStep[] => {
     const execAssignmentExpression = (astNode: ESNode, scopeIndex: number, withinTryBlock: boolean): ExecStep | undefined => {
         addEvaluatingStep(astNode, scopeIndex)
 
-        if (astNode.left?.type !== 'Identifier') {
-            console.error("Assignment target must be an Identifier", astNode.left)
-            // TODO: Handle MemberExpression assignments (obj.prop = ...)
-            const error = { type: "error", value: 'ReferenceError: Invalid left-hand side in assignment' } as const
-            return addErrorThrownStep(astNode, scopeIndex, error)
-        }
+        // if (astNode.left?.type !== 'Identifier') {
+        //     console.error("Assignment target must be an Identifier", astNode.left)
+        //     // TODO: Handle MemberExpression assignments (obj.prop = ...)
+        //     const error = { type: "error", value: 'ReferenceError: Invalid left-hand side in assignment' } as const
+        //     return addErrorThrownStep(astNode, scopeIndex, error)
+        // }
+        let leftStep = executionPhase(astNode.left, scopeIndex, withinTryBlock)
+        if (leftStep?.errorThrown) return leftStep
 
-        const leftStep = executionPhase(astNode.left, scopeIndex, withinTryBlock)
-        const rightStep = executionPhase(astNode.right, scopeIndex, withinTryBlock)
-        if (leftStep?.errorThrown || rightStep?.errorThrown) {
-            return leftStep || rightStep
+        let assignmentNodes = [astNode.left]
+        while (assignmentNodes[0].type !== "Identifier") {
+            assignmentNodes.unshift(assignmentNodes[0].object)
         }
+        const path = assignmentNodes.slice(1).map(node => node.name || node.property.name).join('.')
+
+        const rightStep = executionPhase(astNode.right, scopeIndex, withinTryBlock)
+        if (rightStep?.errorThrown) return rightStep
 
         if (leftStep?.evaluatedValue && rightStep?.evaluatedValue) {
             let targetScopeIndex = scopeIndex
             let evaluatedValue = rightStep.evaluatedValue
             if (leftStep.evaluatedValue.type === "reference") {
-                targetScopeIndex = writeVariable(leftStep.node.name, rightStep.evaluatedValue, scopeIndex)
+                targetScopeIndex = writeVariable(assignmentNodes[0].name, rightStep.evaluatedValue, scopeIndex, path)
             } else {
                 if (astNode.operator !== "=") {
                     const leftRaw = JSON.stringify(leftStep.evaluatedValue.value)
+                    console.log(leftRaw)
                     const rightRaw = JSON.stringify(rightStep.evaluatedValue.value)
                     const value = eval(`${leftRaw}${astNode.operator.replace("=", "")}${rightRaw}`)
+                    console.log(value)
                     evaluatedValue = { type: "primitive", value } as const
                 }
-                targetScopeIndex = writeVariable(leftStep.node.name, evaluatedValue, scopeIndex)
+                targetScopeIndex = writeVariable(assignmentNodes[0].name, evaluatedValue, scopeIndex, path)
             }
 
             removeMemVal(leftStep.evaluatedValue)
@@ -782,7 +862,7 @@ export const simulateExecution = (astNode: ESNode | null): ExecStep[] => {
                 memoryChange: {
                     type: "write_variable",
                     scopeIndex: targetScopeIndex,
-                    variableName: leftStep.node.name,
+                    variableName: assignmentNodes[0].name,
                     value: evaluatedValue,
                 },
                 executing: false,

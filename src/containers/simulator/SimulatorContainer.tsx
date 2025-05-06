@@ -278,8 +278,16 @@ class Student extends Person {
   }
 }`
 
-const SIMULATOR_CODE_SAMPLE = `const a = (name) => name + ' is a good person'
-a('Mak')`
+const SIMULATOR_CODE_SAMPLE = `const adam = {name: "Adam"}
+const eve = {name: "Eve"}
+const children = [
+    {name: "Cain", father: adam, mother: eve },
+    {name: "Seth", father: adam, mother: eve },
+    {name: "Abel", father: adam, mother: eve },
+]
+adam.children = children
+eve.children = children`
+
 const SimulatorContainer: React.FC = () => {
   const { mode, codeStr, updateCodeStr } = useSimulatorStore()
 
