@@ -66,6 +66,24 @@ const CodeEditor: React.FC = () => {
                 saveModelSnapshot()
             })
             disposablesRef.current.push(changeListener)
+
+            // Add select all action
+            editor.addAction({
+                id: 'selectAll',
+                label: 'Select All',
+                keybindings: [
+                    // @ts-expect-error monaco is a global variable
+                    monaco.KeyMod.CtrlCmd | monaco.KeyCode.KeyA,
+                ],
+                contextMenuGroupId: 'selection',
+                contextMenuOrder: 2,
+                run: (edt) => {
+                    const currentModel = edt.getModel()
+                    if (currentModel) {
+                        edt.setSelection(currentModel.getFullModelRange())
+                    }
+                },
+            })
         }
     }
 
