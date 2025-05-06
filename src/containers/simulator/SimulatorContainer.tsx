@@ -286,7 +286,13 @@ const children = [
     {name: "Abel", father: adam, mother: eve },
 ]
 adam.children = children
-eve.children = children`
+eve.children = children
+
+{
+    const ch1 = person.father.children
+    const ch2 = person.mother.children;
+    () => ch1 == ch2 ()
+}`
 
 const SimulatorContainer: React.FC = () => {
   const { mode, codeStr, updateCodeStr } = useSimulatorStore()

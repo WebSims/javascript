@@ -228,6 +228,11 @@ export const simulateExecution = (astNode: ESNode | null): ExecStep[] => {
         })
         scopes.splice(scopeIndex, 1)
 
+        const lastStep = steps[steps.length - 1]
+        if (lastStep?.errorThrown) {
+            return addErrorThrownStep(astNode, scopeIndex, lastStep.errorThrown)
+        }
+
         if (astNode.type === "ArrowFunctionExpression") {
             return addStep({
                 node: astNode,
@@ -545,7 +550,7 @@ export const simulateExecution = (astNode: ESNode | null): ExecStep[] => {
 
         for (const statement of statements) {
             if (statement.type === "BlockStatement") {
-                lastStep = traverseAST(statement, scopeIndex, false, withinTryBlock)
+                return traverseAST(statement, scopeIndex, false, withinTryBlock)
             }
 
             // Skip function declarations as they are already handled in the creation phase
@@ -559,7 +564,7 @@ export const simulateExecution = (astNode: ESNode | null): ExecStep[] => {
 
             if (lastStep?.errorThrown && !withinTryBlock) {
                 console.error(lastStep.errorThrown.value)
-                return lastStep
+                return addErrorThrownStep(statement, scopeIndex, lastStep.errorThrown)
             }
 
             if (lastStep?.node?.type !== statement.type) {
@@ -1085,9 +1090,6 @@ export const simulateExecution = (astNode: ESNode | null): ExecStep[] => {
         // Phase 2: Execution
         const lastStep = executionPhase(block, scopeIndex, withinTryBlock)
         // Phase 3: Destruction - except for global scope
-        if (lastStep?.errorThrown && !withinTryBlock) {
-            throw new Error(lastStep.errorThrown.value)
-        }
 
         if (scopeIndex !== 0) {
             destructionPhase(astNode, scopeIndex)

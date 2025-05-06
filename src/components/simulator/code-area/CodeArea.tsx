@@ -120,10 +120,11 @@ interface CodeAreaProps {
 
 const Statement = ({ st, parent, parens }) => {
     const stRef = useRef<HTMLDivElement | HTMLSpanElement>(null)
-    const { isExecuting: isExecutingParent, isExecuted: isExecutedParent } = useExecStep(parent, stRef)
-    const { isExecuting: isExecutingStatement, isExecuted: isExecutedStatement } = useExecStep(st, stRef)
+    const { isExecuting: isExecutingParent, isExecuted: isExecutedParent, isErrorThrown: isErrorThrownParent } = useExecStep(parent, stRef)
+    const { isExecuting: isExecutingStatement, isExecuted: isExecutedStatement, isErrorThrown: isErrorThrownStatement } = useExecStep(st, stRef)
     const isExecuting = isExecutingParent || isExecutingStatement
     const isExecuted = isExecutedParent || isExecutedStatement
+    const isErrorThrown = isErrorThrownParent || isErrorThrownStatement
 
     let component = <>UNKNWON STATEMENT</>;
     let cheatSheetId
@@ -194,7 +195,7 @@ const Statement = ({ st, parent, parens }) => {
     cheatSheetId = cheatSheetId || decoratorObject.cheatSheetId
     const className = (st.category || "statement.UNKNOWN").split('.').map((__, i, all) =>
         _.get(decorations, all.slice(0, i + 1).join('.')).classN || ''
-    ).join(' ') + (isExecuting ? ' executing' : '') + (isExecuted ? ' executed' : '')
+    ).join(' ') + (isExecuting ? ' executing' : '') + (isExecuted ? ' executed' : '') + (isErrorThrown ? ' error-thrown' : '')
 
     if (st.type === "BlockStatement") {
         return <span
