@@ -97,12 +97,11 @@ const e = (a + 1) * (b + 2) + (c - 3) / (d + 4)
 // outerFunction();
 // `
 
-const FIBONACCI_CODE_SAMPLE = `
-function f(n) {
-  return n + 1
+const FIBONACCI_CODE_SAMPLE = `function f(n) {
+  return n <= 1 ? n : f(n-1) + f(n-2)
 }
-let fib5 = f(5); // 0 + 1 + 1 + 2 + 3 = 5
-`
+let fib5 = f(5); // 0 + 1 + 1 + 2 + 3 = 5`
+
 const FUNCTION_CODE_SAMPLE = `function functionThatSucceeds() {
   let result = "Starting functionThatSucceeds"
   result = "functionThatSucceeds completed successfully"
