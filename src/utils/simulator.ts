@@ -74,7 +74,7 @@ export const simulateExecution = (astNode: ESNode | null): ExecStep[] => {
 
         const kind = PUSH_SCOPE_KIND[astNode.type as keyof typeof PUSH_SCOPE_KIND]
 
-        if (astNode.type !== "BlockStatement") {
+        if (astNode.type === "ArrowFunctionExpression") {
             return addStep({
                 node: astNode,
                 phase: "creation",
@@ -100,7 +100,7 @@ export const simulateExecution = (astNode: ESNode | null): ExecStep[] => {
         })
     }
     const addHoistingStep = (astNode: ESNode, scopeIndex: number, declarations: Declaration[]): ExecStep => {
-        if (astNode.type !== "BlockStatement") {
+        if (astNode.type === "ArrowFunctionExpression") {
             return addStep({
                 node: astNode,
                 phase: "creation",
@@ -228,7 +228,7 @@ export const simulateExecution = (astNode: ESNode | null): ExecStep[] => {
         })
         scopes.splice(scopeIndex, 1)
 
-        if (astNode.type !== "BlockStatement") {
+        if (astNode.type === "ArrowFunctionExpression") {
             return addStep({
                 node: astNode,
                 phase: "destruction",
