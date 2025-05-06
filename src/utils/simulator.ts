@@ -808,12 +808,12 @@ export const simulateExecution = (astNode: ESNode | null): ExecStep[] => {
             removeMemVal(propertyStep?.evaluatedValue)
             removeMemVal(objectStep?.evaluatedValue)
 
-            const evaluatedValue = object.properties[propertyStep.evaluatedValue?.value]
+            const evaluatedValue = object.properties[propertyStep.evaluatedValue?.value] || { type: 'primitive', value: undefined }
             addMemVal(evaluatedValue)
             return addEvaluatedStep(astNode, scopeIndex, evaluatedValue)
         } else {
             removeMemVal(objectStep?.evaluatedValue)
-            const evaluatedValue = object.properties[astNode.property.name]
+            const evaluatedValue = object.properties[astNode.property.name] || { type: 'primitive', value: undefined }
             addMemVal(evaluatedValue)
             return addEvaluatedStep(astNode, scopeIndex, evaluatedValue)
         }
