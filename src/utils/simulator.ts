@@ -713,6 +713,41 @@ export const simulateExecution = (astNode: ESNode | null): ExecStep[] => {
         }
     }
 
+    const execConditionalExpression = (astNode: ESNode, scopeIndex: number, withinTryBlock: boolean): ExecStep | undefined => {
+        addEvaluatingStep(astNode, scopeIndex)
+        let evalValue: JSValue | undefined
+
+        console.log(11111)
+        const testStep = executionPhase(astNode.test, scopeIndex, withinTryBlock)
+        if (testStep?.errorThrown) {
+            return testStep
+        }
+
+        const testEvalValue = testStep?.evaluatedValue
+        const isTestTruthy = testEvalValue?.value === true
+        if (testEvalValue) {
+            removeMemVal(testEvalValue)
+            if (isTestTruthy) {
+                const consequentStep = executionPhase(astNode.consequent, scopeIndex, withinTryBlock)
+                if (consequentStep?.errorThrown) return consequentStep
+
+                if (consequentStep?.evaluatedValue) {
+                    evalValue = consequentStep.evaluatedValue
+                }
+            } else {
+                const alternateStep = executionPhase(astNode.alternate, scopeIndex, withinTryBlock)
+                console.log(alternateStep)
+                if (alternateStep?.errorThrown) return alternateStep
+
+                if (alternateStep?.evaluatedValue) {
+                    evalValue = alternateStep.evaluatedValue
+                }
+            }
+        }
+
+        return addEvaluatedStep(astNode, scopeIndex, evalValue)
+    }
+
     const executionPhase = (node: ESNode | null, currentScopeIndex: number, withinTryBlock: boolean): ExecStep | undefined => {
         if (!node) return
         console.log("Executing node:", node.type, "in scope:", currentScopeIndex, "withinTry:", withinTryBlock)
@@ -731,6 +766,7 @@ export const simulateExecution = (astNode: ESNode | null): ExecStep[] => {
             case "ThrowStatement": return execThrowStatement(node, currentScopeIndex, withinTryBlock)
             case "TryStatement": return execTryStatement(node, currentScopeIndex, withinTryBlock)
             case "AssignmentExpression": return execAssignmentExpression(node, currentScopeIndex, withinTryBlock)
+            case "ConditionalExpression": return execConditionalExpression(node, currentScopeIndex, withinTryBlock)
 
             case "MemberExpression":
                 {
@@ -1026,80 +1062,6 @@ export const simulateExecution = (astNode: ESNode | null): ExecStep[] => {
                         evaluatedValue: resultValue, // The reference to the new function
                     });
 
-                    return resultValue;
-                }
-            // No break needed after return
-
-            case "ConditionalExpression":
-                {
-                    const condNode = node as any; // Cast to access test, consequent, alternate
-                    let resultValue: JSValue = { type: "primitive", value: undefined };
-                    let errorMsg: string | undefined = undefined;
-
-                    // 1. Evaluate the test condition
-                    const testStep = executionPhase(condNode.test, currentScopeIndex, withinTryBlock); // Pass withinTryBlock
-                    const testValue = testStep?.evaluatedValue; // Get evaluated value
-                    let isTestTruthy = false // Initialize isTestTruthy here
-
-                    // Handle case where test evaluation itself throws (if withinTryBlock)
-                    if (testStep?.errorThrown) {
-                        // If the error occurred within a try block, it should be handled there.
-                        // If not, the simulation would have halted.
-                        // Here, we treat the condition as falsey due to error.
-                        console.warn("Conditional test evaluation resulted in an error.")
-                        // We could potentially return the error step directly: return testStep;
-                        // For simplicity now, treat as falsey.
-                        isTestTruthy = false;
-                        // If we want to propagate the error step:
-                        // return testStep;
-                    } else if (testValue) {
-                        if (testValue.type === 'primitive') {
-                            // Standard JS truthiness check
-                            isTestTruthy = Boolean(testValue.value);
-                        } else if (testValue.type === 'reference') {
-                            // Objects/Arrays/Functions are always truthy
-                            isTestTruthy = true;
-                        }
-                    }
-                    // If testValue is undefined (e.g. primitive undefined, or step had no value), it remains falsey
-
-                    // 3. Evaluate the appropriate branch
-                    let resultStep: ExecStep | undefined;
-                    try { // Keep this inner try-catch for errors *within* the branch evaluation
-                        if (isTestTruthy) {
-                            resultStep = executionPhase(condNode.consequent, currentScopeIndex, withinTryBlock); // Pass withinTryBlock
-                        } else {
-                            resultStep = executionPhase(condNode.alternate, currentScopeIndex, withinTryBlock); // Pass withinTryBlock
-                        }
-                        resultValue = resultStep?.evaluatedValue ?? { type: "primitive", value: undefined }
-                        // Handle error propagation from the branch execution
-                        if (resultStep?.errorThrown) {
-                            // If the chosen branch threw an error (and withinTryBlock was true),
-                            // set the error message and potentially return the error step
-                            errorMsg = `Error during conditional branch execution: ${JSON.stringify(resultStep.errorThrown)}`
-                            // If we want the conditional expression itself to yield the error step:
-                            // return resultStep;
-                            // Otherwise, record errorMsg and let the addStep below handle it.
-                            resultValue = { type: "primitive", value: undefined } // Result is undefined due to error
-                        }
-                    } catch (e) {
-                        // This catch block handles errors thrown *outside* a try block
-                        // by the executionPhase calls above, or other synchronous errors.
-                        errorMsg = `Error during conditional expression execution: ${e instanceof Error ? e.message : String(e)}`;
-                        console.error(errorMsg);
-                        resultValue = { type: "primitive", value: undefined }; // Indicate error
-                    }
-
-                    // 4. Add step for the overall conditional expression result
-                    addStep({
-                        node: node,
-                        pass: "normal",
-                        scopeIndex: currentScopeIndex,
-                        memoryChange: { type: "none" },
-                        // The evaluated value is the result of the chosen branch
-                        evaluatedValue: errorMsg ? undefined : resultValue,
-                        error: errorMsg
-                    })
                     return resultValue;
                 }
             // No break needed after return
