@@ -768,6 +768,57 @@ export const simulateExecution = (astNode: ESNode | null): ExecStep[] => {
         return addEvaluatedStep(astNode, scopeIndex, { type: "reference", ref })
     }
 
+    const execObjectExpression = (astNode: ESNode, scopeIndex: number, withinTryBlock: boolean): ExecStep | undefined => {
+        addEvaluatingStep(astNode, scopeIndex)
+
+        const properties: Record<string, JSValue> = {}
+        for (const property of astNode.properties) {
+            const propertyStep = executionPhase(property.value, scopeIndex, withinTryBlock)
+            if (propertyStep?.errorThrown) return propertyStep
+            if (propertyStep?.evaluatedValue) properties[property.key.name] = propertyStep.evaluatedValue
+        }
+
+        for (const property of Object.values(properties)) {
+            removeMemVal(property)
+        }
+
+        const objectObject: HeapObject = { type: "object", properties }
+        const ref = allocateHeapObject(objectObject)
+        addMemVal({ type: "reference", ref })
+        return addEvaluatedStep(astNode, scopeIndex, { type: "reference", ref })
+    }
+
+    const execMemberExpression = (astNode: ESNode, scopeIndex: number, withinTryBlock: boolean): ExecStep | undefined => {
+        addEvaluatingStep(astNode, scopeIndex)
+
+        const objectStep = executionPhase(astNode.object, scopeIndex, withinTryBlock)
+
+        if (objectStep?.errorThrown) return objectStep
+
+        const object = heap[objectStep.evaluatedValue?.ref]
+        if (!object) {
+            const error = { type: "error", value: 'ReferenceError: ' + objectStep?.node.name + ' is not defined' } as const
+            return addErrorThrownStep(astNode, scopeIndex, error)
+        }
+
+        if (astNode.computed) {
+            const propertyStep = executionPhase(astNode.property, scopeIndex, withinTryBlock)
+            if (propertyStep?.errorThrown) return propertyStep
+
+            removeMemVal(propertyStep?.evaluatedValue)
+            removeMemVal(objectStep?.evaluatedValue)
+
+            const evaluatedValue = object.properties[propertyStep.evaluatedValue?.value]
+            addMemVal(evaluatedValue)
+            return addEvaluatedStep(astNode, scopeIndex, evaluatedValue)
+        } else {
+            removeMemVal(objectStep?.evaluatedValue)
+            const evaluatedValue = object.properties[astNode.property.name]
+            addMemVal(evaluatedValue)
+            return addEvaluatedStep(astNode, scopeIndex, evaluatedValue)
+        }
+    }
+
     const executionPhase = (node: ESNode | null, currentScopeIndex: number, withinTryBlock: boolean): ExecStep | undefined => {
         if (!node) return
         console.log("Executing node:", node.type, "in scope:", currentScopeIndex, "withinTry:", withinTryBlock)
@@ -788,204 +839,8 @@ export const simulateExecution = (astNode: ESNode | null): ExecStep[] => {
             case "AssignmentExpression": return execAssignmentExpression(node, currentScopeIndex, withinTryBlock)
             case "ConditionalExpression": return execConditionalExpression(node, currentScopeIndex, withinTryBlock)
             case "ArrayExpression": return execArrayExpression(node, currentScopeIndex, withinTryBlock)
-            case "MemberExpression":
-                {
-                    const memberNode = node as any; // Keep cast
-                    const objectValue = executionPhase(memberNode.object, currentScopeIndex, withinTryBlock); // Pass withinTryBlock
-                    // Allow null and boolean as potential primitive property keys
-                    let propertyKey: string | number | boolean | null | undefined | symbol | bigint = undefined;
-                    let propertyKeyValue: JSValue | undefined = undefined;
-                    let errorMsg: string | undefined = undefined;
-                    let resultValue: JSValue = { type: "primitive", value: undefined };
-
-                    // 1. Determine the property key
-                    if (memberNode.computed) {
-                        const propertyStep = executionPhase(memberNode.property, currentScopeIndex, withinTryBlock); // Pass withinTryBlock
-                        propertyKeyValue = propertyStep?.evaluatedValue; // Get the evaluated value
-                        if (propertyKeyValue?.type === 'primitive') { // Check type on the evaluated value
-                            propertyKey = propertyKeyValue.value; // Assign the primitive value directly
-                        } else {
-                            errorMsg = "TypeError: Computed property key must be primitive";
-                            console.error(errorMsg);
-                            propertyKey = undefined; // Error state
-                        }
-                    } else {
-                        // Non-computed: property should be an Identifier (or PrivateIdentifier)
-                        if (memberNode.property?.type === 'Identifier') {
-                            propertyKey = (memberNode.property as Identifier).name;
-                        } else if (memberNode.property?.type === 'PrivateIdentifier') {
-                            // Basic simulation might not handle private fields correctly
-                            errorMsg = "SyntaxError: Private fields not fully supported in simulation";
-                            console.warn(errorMsg);
-                            propertyKey = `#${(memberNode.property as any).name}` // Represent symbolically
-                        }
-                        else {
-                            errorMsg = "TypeError: Invalid property identifier";
-                            console.error(errorMsg);
-                        }
-                    }
-
-                    // 2. Perform Property Lookup (only if no error determining key)
-                    if (!errorMsg && propertyKey !== undefined) {
-                        if (objectValue.type === 'reference') {
-                            const heapObject = heap[objectValue.ref];
-                            if (heapObject) {
-                                if (heapObject.type === 'object') {
-                                    // Check own properties first
-                                    if (Object.prototype.hasOwnProperty.call(heapObject.properties, String(propertyKey))) {
-                                        resultValue = heapObject.properties[String(propertyKey)];
-                                    } else {
-                                        // TODO: Implement prototype chain lookup
-                                        console.warn("Prototype chain lookup not implemented");
-                                        resultValue = { type: "primitive", value: undefined };
-                                    }
-                                } else if (heapObject.type === 'array') {
-                                    const index = Number(propertyKey); // Attempt conversion
-                                    if (Number.isInteger(index) && index >= 0 && index < heapObject.elements.length) {
-                                        resultValue = heapObject.elements[index];
-                                    } else if (propertyKey === 'length') {
-                                        // Handle array.length property
-                                        resultValue = { type: "primitive", value: heapObject.elements.length };
-                                    } else {
-                                        // TODO: Handle array prototype methods/properties
-                                        console.warn(`Array property/method '${String(propertyKey)}' access not fully implemented`);
-                                        resultValue = { type: "primitive", value: undefined };
-                                    }
-                                } else if (heapObject.type === 'function') {
-                                    // TODO: Handle function properties (length, name, prototype, etc.)
-                                    console.warn(`Function property '${String(propertyKey)}' access not implemented`);
-                                    resultValue = { type: "primitive", value: undefined };
-                                }
-                                // else: Other heap types?
-                            } else {
-                                // Reference points to non-existent heap object (shouldn't usually happen)
-                                errorMsg = `Internal Error: Reference ${objectValue.ref} not found in heap`;
-                                console.error(errorMsg);
-                                resultValue = { type: "primitive", value: undefined };
-                            }
-                        } else if (objectValue.type === 'primitive' && objectValue.value !== null && objectValue.value !== undefined) {
-                            // Property access on primitives (boxing)
-                            // TODO: Implement primitive wrapper object behavior (e.g., "hello".length)
-                            console.warn(`Property access on primitive type '${typeof objectValue.value}' not fully implemented`);
-                            resultValue = { type: "primitive", value: undefined };
-                        }
-                        else {
-                            // Accessing property on null or undefined
-                            errorMsg = `TypeError: Cannot read properties of ${objectValue.value === null ? 'null' : 'undefined'} (reading '${String(propertyKey)}')`;
-                            console.error(errorMsg);
-                            resultValue = { type: "primitive", value: undefined }; // Error state
-                            // If error occurs during property access and not within try, throw real error
-                            if (!withinTryBlock) {
-                                throw new Error(errorMsg)
-                            }
-                        }
-                    }
-                    // If error occurred determining key, result remains undefined
-                    else if (!errorMsg) { // Handle case where propertyKey is undefined but no errorMsg yet
-                        errorMsg = "Internal Error: Could not determine property key";
-                        console.error(errorMsg);
-                    }
-
-                    addStep({
-                        node: node,
-                        pass: "normal",
-                        scopeIndex: currentScopeIndex,
-                        memoryChange: { type: "none" }, // Assuming no getters for now
-                        evaluatedValue: errorMsg ? undefined : resultValue,
-                        error: errorMsg
-                    })
-                    return resultValue; // Return found value or undefined
-                }
-            // break; // Not needed after return
-
-            case "ObjectExpression":
-                {
-                    const objectNode = node as ObjectExpression;
-                    const properties: Record<string, JSValue> = {};
-                    let errorMsg: string | undefined = undefined;
-
-                    if (Array.isArray(objectNode.properties)) {
-                        for (const propNodeUntyped of objectNode.properties) {
-                            const propNode = propNodeUntyped as ESNode;
-                            if (propNode.type === 'Property') {
-                                const property = propNode as Property;
-                                let key: string | undefined = undefined;
-
-                                if (!property.computed) {
-                                    if (property.key.type === 'Identifier') {
-                                        key = (property.key as Identifier).name;
-                                    } else if (property.key.type === 'Literal') {
-                                        key = String((property.key as Literal).value);
-                                    } else {
-                                        errorMsg = `Unsupported property key type: ${property.key.type}`;
-                                        break;
-                                    }
-                                } else {
-                                    errorMsg = "Computed property keys not implemented";
-                                    break;
-                                }
-
-                                if (property.kind === 'init') {
-                                    let value: JSValue;
-                                    if (property.shorthand) {
-                                        if (key) {
-                                            const lookup = lookupVariable(key, currentScopeIndex);
-                                            if (lookup !== -1) {
-                                                value = lookup.value;
-                                            } else {
-                                                errorMsg = `ReferenceError: ${key} is not defined (shorthand property)`;
-                                                break;
-                                            }
-                                        } else { continue; }
-                                    } else {
-                                        value = executionPhase(property.value, currentScopeIndex, withinTryBlock);
-                                    }
-                                    if (key !== undefined) {
-                                        properties[key] = value;
-                                    }
-                                } else {
-                                    errorMsg = `Property kind ${property.kind} not implemented`;
-                                    break;
-                                }
-                            } else if (propNode.type === 'SpreadElement') {
-                                errorMsg = "Spread elements in objects not implemented";
-                                break;
-                            } else {
-                                errorMsg = `Unknown property type in ObjectExpression: ${propNode.type}`;
-                                break;
-                            }
-                        }
-                    }
-
-                    let resultValue: JSValue = { type: "primitive", value: undefined };
-                    if (!errorMsg) {
-                        const objectHeapObject: HeapObject = { type: "object", properties };
-                        const ref = allocateHeapObject(objectHeapObject);
-                        resultValue = { type: "reference", ref };
-
-                        addStep({
-                            node: node,
-                            pass: "normal",
-                            scopeIndex: currentScopeIndex,
-                            memoryChange: {
-                                type: "create_heap_object",
-                                ref: ref,
-                                value: objectHeapObject,
-                            },
-                            evaluatedValue: resultValue,
-                        });
-                    } else {
-                        addStep({
-                            node: node,
-                            pass: "normal",
-                            scopeIndex: currentScopeIndex,
-                            memoryChange: { type: "none" },
-                            evaluatedValue: undefined,
-                            error: errorMsg
-                        })
-                    }
-                    return resultValue;
-                }
+            case "ObjectExpression": return execObjectExpression(node, currentScopeIndex, withinTryBlock)
+            case "MemberExpression": return execMemberExpression(node, currentScopeIndex, withinTryBlock)
 
             case "ArrowFunctionExpression":
                 {
