@@ -823,7 +823,7 @@ export const simulateExecution = (astNode: ESNode | null): ExecStep[] => {
             return addErrorThrownStep(astNode, scopeIndex, error)
         }
 
-        let evaluatedValue = { type: "primitive", value: undefined }
+        let evaluatedValue: JSValue | undefined
         if (astNode.computed) {
             const propertyStep = executionPhase(astNode.property, scopeIndex, withinTryBlock)
             if (propertyStep?.errorThrown) return propertyStep
@@ -848,6 +848,10 @@ export const simulateExecution = (astNode: ESNode | null): ExecStep[] => {
                 const error = { type: "error", value: 'ReferenceError: ' + objectStep?.node.name + ' is not an object' } as const
                 return addErrorThrownStep(astNode, scopeIndex, error)
             }
+        }
+
+        if (evaluatedValue === undefined) {
+            evaluatedValue = { type: "primitive", value: undefined }
         }
 
         addMemVal(evaluatedValue)
