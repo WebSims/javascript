@@ -801,22 +801,35 @@ export const simulateExecution = (astNode: ESNode | null): ExecStep[] => {
             return addErrorThrownStep(astNode, scopeIndex, error)
         }
 
+        let evaluatedValue = { type: "primitive", value: undefined }
         if (astNode.computed) {
             const propertyStep = executionPhase(astNode.property, scopeIndex, withinTryBlock)
             if (propertyStep?.errorThrown) return propertyStep
-
             removeMemVal(propertyStep?.evaluatedValue)
             removeMemVal(objectStep?.evaluatedValue)
 
-            const evaluatedValue = object.properties[propertyStep.evaluatedValue?.value] || { type: 'primitive', value: undefined }
-            addMemVal(evaluatedValue)
-            return addEvaluatedStep(astNode, scopeIndex, evaluatedValue)
+            if (object.type === "object") {
+                evaluatedValue = object.properties[propertyStep.evaluatedValue?.value]
+            } else if (object.type === "array") {
+                evaluatedValue = object.elements[propertyStep.evaluatedValue?.value]
+            } else {
+                const error = { type: "error", value: 'ReferenceError: ' + objectStep?.node.name + ' is not an object or array' } as const
+                return addErrorThrownStep(astNode, scopeIndex, error)
+            }
         } else {
-            removeMemVal(objectStep?.evaluatedValue)
-            const evaluatedValue = object.properties[astNode.property.name] || { type: 'primitive', value: undefined }
-            addMemVal(evaluatedValue)
-            return addEvaluatedStep(astNode, scopeIndex, evaluatedValue)
+            if (object.type === "object") {
+                removeMemVal(objectStep?.evaluatedValue)
+                evaluatedValue = object.properties[astNode.property.name]
+            } else if (object.type === "array") {
+                evaluatedValue = object.elements[astNode.property.name]
+            } else {
+                const error = { type: "error", value: 'ReferenceError: ' + objectStep?.node.name + ' is not an object' } as const
+                return addErrorThrownStep(astNode, scopeIndex, error)
+            }
         }
+
+        addMemVal(evaluatedValue)
+        return addEvaluatedStep(astNode, scopeIndex, evaluatedValue)
     }
 
     const executionPhase = (node: ESNode | null, currentScopeIndex: number, withinTryBlock: boolean): ExecStep | undefined => {
