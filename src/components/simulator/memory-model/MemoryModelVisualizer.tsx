@@ -1040,7 +1040,7 @@ const MemoryModelVisualizer = () => {
         <div className="relative h-full">
             <svg ref={svgRef} className="w-full h-full"></svg>
             <div className="absolute bottom-0 left-0 font-mono text-gray-600">
-                MEMVAL: {JSON.stringify(currentExecStep?.memorySnapshot?.memVal.map(val => val.type === "reference" ? `ref: ${val.ref}` : val.value === undefined ? 'undefiend' : val.value))}
+                MEMVAL: {JSON.stringify(currentExecStep?.memorySnapshot?.memVal.map(val => val.type === "reference" ? `ref: ${val.ref}` : String(val.value)))}
             </div>
         </div>
     )
