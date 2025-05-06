@@ -200,6 +200,7 @@ const resultErrorNestedCaughtMiddle = outerLayerExecution(functionThatThrows)
 // }
 // outerFunction();
 // `
+
 const CLASS_CODE_SAMPLE = `
 class Person {
   // Field declarations
@@ -277,11 +278,13 @@ class Student extends Person {
   }
 }`
 
+const SIMULATOR_CODE_SAMPLE = `const a = (name) => name + ' is a good person'
+a('Mak')`
 const SimulatorContainer: React.FC = () => {
   const { mode, codeStr, updateCodeStr } = useSimulatorStore()
 
   useEffect(() => {
-    updateCodeStr(codeStr || FIBONACCI_CODE_SAMPLE)
+    updateCodeStr(codeStr || SIMULATOR_CODE_SAMPLE)
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [mode])
 

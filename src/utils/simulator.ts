@@ -292,7 +292,6 @@ export const simulateExecution = (astNode: ESNode | null): ExecStep[] => {
 
     const writeVariable = (name: string, value: JSValue, scopeIndex: number): number => {
         const lookup = lookupVariable(name, scopeIndex)
-        console.log(lookup)
         if (lookup !== -1) {
             scopes[lookup.scopeIndex].variables[name] = value
             return lookup.scopeIndex
@@ -597,7 +596,6 @@ export const simulateExecution = (astNode: ESNode | null): ExecStep[] => {
         }
 
         if (object?.type === "function") {
-            console.log(object)
             for (const arg of astNode.arguments) {
                 const argStep = executionPhase(arg, scopeIndex, withinTryBlock)
                 if (argStep?.evaluatedValue) {
@@ -787,7 +785,6 @@ export const simulateExecution = (astNode: ESNode | null): ExecStep[] => {
         addEvaluatingStep(astNode, scopeIndex)
         let evalValue: JSValue | undefined
 
-        console.log(11111)
         const testStep = executionPhase(astNode.test, scopeIndex, withinTryBlock)
         if (testStep?.errorThrown) {
             return testStep
@@ -806,7 +803,6 @@ export const simulateExecution = (astNode: ESNode | null): ExecStep[] => {
                 }
             } else {
                 const alternateStep = executionPhase(astNode.alternate, scopeIndex, withinTryBlock)
-                console.log(alternateStep)
                 if (alternateStep?.errorThrown) return alternateStep
 
                 if (alternateStep?.evaluatedValue) {
