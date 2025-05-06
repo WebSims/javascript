@@ -544,6 +544,10 @@ export const simulateExecution = (astNode: ESNode | null): ExecStep[] => {
         }
 
         for (const statement of statements) {
+            if (statement.type === "BlockStatement") {
+                lastStep = traverseAST(statement, scopeIndex, false, withinTryBlock)
+            }
+
             // Skip function declarations as they are already handled in the creation phase
             if (statement.type === "FunctionDeclaration" || statement.type === "ArrowFunctionExpression") {
                 continue
