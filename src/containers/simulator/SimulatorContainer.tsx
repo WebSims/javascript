@@ -278,10 +278,10 @@ class Student extends Person {
 }`
 
 const SimulatorContainer: React.FC = () => {
-  const { mode, updateCodeStr } = useSimulatorStore()
+  const { mode, codeStr, updateCodeStr } = useSimulatorStore()
 
   useEffect(() => {
-    updateCodeStr(FUNCTION_CODE_SAMPLE)
+    updateCodeStr(codeStr || FIBONACCI_CODE_SAMPLE)
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [mode])
 
