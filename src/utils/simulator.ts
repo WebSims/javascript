@@ -753,9 +753,14 @@ export const simulateExecution = (astNode: ESNode | null): ExecStep[] => {
 
         const elements: JSValue[] = []
         for (const element of astNode.elements) {
-            const elementStep = executionPhase(element, scopeIndex, withinTryBlock)
-            if (elementStep?.errorThrown) return elementStep
-            if (elementStep?.evaluatedValue) elements.push(elementStep.evaluatedValue)
+            console.log(element)
+            if (element) {
+                const elementStep = executionPhase(element, scopeIndex, withinTryBlock)
+                if (elementStep?.errorThrown) return elementStep
+                if (elementStep?.evaluatedValue) elements.push(elementStep.evaluatedValue)
+            } else {
+                elements.push({ type: "primitive", value: undefined })
+            }
         }
 
         for (const element of elements) {
