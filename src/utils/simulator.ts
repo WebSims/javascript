@@ -748,6 +748,26 @@ export const simulateExecution = (astNode: ESNode | null): ExecStep[] => {
         return addEvaluatedStep(astNode, scopeIndex, evalValue)
     }
 
+    const execArrayExpression = (astNode: ESNode, scopeIndex: number, withinTryBlock: boolean): ExecStep | undefined => {
+        addEvaluatingStep(astNode, scopeIndex)
+
+        const elements: JSValue[] = []
+        for (const element of astNode.elements) {
+            const elementStep = executionPhase(element, scopeIndex, withinTryBlock)
+            if (elementStep?.errorThrown) return elementStep
+            if (elementStep?.evaluatedValue) elements.push(elementStep.evaluatedValue)
+        }
+
+        for (const element of elements) {
+            removeMemVal(element)
+        }
+
+        const arrayObject: HeapObject = { type: "array", elements }
+        const ref = allocateHeapObject(arrayObject)
+        addMemVal({ type: "reference", ref })
+        return addEvaluatedStep(astNode, scopeIndex, { type: "reference", ref })
+    }
+
     const executionPhase = (node: ESNode | null, currentScopeIndex: number, withinTryBlock: boolean): ExecStep | undefined => {
         if (!node) return
         console.log("Executing node:", node.type, "in scope:", currentScopeIndex, "withinTry:", withinTryBlock)
@@ -767,7 +787,7 @@ export const simulateExecution = (astNode: ESNode | null): ExecStep[] => {
             case "TryStatement": return execTryStatement(node, currentScopeIndex, withinTryBlock)
             case "AssignmentExpression": return execAssignmentExpression(node, currentScopeIndex, withinTryBlock)
             case "ConditionalExpression": return execConditionalExpression(node, currentScopeIndex, withinTryBlock)
-
+            case "ArrayExpression": return execArrayExpression(node, currentScopeIndex, withinTryBlock)
             case "MemberExpression":
                 {
                     const memberNode = node as any; // Keep cast
@@ -877,73 +897,6 @@ export const simulateExecution = (astNode: ESNode | null): ExecStep[] => {
                     return resultValue; // Return found value or undefined
                 }
             // break; // Not needed after return
-
-            case "ArrayExpression":
-                {
-                    const arrayNode = node as ArrayExpression;
-                    const elements: JSValue[] = [];
-                    let errorMsg: string | undefined = undefined;
-
-                    if (Array.isArray(arrayNode.elements)) {
-                        for (const elementNode of arrayNode.elements) {
-                            if (elementNode === null) {
-                                // Handle sparse arrays (empty slot)
-                                elements.push({ type: "primitive", value: undefined });
-                            } else if ((elementNode as ESNode).type === 'SpreadElement') {
-                                errorMsg = "Spread elements in arrays not implemented";
-                                console.warn(errorMsg);
-                                // If error occurs and not within try, throw real error
-                                if (!withinTryBlock) throw new Error(errorMsg)
-                                break;
-                            } else {
-                                const elementStep = executionPhase(elementNode, currentScopeIndex, withinTryBlock) // Pass withinTryBlock
-                                // Check if executionPhase returned a step and has an evaluated value
-                                if (elementStep?.evaluatedValue) {
-                                    elements.push(elementStep.evaluatedValue)
-                                } else if (elementStep?.errorThrown) {
-                                    // If the element evaluation threw an error *within a try block*
-                                    // we might record it or handle differently, for now, treat as undefined
-                                    // If it threw outside a try, the simulation would have halted earlier
-                                    console.warn("Element evaluation resulted in an error step, pushing undefined for now.")
-                                    elements.push({ type: "primitive", value: undefined })
-                                } else {
-                                    // Handle cases where executionPhase returns undefined without error (should be rare)
-                                    console.warn("Element evaluation did not return a value or error step, pushing undefined.")
-                                    elements.push({ type: "primitive", value: undefined })
-                                }
-                            }
-                        }
-                    }
-
-                    let resultValue: JSValue = { type: "primitive", value: undefined };
-                    if (!errorMsg) {
-                        const arrayObject: HeapObject = { type: "array", elements };
-                        const ref = allocateHeapObject(arrayObject);
-                        resultValue = { type: "reference", ref };
-
-                        addStep({
-                            node: node,
-                            pass: "normal",
-                            scopeIndex: currentScopeIndex,
-                            memoryChange: {
-                                type: "create_heap_object",
-                                ref: ref,
-                                value: arrayObject,
-                            },
-                            evaluatedValue: resultValue,
-                        });
-                    } else {
-                        addStep({
-                            node: node,
-                            pass: "normal",
-                            scopeIndex: currentScopeIndex,
-                            memoryChange: { type: "none" },
-                            evaluatedValue: undefined,
-                            error: errorMsg
-                        })
-                    }
-                    return resultValue;
-                }
 
             case "ObjectExpression":
                 {
