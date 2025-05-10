@@ -298,28 +298,28 @@ const SimulatorContainer: React.FC = () => {
   const { mode, codeStr, updateCodeStr } = useSimulatorStore()
 
   useEffect(() => {
-    updateCodeStr(codeStr || `
-      try {
-        throw 1
-      } catch (error) {
-         error
-      }
-      function b() {
-        throw 1
-        return 2
-      }
-      function a() {
-        b()
-        const gg = 2
-        return gg
-      }
-      try{
-        a()
-      } catch (error) {
-        throw error
-      }
-      let c = 1
-      `)
+    updateCodeStr(codeStr || `try {
+  throw 1
+} catch (error) {
+  error
+}
+function b() {
+  throw 1
+  return 2
+}
+function a() {
+  b()
+  const gg = 2
+  return gg
+}
+{
+  try {
+    a()
+  } catch (error) {
+    throw error
+  }
+}
+let c = 1`)
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [mode])
 
