@@ -189,7 +189,7 @@ export const simulateExecution = (astNode: ESNode | null): ExecStep[] => {
             errorThrown: error,
         })
     }
-    const addPopScopeStep = (astNode: ESNode, scopeIndex: number, errorThrown: Error | undefined): ExecStep => {
+    const addPopScopeStep = (astNode: ESNode, scopeIndex: number, evaluatedValue: JSValue | undefined, errorThrown: JSValue | undefined): ExecStep => {
         const closingScope = scopes[scopeIndex]
         const heapItemsToPotentiallyDelete = Object.values(closingScope.variables)
             .filter((item): item is Extract<JSValue, { type: 'reference' }> => item.type === 'reference')
@@ -234,11 +234,11 @@ export const simulateExecution = (astNode: ESNode | null): ExecStep[] => {
                 phase: "destruction",
                 scopeIndex: scopeIndex,
                 memoryChange: { type: "pop_scope", scopeIndex },
-                evaluatedValue: undefined,
                 executing: false,
                 executed: false,
                 evaluating: false,
                 evaluated: true,
+                evaluatedValue,
                 errorThrown,
             })
         }
@@ -249,11 +249,11 @@ export const simulateExecution = (astNode: ESNode | null): ExecStep[] => {
             phase: "destruction",
             scopeIndex: scopeIndex,
             memoryChange: { type: "pop_scope", scopeIndex },
-            evaluatedValue: undefined,
             executing: false,
             executed: true,
             evaluating: false,
             evaluated: false,
+            evaluatedValue,
             errorThrown,
         })
     }
@@ -562,11 +562,10 @@ export const simulateExecution = (astNode: ESNode | null): ExecStep[] => {
 
             if (lastStep?.errorThrown) {
                 console.error(lastStep.errorThrown.value)
-                if (!withinTryBlock) {
-                    return lastStep
-                } else {
+                if (lastStep?.node?.type !== statement.type) {
                     return addErrorThrownStep(statement, scopeIndex, lastStep.errorThrown)
                 }
+                return lastStep
             }
 
             if (lastStep?.node?.type !== statement.type) {
@@ -1050,8 +1049,8 @@ export const simulateExecution = (astNode: ESNode | null): ExecStep[] => {
         }
     }
 
-    const destructionPhase = (astNode: ESNode, scopeIndex: number, errorThrown: Error | undefined) => {
-        addPopScopeStep(astNode, scopeIndex, errorThrown)
+    const destructionPhase = (astNode: ESNode, scopeIndex: number, lastStep: ExecStep | undefined) => {
+        addPopScopeStep(astNode, scopeIndex, lastStep?.evaluatedValue, lastStep?.errorThrown)
         console.log("Destruction Phase:", scopeIndex)
     }
 
@@ -1096,7 +1095,7 @@ export const simulateExecution = (astNode: ESNode | null): ExecStep[] => {
         // }
 
         if (scopeIndex !== 0) {
-            destructionPhase(astNode, scopeIndex, lastStep?.errorThrown)
+            destructionPhase(astNode, scopeIndex, lastStep)
             lastScopeIndex--
         }
 

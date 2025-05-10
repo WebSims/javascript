@@ -299,15 +299,26 @@ const SimulatorContainer: React.FC = () => {
 
   useEffect(() => {
     updateCodeStr(codeStr || `
-      function a() {
+      try {
         throw 1
+      } catch (error) {
+         error
+      }
+      function b() {
+        throw 1
+        return 2
+      }
+      function a() {
+        b()
+        const gg = 2
+        return gg
       }
       try{
         a()
       } catch (error) {
         throw error
       }
-      let b = 1
+      let c = 1
       `)
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [mode])
