@@ -308,7 +308,7 @@ function b() {
   return 2
 }
 function a() {
-  b()
+  b() + 1
   const gg = 2
   return gg
 }

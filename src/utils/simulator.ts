@@ -562,9 +562,6 @@ export const simulateExecution = (astNode: ESNode | null): ExecStep[] => {
 
             if (lastStep?.errorThrown) {
                 console.error(lastStep.errorThrown.value)
-                if (lastStep?.node?.type !== statement.type) {
-                    return addErrorThrownStep(statement, scopeIndex, lastStep.errorThrown)
-                }
                 return lastStep
             }
 
@@ -676,6 +673,7 @@ export const simulateExecution = (astNode: ESNode | null): ExecStep[] => {
         const object = heap[lastStep.evaluatedValue?.ref]
         if (!object) {
             const error = { type: "error", value: 'ReferenceError: ' + lastStep?.node.name + ' is not defined' } as const
+            addMemVal(error)
             return addErrorThrownStep(astNode, scopeIndex, error)
         }
 
@@ -718,12 +716,12 @@ export const simulateExecution = (astNode: ESNode | null): ExecStep[] => {
         }
 
         const variable = lookupVariable(varName, scopeIndex)
+        console.log(variable)
         if (variable !== -1) {
+            addMemVal(variable.value)
             if (variable.value.type === "reference") {
-                addMemVal(variable.value)
                 return addEvaluatedStep(astNode, scopeIndex, variable.value)
-            } else if (variable.value.type === "primitive") {
-                addMemVal(variable.value)
+            } else if (variable.value.type === "primitive" || variable.value.type === "error") {
                 return addEvaluatedStep(astNode, scopeIndex, variable.value)
             }
         } else {
