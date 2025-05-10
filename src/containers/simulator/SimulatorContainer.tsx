@@ -47,25 +47,25 @@ const c = (a + 1) + (b + 2)
 const d = (a + 1) + (b + 2) + (c + 3)
 const e = (a + 1) * (b + 2) + (c - 3) / (d + 4)
 `
-// const FUNCTION_CODE_SAMPLE = `function greet(name, family = "Doe") {
-// const first = "Hello, " + name + " " + family
-//     return first
-// }
+const TRY_CODE_SAMPLE = `function greet(name, family = "Doe") {
+const first = "Hello, " + name + " " + family
+    return first
+}
 
-// function newError() {
-//     throw "Error: "
-// }
+function newError() {
+    throw "Error: "
+}
 
-// function run(greet) {
-//     let output
-//     try {
-//         newError()
-//     } catch (error) {
-//        output = greet
-//     }
-//     return output
-// }
-// run(greet('Mak', undefined, 28))`
+function run(greet) {
+    let output
+    try {
+        newError()
+    } catch (error) {
+       output = greet
+    }
+    return output
+}
+run(greet('Mak', undefined, 28))`
 
 // const FUNCTION_CODE_SAMPLE = `
 // function a() {
@@ -298,7 +298,17 @@ const SimulatorContainer: React.FC = () => {
   const { mode, codeStr, updateCodeStr } = useSimulatorStore()
 
   useEffect(() => {
-    updateCodeStr(codeStr || SIMULATOR_CODE_SAMPLE)
+    updateCodeStr(codeStr || `
+      function a() {
+        throw 1
+      }
+      try{
+        a()
+      } catch (error) {
+        throw error
+      }
+      let b = 1
+      `)
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [mode])
 

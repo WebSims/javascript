@@ -189,7 +189,7 @@ export const simulateExecution = (astNode: ESNode | null): ExecStep[] => {
             errorThrown: error,
         })
     }
-    const addPopScopeStep = (astNode: ESNode, scopeIndex: number): ExecStep => {
+    const addPopScopeStep = (astNode: ESNode, scopeIndex: number, errorThrown: Error | undefined): ExecStep => {
         const closingScope = scopes[scopeIndex]
         const heapItemsToPotentiallyDelete = Object.values(closingScope.variables)
             .filter((item): item is Extract<JSValue, { type: 'reference' }> => item.type === 'reference')
@@ -228,11 +228,6 @@ export const simulateExecution = (astNode: ESNode | null): ExecStep[] => {
         })
         scopes.splice(scopeIndex, 1)
 
-        const lastStep = steps[steps.length - 1]
-        if (lastStep?.errorThrown) {
-            return addErrorThrownStep(astNode, scopeIndex, lastStep.errorThrown)
-        }
-
         if (astNode.type === "ArrowFunctionExpression") {
             return addStep({
                 node: astNode,
@@ -244,6 +239,7 @@ export const simulateExecution = (astNode: ESNode | null): ExecStep[] => {
                 executed: false,
                 evaluating: false,
                 evaluated: true,
+                errorThrown,
             })
         }
 
@@ -258,6 +254,7 @@ export const simulateExecution = (astNode: ESNode | null): ExecStep[] => {
             executed: true,
             evaluating: false,
             evaluated: false,
+            errorThrown,
         })
     }
 
@@ -549,31 +546,31 @@ export const simulateExecution = (astNode: ESNode | null): ExecStep[] => {
         }
 
         for (const statement of statements) {
-            if (statement.type === "BlockStatement") {
-                return traverseAST(statement, scopeIndex, false, withinTryBlock)
-            }
-
             // Skip function declarations as they are already handled in the creation phase
             if (statement.type === "FunctionDeclaration" || statement.type === "ArrowFunctionExpression") {
                 continue
             }
 
+            if (statement.type === "BlockStatement") {
+                return traverseAST(statement, scopeIndex, false, withinTryBlock)
+            }
+
             // Mark statement as executing
             addExecutingStep(statement, scopeIndex)
+
             lastStep = executionPhase(statement, scopeIndex, withinTryBlock)
 
-            if (lastStep?.errorThrown && !withinTryBlock) {
+            if (lastStep?.errorThrown) {
                 console.error(lastStep.errorThrown.value)
-                return addErrorThrownStep(statement, scopeIndex, lastStep.errorThrown)
+                if (!withinTryBlock) {
+                    return lastStep
+                } else {
+                    return addErrorThrownStep(statement, scopeIndex, lastStep.errorThrown)
+                }
             }
 
             if (lastStep?.node?.type !== statement.type) {
                 addExecutedStep(statement, scopeIndex)
-            }
-
-            // Stop execution if an error was thrown (even if withinTryBlock)
-            if (lastStep?.errorThrown) {
-                return lastStep
             }
 
             if (statement.type === "ExpressionStatement") {
@@ -583,6 +580,8 @@ export const simulateExecution = (astNode: ESNode | null): ExecStep[] => {
             if (lastStep?.evaluatedValue) {
                 return lastStep
             }
+
+
         }
     }
 
@@ -666,7 +665,9 @@ export const simulateExecution = (astNode: ESNode | null): ExecStep[] => {
         addEvaluatingStep(astNode, scopeIndex)
 
         let lastStep = executionPhase(astNode.callee, scopeIndex, withinTryBlock)
-        if (lastStep?.errorThrown) return lastStep
+        if (lastStep?.errorThrown) {
+            return lastStep
+        }
 
         if (lastStep?.evaluatedValue === TDZ) {
             const error = { type: "error", value: 'ReferenceError: Cannot access ' + lastStep?.node.name + ' before initialization' } as const
@@ -694,7 +695,7 @@ export const simulateExecution = (astNode: ESNode | null): ExecStep[] => {
             lastStep = traverseAST(object.node as ESNode, scopeIndex, false, withinTryBlock)
 
             if (lastStep?.errorThrown) {
-                return lastStep
+                return addErrorThrownStep(astNode, scopeIndex, lastStep.errorThrown)
             } else {
                 if (!lastStep?.evaluatedValue) {
                     addMemVal({ type: "primitive", value: undefined })
@@ -964,7 +965,6 @@ export const simulateExecution = (astNode: ESNode | null): ExecStep[] => {
         addEvaluatingStep(astNode, scopeIndex)
 
         const objectStep = executionPhase(astNode.object, scopeIndex, withinTryBlock)
-
         if (objectStep?.errorThrown) return objectStep
 
         const object = heap[objectStep.evaluatedValue?.ref]
@@ -1050,8 +1050,8 @@ export const simulateExecution = (astNode: ESNode | null): ExecStep[] => {
         }
     }
 
-    const destructionPhase = (astNode: ESNode, scopeIndex: number) => {
-        addPopScopeStep(astNode, scopeIndex)
+    const destructionPhase = (astNode: ESNode, scopeIndex: number, errorThrown: Error | undefined) => {
+        addPopScopeStep(astNode, scopeIndex, errorThrown)
         console.log("Destruction Phase:", scopeIndex)
     }
 
@@ -1091,12 +1091,16 @@ export const simulateExecution = (astNode: ESNode | null): ExecStep[] => {
         const lastStep = executionPhase(block, scopeIndex, withinTryBlock)
         // Phase 3: Destruction - except for global scope
 
+        // if (lastStep?.errorThrown) {
+        //     return addErrorThrownStep(astNode, scopeIndex, lastStep.errorThrown)
+        // }
+
         if (scopeIndex !== 0) {
-            destructionPhase(astNode, scopeIndex)
+            destructionPhase(astNode, scopeIndex, lastStep?.errorThrown)
             lastScopeIndex--
         }
 
-        return lastStep
+        return steps[steps.length - 1]
     }
 
     try {
