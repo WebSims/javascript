@@ -280,46 +280,15 @@ class Student extends Person {
 
 const SIMULATOR_CODE_SAMPLE = `const adam = {name: "Adam"}
 const eve = {name: "Eve"}
-const children = [
-    {name: "Cain", father: adam, mother: eve },
-    {name: "Seth", father: adam, mother: eve },
-    {name: "Abel", father: adam, mother: eve },
-]
-adam.children = children
-eve.children = children
-
-{
-    const ch1 = person.father.children
-    const ch2 = person.mother.children;
-    () => ch1 == ch2 ()
-}`
+eve['name'][0][1][0]
+eve.a.b.c
+`
 
 const SimulatorContainer: React.FC = () => {
   const { mode, codeStr, updateCodeStr } = useSimulatorStore()
 
   useEffect(() => {
-    updateCodeStr(codeStr || `try {
-  throw 1
-} catch (error) {
-  error
-}
-function b() {
-  throw 1
-  return 2
-}
-function a() {
-  b() + 1
-  const gg = 2
-  return gg
-}
-{
-  try {
-    a()
-  } catch (error) {
-    throw error
-  }
-}
-let c = 1`)
+    updateCodeStr(codeStr || SIMULATOR_CODE_SAMPLE)
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [mode])
 

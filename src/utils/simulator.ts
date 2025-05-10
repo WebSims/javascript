@@ -670,6 +670,12 @@ export const simulateExecution = (astNode: ESNode | null): ExecStep[] => {
             return addErrorThrownStep(astNode, scopeIndex, error)
         }
 
+        if (lastStep?.evaluatedValue?.type !== "reference") {
+            const error = { type: "error", value: 'ReferenceError: ' + lastStep?.node.name + ' is not a function' } as const
+            addMemVal(error)
+            return addErrorThrownStep(astNode, scopeIndex, error)
+        }
+
         const object = heap[lastStep.evaluatedValue?.ref]
         if (!object) {
             const error = { type: "error", value: 'ReferenceError: ' + lastStep?.node.name + ' is not defined' } as const
@@ -701,7 +707,9 @@ export const simulateExecution = (astNode: ESNode | null): ExecStep[] => {
                 return addEvaluatedStep(astNode, scopeIndex, lastStep?.evaluatedValue)
             }
         } else {
+            removeMemVal(lastStep?.evaluatedValue)
             const error = { type: "error", value: 'TypeError: ' + lastStep?.node.name + ' is not a function' } as const
+            addMemVal(error)
             return addErrorThrownStep(astNode, scopeIndex, error)
         }
     }
@@ -716,7 +724,6 @@ export const simulateExecution = (astNode: ESNode | null): ExecStep[] => {
         }
 
         const variable = lookupVariable(varName, scopeIndex)
-        console.log(variable)
         if (variable !== -1) {
             addMemVal(variable.value)
             if (variable.value.type === "reference") {
@@ -726,6 +733,7 @@ export const simulateExecution = (astNode: ESNode | null): ExecStep[] => {
             }
         } else {
             const error = { type: "error", value: 'ReferenceError: ' + varName + ' is not defined' } as const
+            addMemVal(error)
             return addErrorThrownStep(astNode, scopeIndex, error)
         }
     }
@@ -825,12 +833,6 @@ export const simulateExecution = (astNode: ESNode | null): ExecStep[] => {
     const execAssignmentExpression = (astNode: ESNode, scopeIndex: number, withinTryBlock: boolean): ExecStep | undefined => {
         addEvaluatingStep(astNode, scopeIndex)
 
-        // if (astNode.left?.type !== 'Identifier') {
-        //     console.error("Assignment target must be an Identifier", astNode.left)
-        //     // TODO: Handle MemberExpression assignments (obj.prop = ...)
-        //     const error = { type: "error", value: 'ReferenceError: Invalid left-hand side in assignment' } as const
-        //     return addErrorThrownStep(astNode, scopeIndex, error)
-        // }
         let leftStep = executionPhase(astNode.left, scopeIndex, withinTryBlock)
         if (leftStep?.errorThrown) return leftStep
 
@@ -964,36 +966,65 @@ export const simulateExecution = (astNode: ESNode | null): ExecStep[] => {
         const objectStep = executionPhase(astNode.object, scopeIndex, withinTryBlock)
         if (objectStep?.errorThrown) return objectStep
 
-        const object = heap[objectStep.evaluatedValue?.ref]
-        if (!object) {
-            const error = { type: "error", value: 'ReferenceError: ' + objectStep?.node.name + ' is not defined' } as const
-            return addErrorThrownStep(astNode, scopeIndex, error)
-        }
-
         let evaluatedValue: JSValue | undefined
-        if (astNode.computed) {
-            const propertyStep = executionPhase(astNode.property, scopeIndex, withinTryBlock)
-            if (propertyStep?.errorThrown) return propertyStep
-            removeMemVal(propertyStep?.evaluatedValue)
-            removeMemVal(objectStep?.evaluatedValue)
-
-            if (object.type === "object") {
-                evaluatedValue = object.properties[propertyStep.evaluatedValue?.value]
-            } else if (object.type === "array") {
-                evaluatedValue = object.elements[propertyStep.evaluatedValue?.value]
-            } else {
-                const error = { type: "error", value: 'ReferenceError: ' + objectStep?.node.name + ' is not an object or array' } as const
+        console.log(objectStep)
+        if (objectStep?.evaluatedValue?.type === "reference") {
+            const object = heap[objectStep?.evaluatedValue?.ref]
+            if (!object) {
+                removeMemVal(objectStep?.evaluatedValue)
+                const error = { type: "error", value: 'TypeError: ' + 'Cannot read properties of undefined (reading ' + objectStep?.evaluatedValue?.value + ')' } as const
+                addMemVal(error)
                 return addErrorThrownStep(astNode, scopeIndex, error)
             }
-        } else {
-            if (object.type === "object") {
+
+            if (astNode.computed) {
+                const propertyStep = executionPhase(astNode.property, scopeIndex, withinTryBlock)
+                if (propertyStep?.errorThrown) return propertyStep
+                removeMemVal(propertyStep?.evaluatedValue)
                 removeMemVal(objectStep?.evaluatedValue)
-                evaluatedValue = object.properties[astNode.property.name]
-            } else if (object.type === "array") {
-                evaluatedValue = object.elements[astNode.property.name]
+
+                if (object.type === "object") {
+                    evaluatedValue = object.properties[propertyStep.evaluatedValue?.value]
+                } else if (object.type === "array") {
+                    evaluatedValue = object.elements[propertyStep.evaluatedValue?.value]
+                } else {
+                    const error = { type: "error", value: 'ReferenceError: ' + objectStep?.node.name + ' is not an object or array' } as const
+                    return addErrorThrownStep(astNode, scopeIndex, error)
+                }
             } else {
-                const error = { type: "error", value: 'ReferenceError: ' + objectStep?.node.name + ' is not an object' } as const
+                removeMemVal(objectStep?.evaluatedValue)
+                if (object.type === "object") {
+                    evaluatedValue = object.properties[astNode.property.name]
+                } else if (object.type === "array") {
+                    evaluatedValue = object.elements[astNode.property.name]
+                } else {
+                    evaluatedValue = { type: "primitive", value: undefined }
+                }
+            }
+
+        } else if (objectStep?.evaluatedValue.type === "primitive") {
+
+            if (astNode.computed) {
+                const propertyStep = executionPhase(astNode.property, scopeIndex, withinTryBlock)
+                if (propertyStep?.errorThrown) return propertyStep
+
+                removeMemVal(propertyStep?.evaluatedValue)
+                removeMemVal(objectStep?.evaluatedValue)
+
+                if (objectStep.evaluatedValue.value === undefined) {
+                    console.log(astNode)
+                    const error = { type: "error", value: 'TypeError: ' + 'Cannot read properties of undefined (reading ' + propertyStep?.evaluatedValue?.value + ')' } as const
+                    addMemVal(error)
+                    return addErrorThrownStep(astNode, scopeIndex, error)
+                }
+
+                evaluatedValue = { type: 'primitive', value: objectStep?.evaluatedValue.value[propertyStep?.evaluatedValue?.value] }
+            } else {
+                const error = { type: "error", value: 'TypeError: ' + 'Cannot read properties of undefined (reading ' + astNode?.property?.name + ')' } as const
+                removeMemVal(objectStep?.evaluatedValue)
+                addMemVal(error)
                 return addErrorThrownStep(astNode, scopeIndex, error)
+
             }
         }
 
