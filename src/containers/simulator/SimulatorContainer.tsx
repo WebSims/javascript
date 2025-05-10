@@ -280,8 +280,11 @@ class Student extends Person {
 
 const SIMULATOR_CODE_SAMPLE = `const adam = {name: "Adam"}
 const eve = {name: "Eve"}
-eve['name'][0][1][0]
-eve.a.b.c
+try {
+  eve['name'][0][1][0]
+} catch(e) {
+  eve.a.b.c
+}
 `
 
 const SimulatorContainer: React.FC = () => {
