@@ -394,6 +394,35 @@ export const simulateExecution = (astNode: ESNode | null): ExecStep[] => {
         }
     }
 
+    /**
+     * Creates a JavaScript error object and adds it to the heap and memVal
+     * 
+     * @param errorType The type of error (TypeError, ReferenceError, etc.)
+     * @param message The error message
+     * @param astNode Optional AST node for tracking
+     * @returns A JSValue representing the error
+     */
+    const createErrorObject = (errorType: string, message: string): JSValue => {
+        const errorObject: HeapObject = {
+            type: 'object',
+            properties: {
+                name: { type: 'primitive', value: errorType },
+                message: { type: 'primitive', value: message },
+                stack: { type: 'primitive', value: `${errorType}: ${message}` }
+            }
+        }
+
+        const ref = allocateHeapObject(errorObject)
+
+        const heapRefValue: JSValue = {
+            type: 'reference',
+            ref: ref
+        }
+
+        addMemVal(heapRefValue)
+
+        return heapRefValue
+    }
 
     // --- Creation Pass --- 
 
@@ -666,20 +695,18 @@ export const simulateExecution = (astNode: ESNode | null): ExecStep[] => {
         }
 
         if (lastStep?.evaluatedValue === TDZ) {
-            const error = { type: "error", value: 'ReferenceError: Cannot access ' + lastStep?.node.name + ' before initialization' } as const
+            const error = createErrorObject('ReferenceError', `Cannot access ${lastStep?.node.name} before initialization`, astNode)
             return addErrorThrownStep(astNode, scopeIndex, error)
         }
 
         if (lastStep?.evaluatedValue?.type !== "reference") {
-            const error = { type: "error", value: 'ReferenceError: ' + lastStep?.node.name + ' is not a function' } as const
-            addMemVal(error)
+            const error = createErrorObject('ReferenceError', `${lastStep?.node.name} is not a function`, astNode)
             return addErrorThrownStep(astNode, scopeIndex, error)
         }
 
         const object = heap[lastStep.evaluatedValue?.ref]
         if (!object) {
-            const error = { type: "error", value: 'ReferenceError: ' + lastStep?.node.name + ' is not defined' } as const
-            addMemVal(error)
+            const error = createErrorObject('ReferenceError', `${lastStep?.node.name} is not defined`, astNode)
             return addErrorThrownStep(astNode, scopeIndex, error)
         }
 
@@ -708,8 +735,7 @@ export const simulateExecution = (astNode: ESNode | null): ExecStep[] => {
             }
         } else {
             removeMemVal(lastStep?.evaluatedValue)
-            const error = { type: "error", value: 'TypeError: ' + lastStep?.node.name + ' is not a function' } as const
-            addMemVal(error)
+            const error = createErrorObject('TypeError', `${lastStep?.node.name} is not a function`, astNode)
             return addErrorThrownStep(astNode, scopeIndex, error)
         }
     }
@@ -732,8 +758,7 @@ export const simulateExecution = (astNode: ESNode | null): ExecStep[] => {
                 return addEvaluatedStep(astNode, scopeIndex, variable.value)
             }
         } else {
-            const error = { type: "error", value: 'ReferenceError: ' + varName + ' is not defined' } as const
-            addMemVal(error)
+            const error = createErrorObject('ReferenceError', `${varName} is not defined`, astNode)
             return addErrorThrownStep(astNode, scopeIndex, error)
         }
     }
@@ -853,10 +878,8 @@ export const simulateExecution = (astNode: ESNode | null): ExecStep[] => {
             } else {
                 if (astNode.operator !== "=") {
                     const leftRaw = JSON.stringify(leftStep.evaluatedValue.value)
-                    console.log(leftRaw)
                     const rightRaw = JSON.stringify(rightStep.evaluatedValue.value)
                     const value = eval(`${leftRaw}${astNode.operator.replace("=", "")}${rightRaw}`)
-                    console.log(value)
                     evaluatedValue = { type: "primitive", value } as const
                 }
                 targetScopeIndex = writeVariable(assignmentNodes[0].name, evaluatedValue, scopeIndex, path)
@@ -967,13 +990,11 @@ export const simulateExecution = (astNode: ESNode | null): ExecStep[] => {
         if (objectStep?.errorThrown) return objectStep
 
         let evaluatedValue: JSValue | undefined
-        console.log(objectStep)
         if (objectStep?.evaluatedValue?.type === "reference") {
             const object = heap[objectStep?.evaluatedValue?.ref]
             if (!object) {
                 removeMemVal(objectStep?.evaluatedValue)
-                const error = { type: "error", value: 'TypeError: ' + 'Cannot read properties of undefined (reading ' + objectStep?.evaluatedValue?.value + ')' } as const
-                addMemVal(error)
+                const error = createErrorObject('TypeError', `Cannot read properties of undefined (reading ${objectStep?.evaluatedValue?.value})`, astNode)
                 return addErrorThrownStep(astNode, scopeIndex, error)
             }
 
@@ -988,7 +1009,7 @@ export const simulateExecution = (astNode: ESNode | null): ExecStep[] => {
                 } else if (object.type === "array") {
                     evaluatedValue = object.elements[propertyStep.evaluatedValue?.value]
                 } else {
-                    const error = { type: "error", value: 'ReferenceError: ' + objectStep?.node.name + ' is not an object or array' } as const
+                    const error = createErrorObject('ReferenceError', `${objectStep?.node.name} is not an object or array`, astNode)
                     return addErrorThrownStep(astNode, scopeIndex, error)
                 }
             } else {
@@ -1012,17 +1033,14 @@ export const simulateExecution = (astNode: ESNode | null): ExecStep[] => {
                 removeMemVal(objectStep?.evaluatedValue)
 
                 if (objectStep.evaluatedValue.value === undefined) {
-                    console.log(astNode)
-                    const error = { type: "error", value: 'TypeError: ' + 'Cannot read properties of undefined (reading ' + propertyStep?.evaluatedValue?.value + ')' } as const
-                    addMemVal(error)
+                    const error = createErrorObject('TypeError', `Cannot read properties of undefined (reading ${propertyStep?.evaluatedValue?.value})`, astNode)
                     return addErrorThrownStep(astNode, scopeIndex, error)
                 }
 
                 evaluatedValue = { type: 'primitive', value: objectStep?.evaluatedValue.value[propertyStep?.evaluatedValue?.value] }
             } else {
-                const error = { type: "error", value: 'TypeError: ' + 'Cannot read properties of undefined (reading ' + astNode?.property?.name + ')' } as const
+                const error = createErrorObject('TypeError', `Cannot read properties of undefined (reading ${astNode?.property?.name})`, astNode)
                 removeMemVal(objectStep?.evaluatedValue)
-                addMemVal(error)
                 return addErrorThrownStep(astNode, scopeIndex, error)
 
             }
