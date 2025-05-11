@@ -805,6 +805,9 @@ export const simulateExecution = (astNode: ESNode | null): ExecStep[] => {
 
 
         if (astNode.operator) {
+            // TODO: reference have problem for example:
+            // ([] >= {}); => should be false but return true
+            // Solution 1: use heap value instead of reference and create it and competive without using eval
             const leftRaw = leftStep?.evaluatedValue?.type === "reference"
                 ? `heap[${leftStep.evaluatedValue.ref}]`
                 : JSON.stringify(leftStep?.evaluatedValue?.value)
