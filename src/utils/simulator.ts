@@ -190,42 +190,43 @@ export const simulateExecution = (astNode: ESNode | null): ExecStep[] => {
         })
     }
     const addPopScopeStep = (astNode: ESNode, scopeIndex: number, evaluatedValue: JSValue | undefined, errorThrown: JSValue | undefined): ExecStep => {
-        const closingScope = scopes[scopeIndex]
-        const heapItemsToPotentiallyDelete = Object.values(closingScope.variables)
-            .filter((item): item is Extract<JSValue, { type: 'reference' }> => item.type === 'reference')
+        // const closingScope = scopes[scopeIndex]
+        // const heapItemsToPotentiallyDelete = Object.values(closingScope.variables)
+        //     .filter((item): item is Extract<JSValue, { type: 'reference' }> => item.type === 'reference')
 
-        heapItemsToPotentiallyDelete.forEach(itemToDelete => {
-            const refToDelete = itemToDelete.ref
-            let isReferencedElsewhere = false
+        // heapItemsToPotentiallyDelete.forEach(itemToDelete => {
+        //     const refToDelete = itemToDelete.ref
+        //     let isReferencedElsewhere = false
 
-            // Check all *other* scopes
-            for (let i = 0; i < scopes.length; i++) {
-                if (i === scopeIndex) continue // Skip the scope being closed
+        //     // Check all *other* scopes
+        //     for (let i = 0; i < scopes.length; i++) {
+        //         if (i === scopeIndex) continue // Skip the scope being closed
 
-                const otherScope = scopes[i]
-                const variablesInOtherScope = Object.values(otherScope.variables)
+        //         const otherScope = scopes[i]
+        //         const variablesInOtherScope = Object.values(otherScope.variables)
 
-                for (const variableInOtherScope of variablesInOtherScope) {
-                    if (variableInOtherScope.type === 'reference' && variableInOtherScope.ref === refToDelete) {
-                        isReferencedElsewhere = true
-                        break // Found a reference, no need to check further in this scope
-                    }
-                }
+        //         for (const variableInOtherScope of variablesInOtherScope) {
+        //             if (variableInOtherScope.type === 'reference' && variableInOtherScope.ref === refToDelete) {
+        //                 isReferencedElsewhere = true
+        //                 break // Found a reference, no need to check further in this scope
+        //             }
+        //         }
 
-                if (isReferencedElsewhere) {
-                    break // Found a reference, no need to check other scopes
-                }
-            }
+        //         if (isReferencedElsewhere) {
+        //             break // Found a reference, no need to check other scopes
+        //         }
+        //     }
 
-            // Only delete if not referenced elsewhere
-            if (!isReferencedElsewhere) {
-                // console.log(`Deleting heap item ref: ${refToDelete} as it's no longer referenced.`);
-                delete heap[refToDelete]
-            }
-            // else {
-            // Optional: console.log(`Keeping heap item ref: ${refToDelete} as it's referenced in another scope.`);
-            // }
-        })
+        //     // Only delete if not referenced elsewhere
+        //     if (!isReferencedElsewhere) {
+        //         // console.log(`Deleting heap item ref: ${refToDelete} as it's no longer referenced.`);
+        //         delete heap[refToDelete]
+        //     }
+        //     // else {
+        //     // Optional: console.log(`Keeping heap item ref: ${refToDelete} as it's referenced in another scope.`);
+        //     // }
+        // })
+
         scopes.splice(scopeIndex, 1)
 
         if (astNode.type === "ArrowFunctionExpression") {
