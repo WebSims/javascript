@@ -423,10 +423,16 @@ export const simulateExecution = (astNode: ESNode | null): ExecStep[] => {
 
         return heapRefValue
     }
+    const getErrorString = (error: JSValue): string => {
+        const errorObject = heap[error.ref]
+        return errorObject?.properties?.stack?.value
+    }
+
+    const printError = (error: JSValue): void => {
+        console.error(getErrorString(error))
+    }
 
     // --- Creation Pass --- 
-
-
     const getBlock = (astNode: ESNode): ESNode => {
         switch (astNode.type) {
             case "FunctionDeclaration":
@@ -1101,6 +1107,7 @@ export const simulateExecution = (astNode: ESNode | null): ExecStep[] => {
     }
 
     const destructionPhase = (astNode: ESNode, scopeIndex: number, lastStep: ExecStep | undefined) => {
+        if (lastStep?.errorThrown) printError(lastStep.errorThrown)
         addPopScopeStep(astNode, scopeIndex, lastStep?.evaluatedValue, lastStep?.errorThrown)
         console.log("Destruction Phase:", scopeIndex)
     }
@@ -1139,13 +1146,10 @@ export const simulateExecution = (astNode: ESNode | null): ExecStep[] => {
 
         // Phase 2: Execution
         const lastStep = executionPhase(block, scopeIndex, withinTryBlock)
+
         // Phase 3: Destruction - except for global scope
-
-        // if (lastStep?.errorThrown) {
-        //     return addErrorThrownStep(astNode, scopeIndex, lastStep.errorThrown)
-        // }
-
         if (scopeIndex !== 0) {
+            console.log("Destruction Phase:", astNode, scopeIndex, lastStep)
             destructionPhase(astNode, scopeIndex, lastStep)
             lastScopeIndex--
         }
