@@ -551,19 +551,21 @@ export const simulateExecution = (astNode: ESNode | null): ExecStep[] => {
                             }
                         }
                         break;
-                    case "ExpressionStatement":
-                        {
-                            const expression = node.expression
-                            if (expression.type === "AssignmentExpression") {
-                                const varName = expression.left.name
-                                const variable = lookupVariable(varName, scopeIndex)
-                                if (variable === -1) {
-                                    const initialValue: JSValue = { type: "primitive", value: undefined }
-                                    const declaration = newDeclaration(varName, "global", 0, initialValue)
-                                    if (declaration) declarations.push(declaration)
-                                }
-                            }
-                        }
+
+                    // case "ExpressionStatement":
+                    //     {
+                    //         const expression = node.expression
+                    //         if (expression.type === "AssignmentExpression") {
+                    //             const varName = expression.left.name
+                    //             const variable = lookupVariable(varName, scopeIndex)
+                    //             if (variable === -1) {
+                    //                 const initialValue: JSValue = { type: "primitive", value: undefined }
+                    //                 const declaration = newDeclaration(varName, "global", 0, initialValue)
+                    //                 if (declaration) declarations.push(declaration)
+                    //             }
+                    //         }
+                    //     }
+                    //     break;
                 }
             }
         }
