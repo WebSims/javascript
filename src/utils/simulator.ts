@@ -805,8 +805,12 @@ export const simulateExecution = (astNode: ESNode | null): ExecStep[] => {
 
 
         if (astNode.operator) {
-            const leftRaw = JSON.stringify(leftStep?.evaluatedValue?.value)
-            const rightRaw = JSON.stringify(rightStep?.evaluatedValue?.value)
+            const leftRaw = leftStep?.evaluatedValue?.type === "reference"
+                ? `heap[${leftStep.evaluatedValue.ref}]`
+                : JSON.stringify(leftStep?.evaluatedValue?.value)
+            const rightRaw = rightStep?.evaluatedValue?.type === "reference"
+                ? `heap[${rightStep.evaluatedValue.ref}]`
+                : JSON.stringify(rightStep?.evaluatedValue?.value)
             const value = eval(`${leftRaw}${astNode.operator}${rightRaw}`)
             const evaluatedValue = {
                 type: "primitive",
