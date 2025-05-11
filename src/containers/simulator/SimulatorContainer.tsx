@@ -278,26 +278,13 @@ class Student extends Person {
   }
 }`
 
-const SIMULATOR_CODE_SAMPLE = `const a = [
-  {
-    name: 'websims'
-  },
-  ['mak', 'babak'],
-  {
-    sims: [
-      {
-        name: 'js'
-      }
-    ]
-  }
-]
-try {
-  simName = a[2].sims[0].name
-  simURL = urls[simName]
-} catch (e) {
-  e.stack
+const SIMULATOR_CODE_SAMPLE = `const a={}
+{
+    const x = {}
+    a.x = x
+    y = x
 }
-`
+a['x'] = 1`
 
 const SimulatorContainer: React.FC = () => {
   const { mode, codeStr, updateCodeStr } = useSimulatorStore()

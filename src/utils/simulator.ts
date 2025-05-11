@@ -871,14 +871,21 @@ export const simulateExecution = (astNode: ESNode | null): ExecStep[] => {
     const execAssignmentExpression = (astNode: ESNode, scopeIndex: number, withinTryBlock: boolean): ExecStep | undefined => {
         addEvaluatingStep(astNode, scopeIndex)
 
-        let leftStep = executionPhase(astNode.left, scopeIndex, withinTryBlock)
+        let leftStep = astNode.left.type === 'MemberExpression' && executionPhase(astNode.left.object, scopeIndex, withinTryBlock)
         if (leftStep?.errorThrown) return leftStep
+
+        if (leftStep && leftStep.evaluatedValue?.type !== "reference") {
+            removeMemVal(leftStep?.evaluatedValue)
+            const error = createErrorObject("TypeError", `Cannot set properties of undefined (setting '${astNode.left.property.name}')`, astNode)
+            return addErrorThrownStep(astNode, scopeIndex, error)
+        }
 
         let assignmentNodes = [astNode.left]
         while (assignmentNodes[0].type !== "Identifier") {
             assignmentNodes.unshift(assignmentNodes[0].object)
         }
-        const path = assignmentNodes.slice(1).map(node => node.name || node.property.name).join('.')
+
+        const path = assignmentNodes.slice(1).map(node => node.name || node.property.name || node.property.value).join('.')
 
         const rightStep = executionPhase(astNode.right, scopeIndex, withinTryBlock)
         if (rightStep?.errorThrown) {
@@ -886,10 +893,11 @@ export const simulateExecution = (astNode: ESNode | null): ExecStep[] => {
             return rightStep
         }
 
-        if (leftStep?.evaluatedValue && rightStep?.evaluatedValue) {
+        if (rightStep?.evaluatedValue) {
             let targetScopeIndex = scopeIndex
             let evaluatedValue = rightStep.evaluatedValue
-            if (leftStep.evaluatedValue.type === "reference") {
+            if (leftStep && leftStep.evaluatedValue.type === "reference") {
+                console.log(assignmentNodes[0].name, rightStep.evaluatedValue, scopeIndex, path)
                 targetScopeIndex = writeVariable(assignmentNodes[0].name, rightStep.evaluatedValue, scopeIndex, path)
             } else {
                 if (astNode.operator !== "=") {
@@ -1156,7 +1164,6 @@ export const simulateExecution = (astNode: ESNode | null): ExecStep[] => {
 
         // Phase 3: Destruction - except for global scope
         if (scopeIndex !== 0) {
-            console.log("Destruction Phase:", astNode, scopeIndex, lastStep)
             destructionPhase(astNode, scopeIndex, lastStep)
             lastScopeIndex--
         }
