@@ -278,12 +278,24 @@ class Student extends Person {
   }
 }`
 
-const SIMULATOR_CODE_SAMPLE = `const adam = {name: "Adam"}
-const eve = {name: "Eve"}
+const SIMULATOR_CODE_SAMPLE = `const a = [
+  {
+    name: 'websims'
+  },
+  ['mak', 'babak'],
+  {
+    sims: [
+      {
+        name: 'js'
+      }
+    ]
+  }
+]
 try {
-  eve['name'][0][1][0]
-} catch(e) {
-  eve.a.b.c
+  simName = a[2].sims[0].name
+  simURL = urls[simName]
+} catch (e) {
+  e.stack
 }
 `
 
