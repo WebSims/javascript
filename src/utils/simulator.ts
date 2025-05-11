@@ -868,7 +868,10 @@ export const simulateExecution = (astNode: ESNode | null): ExecStep[] => {
         const path = assignmentNodes.slice(1).map(node => node.name || node.property.name).join('.')
 
         const rightStep = executionPhase(astNode.right, scopeIndex, withinTryBlock)
-        if (rightStep?.errorThrown) return rightStep
+        if (rightStep?.errorThrown) {
+            removeMemVal(leftStep?.evaluatedValue)
+            return rightStep
+        }
 
         if (leftStep?.evaluatedValue && rightStep?.evaluatedValue) {
             let targetScopeIndex = scopeIndex
