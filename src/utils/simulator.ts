@@ -871,8 +871,10 @@ export const simulateExecution = (astNode: ESNode | null): ExecStep[] => {
     const execAssignmentExpression = (astNode: ESNode, scopeIndex: number, withinTryBlock: boolean): ExecStep | undefined => {
         addEvaluatingStep(astNode, scopeIndex)
 
-        let leftStep = astNode.left.type === 'MemberExpression' && executionPhase(astNode.left.object, scopeIndex, withinTryBlock)
-        if (leftStep?.errorThrown) return leftStep
+        let leftStep = astNode.left.type !== 'Identifier' && executionPhase(astNode.left.property.type === 'Identifier' ? astNode.left.object : astNode.left, scopeIndex, withinTryBlock)
+        if (leftStep && leftStep.errorThrown) {
+            return leftStep
+        }
 
         if (leftStep && leftStep.evaluatedValue?.type !== "reference") {
             removeMemVal(leftStep?.evaluatedValue)
@@ -885,7 +887,19 @@ export const simulateExecution = (astNode: ESNode | null): ExecStep[] => {
             assignmentNodes.unshift(assignmentNodes[0].object)
         }
 
-        const path = assignmentNodes.slice(1).map(node => node.name || node.property.name || node.property.value).join('.')
+        const path = assignmentNodes.slice(1).map(node => {
+            if (node.type === "MemberExpression") {
+                if (node.property.type === "Identifier") {
+                    return node.property.name
+                } else if (node.property.type === "Literal") {
+                    return node.property.value
+                } else {
+                    return steps[steps.length - 2].evaluatedValue?.value
+                }
+            } else {
+                return node.name
+            }
+        }).join('.')
 
         const rightStep = executionPhase(astNode.right, scopeIndex, withinTryBlock)
         if (rightStep?.errorThrown) {
