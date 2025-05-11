@@ -893,6 +893,7 @@ export const simulateExecution = (astNode: ESNode | null): ExecStep[] => {
             addMemVal(evaluatedValue)
             return addStep({
                 node: astNode,
+                phase: "execution",
                 scopeIndex,
                 memoryChange: {
                     type: "write_variable",
