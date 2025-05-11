@@ -588,16 +588,15 @@ export const simulateExecution = (astNode: ESNode | null): ExecStep[] => {
             }
 
             if (statement.type === "BlockStatement") {
-                return traverseAST(statement, scopeIndex, false, withinTryBlock)
+                lastStep = traverseAST(statement, scopeIndex, false, withinTryBlock)
+            } else {
+                // Mark statement as executing
+                addExecutingStep(statement, scopeIndex)
+
+                lastStep = executionPhase(statement, scopeIndex, withinTryBlock)
             }
 
-            // Mark statement as executing
-            addExecutingStep(statement, scopeIndex)
-
-            lastStep = executionPhase(statement, scopeIndex, withinTryBlock)
-
             if (lastStep?.errorThrown) {
-                console.error(lastStep.errorThrown.value)
                 return lastStep
             }
 
@@ -612,8 +611,6 @@ export const simulateExecution = (astNode: ESNode | null): ExecStep[] => {
             if (lastStep?.evaluatedValue) {
                 return lastStep
             }
-
-
         }
     }
 
