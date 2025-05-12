@@ -154,8 +154,10 @@ const MemoryModelVisualizer = () => {
             } else if (obj.type === "array") {
                 // Process array elements
                 obj.elements.forEach((element, index) => {
-                    const property = formatPropertyValue(String(index), element)
-                    properties.push(property)
+                    if (element !== undefined) {
+                        const property = formatPropertyValue(String(index), element)
+                        properties.push(property)
+                    }
                 })
                 // Add length property
                 properties.push({
