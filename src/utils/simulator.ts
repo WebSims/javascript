@@ -379,6 +379,34 @@ export const simulateExecution = (astNode: ESNode | null): ExecStep[] => {
         }
     }
 
+    const writeProperty = (ref: HeapRef, property: string | number, value: JSValue): number => {
+        console.log(ref, property, value)
+        const heapObj = heap[ref]
+        if (!heapObj) {
+            console.error(`ReferenceError: Broken heap reference for property '${property}' (ref: ${ref})`)
+            return -1
+        }
+
+        if (heapObj.type === 'object') {
+            heapObj.properties[property] = value
+        } else if (heapObj.type === 'array') {
+            const index = Number(property)
+            if (Number.isInteger(index) && index >= 0) {
+                while (heapObj.elements.length <= index) {
+                    heapObj.elements.push({ type: "primitive", value: undefined })
+                }
+                heapObj.elements[index] = value
+            } else {
+                console.error(`TypeError: Property index '${property}' for array must be a numeric index.`)
+                return -1
+            }
+        } else {
+            console.error(`TypeError: Target for property '${property}' is not an object or array.`)
+            return -1
+        }
+        return ref
+    }
+
     const addMemVal = (value: JSValue) => {
         memVal.push(value)
     }
@@ -871,21 +899,32 @@ export const simulateExecution = (astNode: ESNode | null): ExecStep[] => {
     const execAssignmentExpression = (astNode: ESNode, scopeIndex: number, withinTryBlock: boolean): ExecStep | undefined => {
         addEvaluatingStep(astNode, scopeIndex)
 
-        let leftStep = astNode.left.type !== 'Identifier' && executionPhase(astNode.left.property.type === 'Identifier' ? astNode.left.object : astNode.left, scopeIndex, withinTryBlock)
+        let leftStep = astNode.left.type === 'MemberExpression' && executionPhase(astNode.left.computed ? astNode.left : astNode.left.object, scopeIndex, withinTryBlock, astNode)
         if (leftStep && leftStep.errorThrown) {
             return leftStep
         }
 
-        if (leftStep && leftStep.evaluatedValue?.type !== "reference") {
-            removeMemVal(leftStep?.evaluatedValue)
-            const error = createErrorObject("TypeError", `Cannot set properties of undefined (setting '${astNode.left.property.name}')`, astNode)
-            return addErrorThrownStep(astNode, scopeIndex, error)
+        let assignmentNodes = []
+        function getAssignmentNodes(node: ESNode) {
+            if (node.type === "MemberExpression") {
+                getAssignmentNodes(node.object)
+                if (node.property) assignmentNodes.push(node.property)
+            } else {
+                assignmentNodes.push(node)
+            }
         }
 
-        let assignmentNodes = [astNode.left]
-        while (assignmentNodes[0].type !== "Identifier") {
-            assignmentNodes.unshift(assignmentNodes[0].object)
+        getAssignmentNodes(astNode.left)
+        console.log(assignmentNodes)
+
+        let leftSteps: ExecStep[] = []
+        for (const node of assignmentNodes) {
+            const step = steps.find(step => step.node === node && step.evaluated)
+            if (step) {
+                leftSteps.push(step)
+            }
         }
+        console.log(leftSteps)
 
         const path = assignmentNodes.slice(1).map(node => {
             if (node.type === "MemberExpression") {
@@ -900,6 +939,14 @@ export const simulateExecution = (astNode: ESNode | null): ExecStep[] => {
                 return node.name
             }
         }).join('.')
+        console.log(leftStep, assignmentNodes[0].name, scopeIndex, path)
+
+        if (leftStep && leftStep?.evaluatedValue?.type === 'primitive' && leftStep?.evaluatedValue?.value === undefined && astNode.left.computed === false) {
+            console.log(1111)
+            removeMemVal(leftStep?.evaluatedValue)
+            const error = createErrorObject("TypeError", `Cannot set properties of undefined (setting '${astNode.left.property.name}')`, astNode)
+            return addErrorThrownStep(astNode, scopeIndex, error)
+        }
 
         const rightStep = executionPhase(astNode.right, scopeIndex, withinTryBlock)
         if (rightStep?.errorThrown) {
@@ -910,16 +957,16 @@ export const simulateExecution = (astNode: ESNode | null): ExecStep[] => {
         if (rightStep?.evaluatedValue) {
             let targetScopeIndex = scopeIndex
             let evaluatedValue = rightStep.evaluatedValue
-            if (leftStep && leftStep.evaluatedValue.type === "reference") {
-                console.log(assignmentNodes[0].name, rightStep.evaluatedValue, scopeIndex, path)
-                targetScopeIndex = writeVariable(assignmentNodes[0].name, rightStep.evaluatedValue, scopeIndex, path)
+            if (astNode.operator !== "=") {
+                const leftRaw = JSON.stringify(leftStep.evaluatedValue.value)
+                const rightRaw = JSON.stringify(rightStep.evaluatedValue.value)
+                const value = eval(`${leftRaw}${astNode.operator.replace("=", "")}${rightRaw}`)
+                evaluatedValue = { type: "primitive", value } as const
+            }
+
+            if (astNode.left.type === "Identifier") {
+                targetScopeIndex = writeVariable(assignmentNodes[0].name, evaluatedValue, scopeIndex, path)
             } else {
-                if (astNode.operator !== "=") {
-                    const leftRaw = JSON.stringify(leftStep.evaluatedValue.value)
-                    const rightRaw = JSON.stringify(rightStep.evaluatedValue.value)
-                    const value = eval(`${leftRaw}${astNode.operator.replace("=", "")}${rightRaw}`)
-                    evaluatedValue = { type: "primitive", value } as const
-                }
                 targetScopeIndex = writeVariable(assignmentNodes[0].name, evaluatedValue, scopeIndex, path)
             }
 
@@ -1022,10 +1069,10 @@ export const simulateExecution = (astNode: ESNode | null): ExecStep[] => {
         return addEvaluatedStep(astNode, scopeIndex, { type: "reference", ref })
     }
 
-    const execMemberExpression = (astNode: ESNode, scopeIndex: number, withinTryBlock: boolean): ExecStep | undefined => {
+    const execMemberExpression = (astNode: ESNode, scopeIndex: number, withinTryBlock: boolean, parentNode: ESNode | null): ExecStep | undefined => {
         addEvaluatingStep(astNode, scopeIndex)
-
-        const objectStep = executionPhase(astNode.object, scopeIndex, withinTryBlock)
+        console.log(parentNode)
+        const objectStep = executionPhase(astNode.object, scopeIndex, withinTryBlock, parentNode)
         if (objectStep?.errorThrown) return objectStep
 
         let evaluatedValue: JSValue | undefined
@@ -1038,7 +1085,7 @@ export const simulateExecution = (astNode: ESNode | null): ExecStep[] => {
             }
 
             if (astNode.computed) {
-                const propertyStep = executionPhase(astNode.property, scopeIndex, withinTryBlock)
+                const propertyStep = executionPhase(astNode.property, scopeIndex, withinTryBlock, parentNode)
                 if (propertyStep?.errorThrown) return propertyStep
                 removeMemVal(propertyStep?.evaluatedValue)
                 removeMemVal(objectStep?.evaluatedValue)
@@ -1063,25 +1110,28 @@ export const simulateExecution = (astNode: ESNode | null): ExecStep[] => {
             }
 
         } else if (objectStep?.evaluatedValue.type === "primitive") {
-
             if (astNode.computed) {
-                const propertyStep = executionPhase(astNode.property, scopeIndex, withinTryBlock)
+                const propertyStep = executionPhase(astNode.property, scopeIndex, withinTryBlock, parentNode)
                 if (propertyStep?.errorThrown) return propertyStep
 
                 removeMemVal(propertyStep?.evaluatedValue)
                 removeMemVal(objectStep?.evaluatedValue)
 
                 if (objectStep.evaluatedValue.value === undefined) {
-                    const error = createErrorObject('TypeError', `Cannot read properties of undefined (reading ${propertyStep?.evaluatedValue?.value})`, astNode)
-                    return addErrorThrownStep(astNode, scopeIndex, error)
+                    if (parentNode.type === 'AssignmentExpression') {
+                        const error = createErrorObject('TypeError', `Cannot set properties of undefined (setting '${propertyStep?.evaluatedValue?.value}')`)
+                        return addErrorThrownStep(parentNode, scopeIndex, error)
+                    } else {
+                        const error = createErrorObject('TypeError', `Cannot read properties of undefined (reading ${propertyStep?.evaluatedValue?.value})`)
+                        return addErrorThrownStep(astNode, scopeIndex, error)
+                    }
+                } else {
+                    evaluatedValue = { type: 'primitive', value: objectStep?.evaluatedValue.value[propertyStep?.evaluatedValue?.value] }
                 }
-
-                evaluatedValue = { type: 'primitive', value: objectStep?.evaluatedValue.value[propertyStep?.evaluatedValue?.value] }
             } else {
-                const error = createErrorObject('TypeError', `Cannot read properties of undefined (reading ${astNode?.property?.name})`, astNode)
+                const error = createErrorObject('TypeError', `Cannot read properties of undefined (reading ${astNode?.property?.name})`)
                 removeMemVal(objectStep?.evaluatedValue)
                 return addErrorThrownStep(astNode, scopeIndex, error)
-
             }
         }
 
@@ -1106,7 +1156,7 @@ export const simulateExecution = (astNode: ESNode | null): ExecStep[] => {
         return addEvaluatedStep(astNode, scopeIndex, { type: "reference", ref })
     }
 
-    const executionPhase = (node: ESNode | null, currentScopeIndex: number, withinTryBlock: boolean): ExecStep | undefined => {
+    const executionPhase = (node: ESNode | null, currentScopeIndex: number, withinTryBlock: boolean, parentNode: ESNode | null): ExecStep | undefined => {
         if (!node) return
         console.log("Executing node:", node.type, "in scope:", currentScopeIndex, "withinTry:", withinTryBlock)
 
@@ -1127,7 +1177,7 @@ export const simulateExecution = (astNode: ESNode | null): ExecStep[] => {
             case "ConditionalExpression": return execConditionalExpression(node, currentScopeIndex, withinTryBlock)
             case "ArrayExpression": return execArrayExpression(node, currentScopeIndex, withinTryBlock)
             case "ObjectExpression": return execObjectExpression(node, currentScopeIndex, withinTryBlock)
-            case "MemberExpression": return execMemberExpression(node, currentScopeIndex, withinTryBlock)
+            case "MemberExpression": return execMemberExpression(node, currentScopeIndex, withinTryBlock, parentNode)
             case "ArrowFunctionExpression": return execArrowFunctionExpression(node, currentScopeIndex, withinTryBlock)
             default:
                 console.warn(`Execution Pass: Unhandled node type - ${node.type}`)
