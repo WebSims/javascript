@@ -1099,7 +1099,16 @@ export const simulateExecution = (astNode: ESNode | null): ExecStep[] => {
         return addEvaluatedStep(astNode, scopeIndex, { type: "reference", ref })
     }
 
-    const executionPhase = (node: ESNode | null, currentScopeIndex: number, withinTryBlock: boolean, parentNode: ESNode | null): ExecStep | undefined => {
+    const execIfStatement = (astNode: ESNode, scopeIndex: number, withinTryBlock: boolean): ExecStep | undefined => {
+        const testStep = executionPhase(astNode.test, scopeIndex, withinTryBlock)
+        if (testStep?.errorThrown) return testStep
+
+        if (testStep?.evaluatedValue?.value === true) {
+            return traverseAST(astNode.consequent, scopeIndex, false, withinTryBlock)
+        }
+    }
+
+    const executionPhase = (node: ESNode | null, currentScopeIndex: number, withinTryBlock: boolean, parentNode?: ESNode | null): ExecStep | undefined => {
         if (!node) return
         console.log("Executing node:", node.type, "in scope:", currentScopeIndex, "withinTry:", withinTryBlock)
 
@@ -1122,6 +1131,7 @@ export const simulateExecution = (astNode: ESNode | null): ExecStep[] => {
             case "ObjectExpression": return execObjectExpression(node, currentScopeIndex, withinTryBlock)
             case "MemberExpression": return execMemberExpression(node, currentScopeIndex, withinTryBlock, parentNode)
             case "ArrowFunctionExpression": return execArrowFunctionExpression(node, currentScopeIndex, withinTryBlock)
+            case "IfStatement": return execIfStatement(node, currentScopeIndex, withinTryBlock)
             default:
                 console.warn(`Execution Pass: Unhandled node type - ${node.type}`)
                 break;
