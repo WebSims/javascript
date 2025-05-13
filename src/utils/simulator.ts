@@ -1071,7 +1071,7 @@ export const simulateExecution = (astNode: ESNode | null): ExecStep[] => {
                 } else {
                     evaluatedValue = { type: 'primitive', value: objectStep?.evaluatedValue.value[propertyStep?.evaluatedValue?.value] }
                 }
-            } else {
+            } else if (objectStep.evaluatedValue.value === undefined) {
                 const error = createErrorObject('TypeError', `Cannot read properties of undefined (reading ${astNode?.property?.name})`)
                 removeMemVal(objectStep?.evaluatedValue)
                 return addErrorThrownStep(astNode, scopeIndex, error)
