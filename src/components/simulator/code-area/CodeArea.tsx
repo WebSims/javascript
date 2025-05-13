@@ -87,6 +87,7 @@ const decorations = {
             obj: { tooltip: "Data: NEW object", cheatSheetId: "data-object", classN: "text-slate-700" },
             fn: { tooltip: "Data: NEW anonymous function", cheatSheetId: "data-function", classN: "text-purple-600" },
             fnArr: { tooltip: "Data: NEW arrow function", cheatSheetId: "data-arrow", classN: "display-unset text-purple-600" },
+            fnArrImplicit: { tooltip: "Data: NEW arrow function", cheatSheetId: "data-arrow", classN: "text-purple-600" },
         },
         read: {
             classN: "ast-exp-read",
@@ -139,6 +140,9 @@ const Statement = ({ st, parent, parens }) => {
     if (st.type == "BlockStatement") {
         st.category = parent.category
         component = <BlockStatement st={st} parent={parent} parens={parens} />
+    } else if (parent.type == "ArrowFunctionExpression") {
+        st.category = "expression.data.fnArrImplicit"
+        component = <Expression expr={st} parens={parens} parent={st} />
     }
 
     // VariableDeclaration kind:string declarations:VariableDeclarator[]
@@ -206,6 +210,7 @@ const Statement = ({ st, parent, parens }) => {
         st.category = "statement.loop.for"
         component = <ForStatement st={st} parent={parent} parens={parens} />
     }
+
 
     const decoratorObject = _.get(decorations, st.category || "statement.UNKNOWN")
     const title = decoratorObject.tooltip
@@ -286,7 +291,11 @@ const Expression = ({ fromAstOf, expr, parent, parens }: { fromAstOf?: any, expr
 
     // ArrowFunctionExpression params:[] body:expr|{BlockStatement body:[st]} async:bool expression:bool
     if (expr.type == "ArrowFunctionExpression") {
-        expr.category = "expression.data.fnArr"
+        if (expr.body.type == "BlockStatement") {
+            expr.category = "expression.data.fnArr"
+        } else {
+            expr.category = "expression.data.fnArrImplicit"
+        }
         component = <NewFnArrow async={expr.async || false} params={expr.params} code={expr.body} parens={parens} parent={expr} />
     }
 
@@ -445,19 +454,13 @@ const NewObj = ({ props, parent, parens }) => {
 }
 
 const NewFnArrow = ({ async, params, code, parent, parens }) => {
-    let content;
-    if (code.type == "BlockStatement") {
-        content = <Statement st={code} parent={parent} parens={parens} />
-    } else {
-        content = <Expression expr={code} parens={parens} parent={parent} />
-    }
     return (
         <>
             {async && <span className="keyword keyword-prefix keyword-async">async</span>}
             {/* {name && <span className="ast-exp-fn-name">{name}</span>} */}
             <FnParamsDef params={params} parens={parens} parent={parent} />
             <span className="align-middle font-bold">&nbsp;=&gt;&nbsp;</span>
-            {content}
+            <Statement st={code} parent={parent} parens={parens} />
         </>
     )
 }

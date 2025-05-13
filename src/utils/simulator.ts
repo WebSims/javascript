@@ -74,19 +74,6 @@ export const simulateExecution = (astNode: ESNode | null): ExecStep[] => {
 
         const kind = PUSH_SCOPE_KIND[astNode.type as keyof typeof PUSH_SCOPE_KIND]
 
-        if (astNode.type === "ArrowFunctionExpression") {
-            return addStep({
-                node: astNode,
-                phase: "creation",
-                scopeIndex,
-                memoryChange: { type: "push_scope", kind, scope },
-                executing: false,
-                executed: false,
-                evaluating: true,
-                evaluated: false,
-            })
-        }
-
         const block: ESNode = getBlock(astNode)
         return addStep({
             node: block,
@@ -100,19 +87,6 @@ export const simulateExecution = (astNode: ESNode | null): ExecStep[] => {
         })
     }
     const addHoistingStep = (astNode: ESNode, scopeIndex: number, declarations: Declaration[]): ExecStep => {
-        if (astNode.type === "ArrowFunctionExpression") {
-            return addStep({
-                node: astNode,
-                phase: "creation",
-                scopeIndex,
-                memoryChange: { type: "declaration", declarations, scopeIndex },
-                executing: false,
-                executed: false,
-                evaluating: true,
-                evaluated: false,
-            })
-        }
-
         const block = getBlock(astNode)
         return addStep({
             node: block,
@@ -228,21 +202,6 @@ export const simulateExecution = (astNode: ESNode | null): ExecStep[] => {
         // })
 
         scopes.splice(scopeIndex, 1)
-
-        if (astNode.type === "ArrowFunctionExpression") {
-            return addStep({
-                node: astNode,
-                phase: "destruction",
-                scopeIndex: scopeIndex,
-                memoryChange: { type: "pop_scope", scopeIndex },
-                executing: false,
-                executed: false,
-                evaluating: false,
-                evaluated: true,
-                evaluatedValue,
-                errorThrown,
-            })
-        }
 
         astNode = getBlock(astNode)
         return addStep({
