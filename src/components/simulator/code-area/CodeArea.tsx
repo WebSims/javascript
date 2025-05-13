@@ -89,9 +89,9 @@ const decorations = {
         },
         write: {
             classN: "ast-exp-write",
-            var: { tooltip: "Set variable", classN: "" },
-            prop: { tooltip: "Set property of object", classN: "" },
-            expr: { tooltip: "Set property of object (by expression)", classN: "" },
+            var: { tooltip: "Set variable", cheatSheetId: "exp-write-var", classN: "text-blue-600" },
+            prop: { tooltip: "Set property of object", cheatSheetId: "exp-write-prop", classN: "text-blue-600" },
+            expr: { tooltip: "Set property of object (by expression)", cheatSheetId: "exp-write-prop-dynamic", classN: "text-blue-600" },
         },
         operator: {
             classN: "ast-exp-op",
@@ -336,6 +336,17 @@ const Expression = ({ fromAstOf, expr, parent, parens }: { fromAstOf?: any, expr
         component = <NewConstructor expr={expr.callee} args={expr.arguments} parens={parens} parent={expr} />
     }
 
+    if (expr.type == "AssignmentExpression") {
+        const { left, right } = expr
+        if (left.type === "Identifier") {
+            expr.category = "expression.write.var"
+            component = <WriteVar name={left.name} setBy="=" setTo={right} parent={expr} parens={parens} />
+        } else {
+            expr.category = "expression.write.prop"
+            component = <WriteProp of={left} setBy="=" setTo={right} parent={expr} parens={parens} />
+        }
+    }
+
     // console.log('rendering:', { expr, range0: expr.range[0], parenthized: expr.parenthized, parens: [...parens] })
     if (parens.has(expr.range[0])) {
         // console.log('exp has paren:', {expr, parent: expr.parent })
@@ -500,7 +511,6 @@ const ReadIndex = ({ expr, of, parent, parens }) => (
 
 const WriteVar = ({ name, setBy, setTo, parent, parens }) => {
     const { isExecuting: isIdExecuting } = useExecStep(parent.type === "VariableDeclaration" ? parent.declarations[0].id : parent.left)
-
     return (
         <>
             <span className={`text-blue-600 ${isIdExecuting ? 'executing' : ''}`}>{name}</span>
@@ -510,16 +520,25 @@ const WriteVar = ({ name, setBy, setTo, parent, parens }) => {
     )
 }
 
-const WriteProp = ({ name, of, setBy, setTo, parent, parens }) => (
-    <>
-        {/* <span className="ast-noundef"> */}
-        <Expression expr={of} parens={parens} parent={parent} />
-        <span className="text-slate-500 font-bold">.</span>
-        <span className="text-blue-600">{name}</span>
-        <span className="text-slate-500 font-bold">&nbsp;{setBy}&nbsp;</span>
-        <Expression expr={setTo} parens={parens} parent={parent} />
-    </>
-)
+const WriteProp = ({ of, setBy, setTo, parent, parens }) => {
+    return (
+        <>
+            {/* <span className="ast-noundef"> */}
+
+            {of.computed ? (
+                <Expression expr={of} parens={parens} parent={parent} />
+            ) : (
+                <>
+                    <Expression expr={of.object} parens={parens} parent={parent} />
+                    <span className="text-slate-500 font-bold">.</span>
+                    <span className="text-blue-600">{of.property.name}</span>
+                </>
+            )}
+            <span className="text-slate-500 font-bold">&nbsp;{setBy}&nbsp;</span>
+            <Expression expr={setTo} parens={parens} parent={parent} />
+        </>
+    )
+}
 
 const WriteIndex = ({ expr, of, setBy, setTo, parent, parens }) => (
     <>
