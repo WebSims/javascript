@@ -278,7 +278,7 @@ class Student extends Person {
   }
 }`
 
-const SIMULATOR_CODE_SAMPLE = `a = b = 1
+const SIMULATOR_CODE_SAMPLE = `c = j = 1;
 [[]][0][1] = 1
 const a={}
 {
