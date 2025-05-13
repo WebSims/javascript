@@ -543,7 +543,13 @@ const WriteProp = ({ of, setBy, setTo, parent, parens }) => {
             {/* <span className="ast-noundef"> */}
 
             {of.computed ? (
-                <Expression expr={of} parens={parens} parent={parent} />
+                <>
+                    <Expression expr={of.object} parens={parens} parent={parent} />
+                    <span className="text-slate-500 font-bold">.</span>
+                    <span className="text-slate-500 font-bold">[</span>
+                    <Expression expr={of.property} parens={parens} parent={parent} />
+                    <span className="text-slate-500 font-bold">]</span>
+                </>
             ) : (
                 <>
                     <Expression expr={of.object} parens={parens} parent={parent} />

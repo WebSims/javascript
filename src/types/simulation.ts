@@ -83,7 +83,8 @@ export type MemoryChange =
     }
     | {
         type: "write_property"
-        path: JSValue[] // Path to the property
+        ref: HeapRef
+        property: string | number
         value: JSValue // The new JSValue being assigned
     }
     | {
