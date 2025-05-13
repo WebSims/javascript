@@ -278,14 +278,16 @@ class Student extends Person {
   }
 }`
 
-const SIMULATOR_CODE_SAMPLE = `const a={}
+const SIMULATOR_CODE_SAMPLE = `[[]][0][1] = 1
+const a={}
 {
     const x = {}
     a.xBox = x
     y = x
 }
 const fn = () => 'x'
-a[fn() + 'Box'].y = 1`
+a[fn() + 'Box'].y = 1
+a.b = a.xBox['y']`
 
 const SimulatorContainer: React.FC = () => {
   const { mode, codeStr, updateCodeStr } = useSimulatorStore()
