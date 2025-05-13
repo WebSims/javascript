@@ -69,6 +69,9 @@ const decorations = {
             if: { tooltip: "If Statement", cheatSheetId: "st-cond-if", classN: "text-blue-600" },
             else: { tooltip: "Else Statement", cheatSheetId: "st-cond-else", classN: "text-red-600" },
         },
+        loop: {
+            for: { tooltip: "For Loop", cheatSheetId: "st-loop-for-3statements", classN: "text-green-600" },
+        },
         UNKNOWN: { tooltip: "UNKNOWN Statement", classN: "bg-orange-400 hover:bg-orange-500" },
     },
     expression: {
@@ -197,6 +200,11 @@ const Statement = ({ st, parent, parens }) => {
     if (st.type == "IfStatement") {
         st.category = parent.type === "IfStatement" ? "statement.conditional.else" : "statement.conditional.if"
         component = <IfStatement st={st} parent={parent} parens={parens} />
+    }
+
+    if (st.type == "ForStatement") {
+        st.category = "statement.loop.for"
+        component = <ForStatement st={st} parent={parent} parens={parens} />
     }
 
     const decoratorObject = _.get(decorations, st.category || "statement.UNKNOWN")
@@ -906,6 +914,31 @@ const IfStatement = ({ st, parent, parens }: { st: any, parent: any, parens: any
                     </span>
                 </>
             )}
+        </>
+    )
+}
+
+const ForStatement = ({ st, parent, parens }: { st: any, parent: any, parens: any }) => {
+    return (
+        <>
+            <span className="keyword keyword-for text-green-700 font-bold mr-2">for</span>
+            <span className="text-slate-500 font-bold">(</span>
+            {st.init.type === "VariableDeclaration" ? (
+                <span className="[&>*:first-child]:inline">
+                    <Statement st={st.init} parens={parens} parent={parent} />
+                </span>
+            ) : (
+                <span className="[&>*:first-child]:inline">
+                    <Expression expr={st.init} parens={parens} parent={parent} />
+                </span>
+            )}
+
+            <span className="text-slate-500 font-bold">;</span>
+            <Expression expr={st.test} parens={parens} parent={parent} />
+            <span className="text-slate-500 font-bold">;</span>
+            <Expression expr={st.update} parens={parens} parent={parent} />
+            <span className="text-slate-500 font-bold">)</span>
+            <Statement st={st.body} parent={st} parens={parens} />
         </>
     )
 }
