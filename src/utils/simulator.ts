@@ -1102,9 +1102,14 @@ export const simulateExecution = (astNode: ESNode | null): ExecStep[] => {
     const execIfStatement = (astNode: ESNode, scopeIndex: number, withinTryBlock: boolean): ExecStep | undefined => {
         const testStep = executionPhase(astNode.test, scopeIndex, withinTryBlock)
         if (testStep?.errorThrown) return testStep
+        removeMemVal(testStep?.evaluatedValue)
 
         if (testStep?.evaluatedValue?.value === true) {
             return traverseAST(astNode.consequent, scopeIndex, false, withinTryBlock)
+        } else {
+            if (astNode.alternate) {
+                return traverseAST(astNode.alternate, scopeIndex, false, withinTryBlock)
+            }
         }
     }
 
