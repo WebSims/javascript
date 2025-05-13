@@ -407,15 +407,18 @@ export const simulateExecution = (astNode: ESNode | null): ExecStep[] => {
                 return astNode.body as ESNode
             case "TryStatement":
                 return astNode.block as ESNode
+            case "ForStatement":
+                return { ...astNode, body: [astNode.init] } as ESNode
             default:
                 return astNode
         }
     }
-    const creationPhase = (astNode: ESNode, scopeIndex: number): void => {
+    const creationPhase = (astNode: ESNode, scopeIndex: number): ExecStep => {
         scopeIndex = addPushScopeStep(astNode).scopeIndex
 
         const declarations: Declaration[] = []
 
+        // Use for FunctionDeclaration, ArrowFunctionExpression
         if (astNode.params) {
             for (const param of astNode.params) {
                 if (param.type === "Identifier") {
@@ -455,7 +458,7 @@ export const simulateExecution = (astNode: ESNode | null): ExecStep[] => {
         }
 
         const block: ESNode = getBlock(astNode)
-        if (block.type === "Program" || block.type === "BlockStatement") {
+        if (block.type === "Program" || block.type === "BlockStatement" || block.type === "ForStatement") {
             for (const node of block.body) {
                 if (!node) continue
 
@@ -535,8 +538,8 @@ export const simulateExecution = (astNode: ESNode | null): ExecStep[] => {
             }
         }
 
-        addHoistingStep(astNode, scopeIndex, declarations)
         console.log("Creation Phase:", scopeIndex)
+        return addHoistingStep(astNode, scopeIndex, declarations)
     }
 
     // --- Execution Pass --- 
@@ -1113,6 +1116,19 @@ export const simulateExecution = (astNode: ESNode | null): ExecStep[] => {
         }
     }
 
+    const execForStatement = (astNode: ESNode, scopeIndex: number, withinTryBlock: boolean): ExecStep | undefined => {
+        const lastStep = creationPhase(astNode, scopeIndex)
+
+        if (astNode.init) {
+            const initStep = executionPhase(astNode.init, lastStep.scopeIndex, withinTryBlock)
+            if (initStep?.errorThrown) return initStep
+            removeMemVal(initStep?.evaluatedValue)
+        }
+
+        // const testStep = 
+
+    }
+
     const executionPhase = (node: ESNode | null, currentScopeIndex: number, withinTryBlock: boolean, parentNode?: ESNode | null): ExecStep | undefined => {
         if (!node) return
         console.log("Executing node:", node.type, "in scope:", currentScopeIndex, "withinTry:", withinTryBlock)
@@ -1137,6 +1153,7 @@ export const simulateExecution = (astNode: ESNode | null): ExecStep[] => {
             case "MemberExpression": return execMemberExpression(node, currentScopeIndex, withinTryBlock, parentNode)
             case "ArrowFunctionExpression": return execArrowFunctionExpression(node, currentScopeIndex, withinTryBlock)
             case "IfStatement": return execIfStatement(node, currentScopeIndex, withinTryBlock)
+            case "ForStatement": return execForStatement(node, currentScopeIndex, withinTryBlock)
             default:
                 console.warn(`Execution Pass: Unhandled node type - ${node.type}`)
                 break;
