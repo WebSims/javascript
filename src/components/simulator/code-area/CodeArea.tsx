@@ -65,6 +65,10 @@ const decorations = {
         try: { tooltip: "Try Statement", cheatSheetId: "st-error-trycatch", classN: "text-green-600" },
         catch: { tooltip: "Catch Clause", cheatSheetId: "st-error-trycatch", classN: "text-red-600" },
         finally: { tooltip: "Finally Clause", cheatSheetId: "st-error-trycatchfinally", classN: "text-green-600" },
+        conditional: {
+            if: { tooltip: "If Statement", cheatSheetId: "st-con-if", classN: "text-blue-600" },
+            else: { tooltip: "Else Statement", cheatSheetId: "st-con-else", classN: "text-red-600" },
+        },
         UNKNOWN: { tooltip: "UNKNOWN Statement", classN: "bg-orange-400 hover:bg-orange-500" },
     },
     expression: {
@@ -188,6 +192,11 @@ const Statement = ({ st, parent, parens }) => {
     if (st.type == "TryStatement") {
         st.category = "statement.try"
         component = <TryStatement st={st} parent={parent} parens={parens} />
+    }
+
+    if (st.type == "IfStatement") {
+        st.category = "statement.conditional"
+        component = <IfStatement st={st} parent={parent} parens={parens} />
     }
 
     const decoratorObject = _.get(decorations, st.category || "statement.UNKNOWN")
@@ -881,6 +890,17 @@ const TryCatchFinallyStatement = ({ st, parent, parens }: { st: any, parent: any
     )
 }
 
+const IfStatement = ({ st, parent, parens }: { st: any, parent: any, parens: any }) => {
+    return (
+        <>
+            <span className="keyword keyword-if text-blue-700 font-bold mr-2">if</span>
+            <span className="text-slate-500 font-bold">(</span>
+            <Expression expr={st.test} parens={parens} parent={parent} />
+            <span className="text-slate-500 font-bold">)</span>
+            <Statement st={st.consequent} parent={st} parens={parens} />
+        </>
+    )
+}
 const BlockStatement = ({ st, parent, parens }: { st: any, parent: any, parens: any }) => {
     return (
         <>
