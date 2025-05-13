@@ -66,8 +66,8 @@ const decorations = {
         catch: { tooltip: "Catch Clause", cheatSheetId: "st-error-trycatch", classN: "text-red-600" },
         finally: { tooltip: "Finally Clause", cheatSheetId: "st-error-trycatchfinally", classN: "text-green-600" },
         conditional: {
-            if: { tooltip: "If Statement", cheatSheetId: "st-con-if", classN: "text-blue-600" },
-            else: { tooltip: "Else Statement", cheatSheetId: "st-con-else", classN: "text-red-600" },
+            if: { tooltip: "If Statement", cheatSheetId: "st-cond-if", classN: "text-blue-600" },
+            else: { tooltip: "Else Statement", cheatSheetId: "st-cond-else", classN: "text-red-600" },
         },
         UNKNOWN: { tooltip: "UNKNOWN Statement", classN: "bg-orange-400 hover:bg-orange-500" },
     },
@@ -195,7 +195,7 @@ const Statement = ({ st, parent, parens }) => {
     }
 
     if (st.type == "IfStatement") {
-        st.category = "statement.conditional"
+        st.category = parent.type === "IfStatement" ? "statement.conditional.else" : "statement.conditional.if"
         component = <IfStatement st={st} parent={parent} parens={parens} />
     }
 
