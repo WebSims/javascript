@@ -898,9 +898,18 @@ const IfStatement = ({ st, parent, parens }: { st: any, parent: any, parens: any
             <Expression expr={st.test} parens={parens} parent={parent} />
             <span className="text-slate-500 font-bold">)</span>
             <Statement st={st.consequent} parent={st} parens={parens} />
+            {st.alternate && (
+                <>
+                    <span className="keyword keyword-else text-red-700 font-bold mr-2">else</span>
+                    <span className="[&>*:first-child]:inline">
+                        <Statement st={st.alternate} parent={st} parens={parens} />
+                    </span>
+                </>
+            )}
         </>
     )
 }
+
 const BlockStatement = ({ st, parent, parens }: { st: any, parent: any, parens: any }) => {
     return (
         <>
