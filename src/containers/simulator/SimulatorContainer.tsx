@@ -283,12 +283,12 @@ const SIMULATOR_CODE_SAMPLE = `c = j = 1;
 const a={}
 {
     const x = {}
-    a.xBox = x
+    a.xBoxOne = x
     y = x
 }
-const fn = () => 'x'
-a[fn() + 'Box'].y = 1
-a.b = a.xBox['y'].x`
+const fn = (a, b) => a + b
+a[fn('x', 'Box') + 'One'].y = 1
+a.b = a.xBoxOne['y'].x`
 
 const SimulatorContainer: React.FC = () => {
   const { mode, codeStr, updateCodeStr } = useSimulatorStore()

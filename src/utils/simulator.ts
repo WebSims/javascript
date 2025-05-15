@@ -284,7 +284,7 @@ export const simulateExecution = (astNode: ESNode | null): ExecStep[] => {
     }
 
     const removeMemVal = (value: JSValue) => {
-        memVal.splice(memVal.indexOf(value), 1)
+        memVal.splice(memVal.lastIndexOf(value), 1)
     }
 
     const clearMemVal = (astNode?: ESNode) => {
@@ -789,10 +789,10 @@ export const simulateExecution = (astNode: ESNode | null): ExecStep[] => {
                 if (leftPropertyStep && leftPropertyStep.errorThrown) {
                     return leftPropertyStep
                 }
-                property = leftPropertyStep.evaluatedValue.value
+                property = leftPropertyStep.evaluatedValue
             } else {
-                property = astNode.left.property.name
-                addMemVal({ type: "primitive", value: property })
+                property = { type: "primitive", value: astNode.left.property.name }
+                addMemVal(property)
             }
         }
 
@@ -832,10 +832,10 @@ export const simulateExecution = (astNode: ESNode | null): ExecStep[] => {
                 })
             } else {
                 const ref = leftObjectStep?.evaluatedValue?.ref
-                const propertyRef = writeProperty(ref, property, evaluatedValue)
+                const propertyRef = writeProperty(ref, property.value, evaluatedValue)
 
                 removeMemVal(leftObjectStep?.evaluatedValue)
-                removeMemVal(leftPropertyStep?.evaluatedValue)
+                removeMemVal(property)
                 removeMemVal(rightStep.evaluatedValue)
 
                 if (propertyRef === -1) {
@@ -953,7 +953,6 @@ export const simulateExecution = (astNode: ESNode | null): ExecStep[] => {
         if (objectStep?.evaluatedValue?.type === "reference") {
             const object = heap[objectStep?.evaluatedValue?.ref]
             if (!object) {
-                removeMemVal(objectStep?.evaluatedValue)
                 const error = createErrorObject('TypeError', `Cannot read properties of undefined (reading ${objectStep?.evaluatedValue?.value})`, astNode)
                 return addErrorThrownStep(astNode, scopeIndex, error)
             }
@@ -962,7 +961,6 @@ export const simulateExecution = (astNode: ESNode | null): ExecStep[] => {
                 const propertyStep = executionPhase(astNode.property, scopeIndex, withinTryBlock)
                 if (propertyStep?.errorThrown) return propertyStep
                 removeMemVal(propertyStep?.evaluatedValue)
-                removeMemVal(objectStep?.evaluatedValue)
 
                 if (object.type === "object") {
                     evaluatedValue = object.properties[propertyStep.evaluatedValue?.value]
@@ -973,7 +971,6 @@ export const simulateExecution = (astNode: ESNode | null): ExecStep[] => {
                     return addErrorThrownStep(astNode, scopeIndex, error)
                 }
             } else {
-                removeMemVal(objectStep?.evaluatedValue)
                 if (object.type === "object") {
                     evaluatedValue = object.properties[astNode.property.name]
                 } else if (object.type === "array") {
@@ -982,14 +979,12 @@ export const simulateExecution = (astNode: ESNode | null): ExecStep[] => {
                     evaluatedValue = { type: "primitive", value: undefined }
                 }
             }
-
         } else if (objectStep?.evaluatedValue.type === "primitive") {
             if (astNode.computed) {
                 const propertyStep = executionPhase(astNode.property, scopeIndex, withinTryBlock)
                 if (propertyStep?.errorThrown) return propertyStep
 
                 removeMemVal(propertyStep?.evaluatedValue)
-                removeMemVal(objectStep?.evaluatedValue)
 
                 if (objectStep.evaluatedValue.value === undefined) {
                     const error = createErrorObject('TypeError', `Cannot read properties of undefined (reading ${propertyStep?.evaluatedValue?.value})`)
@@ -999,10 +994,10 @@ export const simulateExecution = (astNode: ESNode | null): ExecStep[] => {
                 }
             } else if (objectStep.evaluatedValue.value === undefined) {
                 const error = createErrorObject('TypeError', `Cannot read properties of undefined (reading ${astNode?.property?.name})`)
-                removeMemVal(objectStep?.evaluatedValue)
                 return addErrorThrownStep(astNode, scopeIndex, error)
             }
         }
+        removeMemVal(objectStep?.evaluatedValue)
 
         if (evaluatedValue === undefined) {
             evaluatedValue = { type: "primitive", value: undefined }
