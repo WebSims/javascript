@@ -548,10 +548,9 @@ const WriteProp = ({ of, setBy, setTo, parent, parens }) => {
             {of.computed ? (
                 <>
                     <Expression expr={of.object} parens={parens} parent={parent} />
-                    <span className="text-slate-500 font-bold">.</span>
-                    <span className="text-slate-500 font-bold">[</span>
+                    <span className="text-xl align-middle font-bold">[</span>
                     <Expression expr={of.property} parens={parens} parent={parent} />
-                    <span className="text-slate-500 font-bold">]</span>
+                    <span className="text-xl align-middle font-bold">]</span>
                 </>
             ) : (
                 <>

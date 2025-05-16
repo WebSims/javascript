@@ -792,6 +792,7 @@ export const simulateExecution = (astNode: ESNode | null): ExecStep[] => {
                 property = leftPropertyStep.evaluatedValue
             } else {
                 property = { type: "primitive", value: astNode.left.property.name }
+                leftObjectStep?.memorySnapshot.memVal.push(property)
                 addMemVal(property)
             }
         }
