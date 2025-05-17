@@ -909,19 +909,27 @@ const TryCatchFinallyStatement = ({ st, parent, parens }: { st: any, parent: any
 const IfStatement = ({ st, parent, parens }: { st: any, parent: any, parens: any }) => {
     return (
         <>
-            <span className="keyword keyword-if text-blue-700 font-bold mr-2">if</span>
-            <span className="text-slate-500 font-bold">(</span>
-            <Expression expr={st.test} parens={parens} parent={parent} />
-            <span className="text-slate-500 font-bold">)</span>
-            <Statement st={st.consequent} parent={st} parens={parens} />
-            {st.alternate && (
-                <>
-                    <span className="keyword keyword-else text-red-700 font-bold mr-2">else</span>
-                    <span className="[&>*:first-child]:inline">
-                        <Statement st={st.alternate} parent={st} parens={parens} />
-                    </span>
-                </>
-            )}
+            <div className="py-2">
+                <span className="keyword keyword-if text-blue-700 font-bold mr-2">if</span>
+                <span className="text-slate-500 font-bold">(</span>
+                <Expression expr={st.test} parens={parens} parent={parent} />
+                <span className="text-slate-500 font-bold">)</span>
+                <span className={`${st.consequent.body === undefined ? '[&>*:first-child]:inline' : ''}`}>
+                    <Statement st={st.consequent} parent={st} parens={parens} />
+                </span>
+            </div>
+            <div className="py-2">
+                {
+                    st.alternate && (
+                        <>
+                            <span className="keyword keyword-else text-red-700 font-bold mr-2">else</span>
+                            <span className="[&>*:first-child]:inline">
+                                <Statement st={st.alternate} parent={st} parens={parens} />
+                            </span>
+                        </>
+                    )
+                }
+            </div>
         </>
     )
 }
