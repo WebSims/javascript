@@ -1062,6 +1062,11 @@ export const simulateExecution = (astNode: ESNode | null): ExecStep[] => {
 
     }
 
+    const execEmptyStatement = (astNode: ESNode, scopeIndex: number, withinTryBlock: boolean): ExecStep | undefined => {
+        addExecutingStep(astNode, scopeIndex)
+        return addExecutedStep(astNode, scopeIndex)
+    }
+
     const executionPhase = (node: ESNode | null, currentScopeIndex: number, withinTryBlock: boolean, parentNode?: ESNode | null): ExecStep | undefined => {
         if (!node) return
         console.log("Executing node:", node.type, "in scope:", currentScopeIndex, "withinTry:", withinTryBlock)
@@ -1087,6 +1092,7 @@ export const simulateExecution = (astNode: ESNode | null): ExecStep[] => {
             case "ArrowFunctionExpression": return execArrowFunctionExpression(node, currentScopeIndex, withinTryBlock)
             case "IfStatement": return execIfStatement(node, currentScopeIndex, withinTryBlock)
             case "ForStatement": return execForStatement(node, currentScopeIndex, withinTryBlock)
+            case "EmptyStatement": return execEmptyStatement(node, currentScopeIndex, withinTryBlock)
             default:
                 console.warn(`Execution Pass: Unhandled node type - ${node.type}`)
                 break;
