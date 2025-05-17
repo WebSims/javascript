@@ -984,6 +984,16 @@ const BlockStatement = ({ st, parent, parens }: { st: any, parent: any, parens: 
 const CodeArea: React.FC<CodeAreaProps> = ({ parent, parens, debug }) => {
     const { astOfCode, codeAreaRef } = useSimulatorStore()
 
+    if (!astOfCode) {
+        return (
+            <div className="relative w-full h-full bg-slate-50 p-4">
+                <pre className="text-red-500 font-mono text-sm">
+                    Code is not valid
+                </pre>
+            </div>
+        )
+    }
+
     let isRoot = false
 
     if (!parens) {
@@ -992,17 +1002,6 @@ const CodeArea: React.FC<CodeAreaProps> = ({ parent, parens, debug }) => {
     }
     if (!parent) {
         parent = astOfCode
-    }
-
-    // Handle case when astOfCode is null
-    if (!astOfCode) {
-        return (
-            <div className="relative w-full h-full bg-slate-50 p-4">
-                <pre ref={codeAreaRef} className="text-red-500 font-mono text-sm">
-                    No code available
-                </pre>
-            </div>
-        )
     }
 
     const statements = astOfCode instanceof Array ? astOfCode : (astOfCode.body ? astOfCode.body : [astOfCode])
