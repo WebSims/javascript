@@ -496,7 +496,6 @@ export const simulateExecution = (astNode: ESNode | null): ExecStep[] => {
                 lastStep = traverseAST(statement, scopeIndex, false, withinTryBlock)
             } else {
                 lastStep = executionPhase(statement, scopeIndex, withinTryBlock)
-                console.log(statement, lastStep, steps.length)
             }
 
             if (lastStep?.errorThrown) {
