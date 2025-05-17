@@ -914,7 +914,7 @@ const IfStatement = ({ st, parent, parens }: { st: any, parent: any, parens: any
                 <span className="text-slate-500 font-bold">(</span>
                 <Expression expr={st.test} parens={parens} parent={parent} />
                 <span className="text-slate-500 font-bold">)</span>
-                <span className={`${st.consequent.body === undefined ? '[&>*:first-child]:inline' : ''}`}>
+                <span className={`${st.consequent.body === undefined ? '[&>*:first-child]:inline-block' : ''}`}>
                     <Statement st={st.consequent} parent={st} parens={parens} />
                 </span>
             </div>
