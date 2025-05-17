@@ -1,4 +1,5 @@
 import React, { useEffect } from 'react'
+import { useHotkeys } from 'react-hotkeys-hook'
 
 import CodeMode from './components/CodeMode'
 import MainLayout from '@/layouts/MainLayout'
@@ -291,12 +292,43 @@ a[fn('x', 'Box') + 'One'].y = 1
 a.b = a.xBoxOne['y'].x`
 
 const SimulatorContainer: React.FC = () => {
-  const { mode, codeStr, updateCodeStr } = useSimulatorStore()
+  const { mode, files, updateFileContent, currentFile } = useSimulatorStore()
+  const fileContent = files[currentFile]
+
+  useHotkeys(
+    'mod+s',
+    (event) => {
+      event.preventDefault()
+      if (files && Object.keys(files).length > 0) {
+        localStorage.setItem('simulatorFiles', JSON.stringify(files))
+        console.log('Files saved to localStorage!')
+
+        // Dispatch a custom event to notify components about file save
+        window.dispatchEvent(new CustomEvent('filesaved', {
+          detail: { file: currentFile }
+        }))
+      }
+    },
+    { preventDefault: true },
+    [files, currentFile] // Depend on the files object and current file
+  )
 
   useEffect(() => {
-    updateCodeStr(codeStr || SIMULATOR_CODE_SAMPLE)
+    const savedFilesString = localStorage.getItem('simulatorFiles')
+    const savedFiles = JSON.parse(savedFilesString || '{}')
+    const currentFileContent = savedFiles[currentFile]
+    if (currentFileContent === undefined) {
+      const newFiles = { ...files, [currentFile]: SIMULATOR_CODE_SAMPLE }
+      localStorage.setItem('simulatorFiles', JSON.stringify(newFiles))
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [])
+
+  useEffect(() => {
+    updateFileContent(currentFile, fileContent)
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [mode])
+
 
   return (
     <MainLayout>

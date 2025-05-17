@@ -13,8 +13,10 @@ import { simulateExecution } from "@/utils/simulator"
 type SimulatorContextType = {
     mode: 'CODE' | 'EXECUTION'
     toggleMode: () => void
-    codeStr: string
-    updateCodeStr: (codeStr: string) => void
+    files: Record<string, string>
+    currentFile: string
+    changeCurrentFile: (filename: string) => void
+    updateFileContent: (filename: string, newContent: string) => void
     astOfCode: ESNode | ts.SourceFile | null
     execSteps: ExecStep[]
     currentExecStep: ExecStep | null
@@ -36,8 +38,9 @@ const SimulatorContext = createContext<SimulatorContextType | undefined>(undefin
 
 export const SimulatorProvider = ({ children }: { children: React.ReactNode }) => {
     const [mode, setMode] = useState<'CODE' | 'EXECUTION'>('CODE')
-    const [codeStr, setCodeStr] = useState<string>("")
-    const [astOfCode, setAstOfCode] = useState<ESNode | ts.SourceFile | null>(astOf(codeStr))
+    const [files, setFiles] = useState<Record<string, string>>({ "main.js": "" })
+    const [currentFile, setCurrentFile] = useState("main.js")
+    const [astOfCode, setAstOfCode] = useState<ESNode | ts.SourceFile | null>(astOf(files[currentFile]) || null)
     const [execSteps, setExecSteps] = useState<ExecStep[]>([])
     const [currentExecStep, setCurrentExecStep] = useState<ExecStep | null>(null)
     const [isPlaying, setIsPlaying] = useState(false)
@@ -48,21 +51,32 @@ export const SimulatorProvider = ({ children }: { children: React.ReactNode }) =
     const cheatSheetRef = useRef<HTMLDivElement>(null)
 
     useEffect(() => {
+        const savedFilesString = localStorage.getItem('simulatorFiles')
+        const savedFiles = JSON.parse(savedFilesString || '{}')
+        setFiles(savedFiles)
+        setCurrentFile(Object.keys(savedFiles)[0] || "main.js")
+        setAstOfCode(astOf(savedFiles[currentFile]) || null)
+        // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, [])
+
+    useEffect(() => {
         const cleanup = cheatSheetHighlighter(codeAreaRef, cheatSheetRef, setHighlightedId)
         return cleanup
     }, [astOfCode])
 
     const totalSteps = execSteps.length
 
-    const updateCodeStr = (newCodeStr: string) => {
-        setCodeStr(newCodeStr)
-        const ast = astOf(newCodeStr)
+    const updateFileContent = (filename: string, newContent: string) => {
+        const newFiles = { ...files, [filename]: newContent }
+        setFiles(newFiles)
+        const ast = astOf(newFiles[filename])
+        console.log(ast)
         if (ast) {
             const steps = simulateExecution(ast as ESNode)
             console.log(steps)
             setAstOfCode(ast)
             setExecSteps(steps)
-            setCurrentExecStep(steps[0])
+            setCurrentExecStep(steps[0] || null)
         }
     }
 
@@ -115,7 +129,7 @@ export const SimulatorProvider = ({ children }: { children: React.ReactNode }) =
                 stepForward()
             }, 1000 / speed)
         } else {
-            setIsPlaying(false)
+            if (isPlaying) setIsPlaying(false)
         }
 
         return () => {
@@ -127,13 +141,19 @@ export const SimulatorProvider = ({ children }: { children: React.ReactNode }) =
         setHighlightedId(id)
     }
 
+    const changeCurrentFile = (filename: string) => {
+        setCurrentFile(filename)
+    }
+
     return (
         <SimulatorContext.Provider
             value={{
                 mode,
                 toggleMode,
-                codeStr,
-                updateCodeStr,
+                files,
+                currentFile,
+                changeCurrentFile,
+                updateFileContent,
                 astOfCode,
                 execSteps,
                 currentExecStep,
