@@ -161,8 +161,6 @@ const CodeEditor: React.FC = () => {
                     // @ts-expect-error monaco is a global variable
                     monaco.KeyMod.CtrlCmd | monaco.KeyCode.KeyR,
                 ],
-                contextMenuGroupId: 'navigation',
-                contextMenuOrder: 1.6,
                 run: () => {
                     toggleMode()
                 },
