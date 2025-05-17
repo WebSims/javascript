@@ -499,6 +499,7 @@ export const simulateExecution = (astNode: ESNode | null): ExecStep[] => {
                 addExecutingStep(statement, scopeIndex)
 
                 lastStep = executionPhase(statement, scopeIndex, withinTryBlock)
+                console.log(lastStep, steps.length)
             }
 
             if (lastStep?.errorThrown) {
@@ -1081,7 +1082,8 @@ export const simulateExecution = (astNode: ESNode | null): ExecStep[] => {
 
     const destructionPhase = (astNode: ESNode, scopeIndex: number, lastStep: ExecStep | undefined) => {
         if (lastStep?.errorThrown) printError(lastStep.errorThrown)
-        addPopScopeStep(astNode, scopeIndex, lastStep?.evaluatedValue, lastStep?.errorThrown)
+        const evaluatedValue = lastStep?.node?.type === "ReturnStatement" && lastStep?.evaluatedValue
+        addPopScopeStep(astNode, scopeIndex, evaluatedValue, lastStep?.errorThrown)
         console.log("Destruction Phase:", scopeIndex)
     }
 
