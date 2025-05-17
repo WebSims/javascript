@@ -1026,7 +1026,7 @@ export const simulateExecution = (astNode: ESNode | null): ExecStep[] => {
         if (testStep?.errorThrown) return testStep
         removeMemVal(testStep?.evaluatedValue)
 
-        if (testStep?.evaluatedValue?.value === true) {
+        if (Boolean(testStep?.evaluatedValue?.value)) {
             return traverseAST(astNode.consequent, scopeIndex, false, withinTryBlock)
         } else {
             if (astNode.alternate) {
@@ -1092,6 +1092,7 @@ export const simulateExecution = (astNode: ESNode | null): ExecStep[] => {
             node?.type === "TryStatement" ||
             node?.type === "CatchClause" ||
             node?.type === "ArrowFunctionExpression" ||
+            node?.type === "ExpressionStatement" ||
             node?.type === "BlockStatement"
         )
     }
@@ -1111,13 +1112,12 @@ export const simulateExecution = (astNode: ESNode | null): ExecStep[] => {
         lastScopeIndex++
         scopeIndex = lastScopeIndex
 
-        // Get the actual block to execute
-        const block = getBlock(astNode)
-
         // Phase 1: Creation - hoisting and declarations
         creationPhase(astNode, scopeIndex)
 
         // Phase 2: Execution
+        // Get the actual block to execute
+        const block = getBlock(astNode)
         const lastStep = executionPhase(block, scopeIndex, withinTryBlock)
 
         // Phase 3: Destruction - except for global scope
