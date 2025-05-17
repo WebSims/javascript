@@ -747,8 +747,9 @@ export const simulateExecution = (astNode: ESNode | null): ExecStep[] => {
     // --- TryStatement Execution ---
     const execTryStatement = (astNode: ESNode, scopeIndex: number, withinTryBlock: boolean): ExecStep | undefined => {
         addExecutingStep(astNode, scopeIndex)
+        let evaluatedValue: JSValue | undefined
+
         const tryLastStep = traverseAST(astNode, scopeIndex, false, true) // Pass true here
-        let lastStep: ExecStep | undefined = tryLastStep
 
         if (tryLastStep?.errorThrown) {
             // Hack: rewrite the errorThrown to use as parameter for the catch block
@@ -756,21 +757,31 @@ export const simulateExecution = (astNode: ESNode | null): ExecStep[] => {
             addMemVal({ ...tryLastStep?.errorThrown, parentNode: astNode.handler })
 
             const catchLastStep = traverseAST(astNode.handler, scopeIndex, false, withinTryBlock)
-            if (astNode.finalizer && !catchLastStep?.errorThrown) {
-                if (astNode.finalizer.body.length > 0) removeMemVal(catchLastStep?.evaluatedValue)
-                const finalizerStep = traverseAST(astNode.finalizer, scopeIndex, false, withinTryBlock)
-                lastStep = finalizerStep || catchLastStep
+
+            if (astNode.finalizer) {
+                if (catchLastStep?.errorThrown) {
+                    removeMemVal(catchLastStep?.errorThrown)
+                }
             } else {
-                lastStep = catchLastStep
+                if (catchLastStep?.errorThrown) {
+                    return catchLastStep
+                }
             }
+            evaluatedValue = catchLastStep?.evaluatedValue
+        } else {
+            evaluatedValue = tryLastStep?.evaluatedValue
         }
 
         if (astNode.finalizer) {
-            if (astNode.finalizer.body.length > 0) removeMemVal(tryLastStep?.evaluatedValue)
+            if (astNode.finalizer.body.length > 0) removeMemVal(evaluatedValue)
             const finalizerStep = traverseAST(astNode.finalizer, scopeIndex, false, withinTryBlock)
-            lastStep = finalizerStep || tryLastStep
+            if (finalizerStep?.errorThrown) {
+                return finalizerStep
+            }
+            evaluatedValue = finalizerStep?.evaluatedValue || tryLastStep?.evaluatedValue
         }
-        return addExecutedStep(astNode, scopeIndex, lastStep?.evaluatedValue)
+
+        return addExecutedStep(astNode, scopeIndex, evaluatedValue)
     }
 
     const execAssignmentExpression = (astNode: ESNode, scopeIndex: number, withinTryBlock: boolean): ExecStep | undefined => {
