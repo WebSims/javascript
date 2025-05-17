@@ -495,23 +495,12 @@ export const simulateExecution = (astNode: ESNode | null): ExecStep[] => {
             if (statement.type === "BlockStatement") {
                 lastStep = traverseAST(statement, scopeIndex, false, withinTryBlock)
             } else {
-                // Mark statement as executing
-                addExecutingStep(statement, scopeIndex)
-
                 lastStep = executionPhase(statement, scopeIndex, withinTryBlock)
-                console.log(lastStep, steps.length)
+                console.log(statement, lastStep, steps.length)
             }
 
             if (lastStep?.errorThrown) {
                 return lastStep
-            }
-
-            if (lastStep?.node?.type !== statement.type) {
-                addExecutedStep(statement, scopeIndex)
-            }
-
-            if (statement.type === "ExpressionStatement") {
-                continue
             }
 
             if (lastStep?.evaluatedValue) {
@@ -521,13 +510,14 @@ export const simulateExecution = (astNode: ESNode | null): ExecStep[] => {
     }
 
     const execExpressionStatement = (astNode: ESNode, scopeIndex: number, withinTryBlock: boolean): ExecStep | undefined => {
+        addExecutingStep(astNode, scopeIndex)
         const expressionNode = (astNode as ExpressionStatement).expression
         const lastStep = executionPhase(expressionNode, scopeIndex, withinTryBlock)
         if (lastStep?.errorThrown) {
             return lastStep
         }
         if (lastStep?.evaluatedValue) removeMemVal(lastStep.evaluatedValue)
-        return lastStep
+        return addExecutedStep(astNode, scopeIndex)
     }
 
     const execLiteral = (astNode: ESNode, scopeIndex: number, withinTryBlock: boolean): ExecStep | undefined => {
@@ -554,6 +544,7 @@ export const simulateExecution = (astNode: ESNode | null): ExecStep[] => {
     }
 
     const execVariableDeclaration = (astNode: ESNode, scopeIndex: number, withinTryBlock: boolean): ExecStep | undefined => {
+        addExecutingStep(astNode, scopeIndex)
         if (astNode.kind === "const" && astNode.declarations.length === 0) {
             console.warn("Unhandled const declaration pattern in execution:", astNode.kind)
         }
@@ -732,23 +723,34 @@ export const simulateExecution = (astNode: ESNode | null): ExecStep[] => {
     }
 
     const execReturnStatement = (astNode: ESNode, scopeIndex: number, withinTryBlock: boolean): ExecStep | undefined => {
+        addExecutingStep(astNode, scopeIndex)
+        let evaluatedValue: JSValue | undefined = { type: 'primitive', value: undefined }
         if (astNode.argument) {
             const lastStep = executionPhase(astNode.argument, scopeIndex, withinTryBlock)
-            return lastStep
+            if (lastStep?.errorThrown) {
+                return lastStep
+            }
+            if (lastStep?.evaluatedValue) {
+                evaluatedValue = lastStep.evaluatedValue
+            }
         } else {
-            addMemVal({ type: 'primitive', value: undefined })
-            return addExecutedStep(astNode, scopeIndex, { type: 'primitive', value: undefined })
+            addMemVal(evaluatedValue)
         }
+        return addExecutedStep(astNode, scopeIndex, evaluatedValue)
     }
 
     const execThrowStatement = (astNode: ESNode, scopeIndex: number, withinTryBlock: boolean): ExecStep | undefined => {
+        addExecutingStep(astNode, scopeIndex)
         const lastStep = executionPhase(astNode.argument, scopeIndex, withinTryBlock)
         return addExecutedStep(astNode, scopeIndex, undefined, lastStep?.evaluatedValue)
     }
 
     // --- TryStatement Execution ---
     const execTryStatement = (astNode: ESNode, scopeIndex: number, withinTryBlock: boolean): ExecStep | undefined => {
+        addExecutingStep(astNode, scopeIndex)
         const tryLastStep = traverseAST(astNode, scopeIndex, false, true) // Pass true here
+        let lastStep: ExecStep | undefined = tryLastStep
+
         if (tryLastStep?.errorThrown) {
             // Hack: rewrite the errorThrown to use as parameter for the catch block
             removeMemVal(tryLastStep?.errorThrown)
@@ -758,18 +760,18 @@ export const simulateExecution = (astNode: ESNode | null): ExecStep[] => {
             if (astNode.finalizer && !catchLastStep?.errorThrown) {
                 if (astNode.finalizer.body.length > 0) removeMemVal(catchLastStep?.evaluatedValue)
                 const finalizerStep = traverseAST(astNode.finalizer, scopeIndex, false, withinTryBlock)
-                return finalizerStep || catchLastStep
+                lastStep = finalizerStep || catchLastStep
+            } else {
+                lastStep = catchLastStep
             }
-
-            return catchLastStep
         }
 
         if (astNode.finalizer) {
             if (astNode.finalizer.body.length > 0) removeMemVal(tryLastStep?.evaluatedValue)
             const finalizerStep = traverseAST(astNode.finalizer, scopeIndex, false, withinTryBlock)
-            return finalizerStep || tryLastStep
+            lastStep = finalizerStep || tryLastStep
         }
-        return tryLastStep
+        return addExecutedStep(astNode, scopeIndex, lastStep?.evaluatedValue)
     }
 
     const execAssignmentExpression = (astNode: ESNode, scopeIndex: number, withinTryBlock: boolean): ExecStep | undefined => {
@@ -1023,17 +1025,29 @@ export const simulateExecution = (astNode: ESNode | null): ExecStep[] => {
     }
 
     const execIfStatement = (astNode: ESNode, scopeIndex: number, withinTryBlock: boolean): ExecStep | undefined => {
+        addExecutingStep(astNode, scopeIndex)
+        let lastStep: ExecStep | undefined
+
         const testStep = executionPhase(astNode.test, scopeIndex, withinTryBlock)
         if (testStep?.errorThrown) return testStep
         removeMemVal(testStep?.evaluatedValue)
 
         if (Boolean(testStep?.evaluatedValue?.value)) {
-            return traverseAST(astNode.consequent, scopeIndex, false, withinTryBlock)
+            if (isBlock(astNode.consequent)) {
+                lastStep = traverseAST(astNode.consequent, scopeIndex, false, withinTryBlock)
+            } else {
+                lastStep = executionPhase(astNode.consequent, scopeIndex, false, withinTryBlock)
+
+            }
         } else {
             if (astNode.alternate) {
-                return traverseAST(astNode.alternate, scopeIndex, false, withinTryBlock)
+                lastStep = traverseAST(astNode.alternate, scopeIndex, false, withinTryBlock)
             }
         }
+        if (lastStep?.errorThrown) {
+            return lastStep
+        }
+        return addExecutedStep(astNode, scopeIndex, lastStep?.evaluatedValue)
     }
 
     const execForStatement = (astNode: ESNode, scopeIndex: number, withinTryBlock: boolean): ExecStep | undefined => {
@@ -1082,8 +1096,7 @@ export const simulateExecution = (astNode: ESNode | null): ExecStep[] => {
 
     const destructionPhase = (astNode: ESNode, scopeIndex: number, lastStep: ExecStep | undefined) => {
         if (lastStep?.errorThrown) printError(lastStep.errorThrown)
-        const evaluatedValue = lastStep?.node?.type === "ReturnStatement" && lastStep?.evaluatedValue
-        addPopScopeStep(astNode, scopeIndex, evaluatedValue, lastStep?.errorThrown)
+        addPopScopeStep(astNode, scopeIndex, lastStep?.evaluatedValue, lastStep?.errorThrown)
         console.log("Destruction Phase:", scopeIndex)
     }
 
@@ -1094,7 +1107,6 @@ export const simulateExecution = (astNode: ESNode | null): ExecStep[] => {
             node?.type === "TryStatement" ||
             node?.type === "CatchClause" ||
             node?.type === "ArrowFunctionExpression" ||
-            node?.type === "ExpressionStatement" ||
             node?.type === "BlockStatement"
         )
     }
