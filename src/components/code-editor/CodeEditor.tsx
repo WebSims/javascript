@@ -17,7 +17,7 @@ interface InternalMonacoModel extends MonacoEditor.ITextModel {
 }
 
 const CodeEditor: React.FC = () => {
-    const { files, updateFileContent, currentFile, changeCurrentFile, toggleMode } = useSimulatorStore()
+    const { files, updateFileContent, currentFile, changeCurrentFile, toggleMode, settings } = useSimulatorStore()
     const fileContent = files[currentFile]
     const [unsavedFiles, setUnsavedFiles] = useState<Set<string>>(new Set())
 
@@ -169,6 +169,10 @@ const CodeEditor: React.FC = () => {
     }
 
     const handleEditorChange = (value: string | undefined) => {
+        if (settings.autoSave) {
+            const newFiles = { ...files, [currentFile]: value || '' }
+            localStorage.setItem('simulatorFiles', JSON.stringify(newFiles))
+        }
         updateFileContent(currentFile, value || '')
     }
 

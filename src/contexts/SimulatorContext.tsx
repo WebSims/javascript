@@ -32,6 +32,7 @@ type SimulatorContextType = {
     setSpeed: (speed: number) => void
     highlightedId: string | null
     changeHighlightedId: (id: string) => void
+    settings: Record<string, boolean>
 }
 
 const SimulatorContext = createContext<SimulatorContextType | undefined>(undefined)
@@ -46,6 +47,9 @@ export const SimulatorProvider = ({ children }: { children: React.ReactNode }) =
     const [isPlaying, setIsPlaying] = useState(false)
     const [speed, setSpeed] = useState(2)
     const [highlightedId, setHighlightedId] = useState<string | null>(null)
+    const [settings, setSettings] = useState<Record<string, boolean>>({
+        autoSave: true,
+    })
 
     const codeAreaRef = useRef<HTMLDivElement>(null)
     const cheatSheetRef = useRef<HTMLDivElement>(null)
@@ -70,7 +74,7 @@ export const SimulatorProvider = ({ children }: { children: React.ReactNode }) =
         const newFiles = { ...files, [filename]: newContent }
         setFiles(newFiles)
         const ast = astOf(newFiles[filename])
-        console.log(ast)
+
         if (ast) {
             const steps = simulateExecution(ast as ESNode)
             console.log(steps)
@@ -168,7 +172,8 @@ export const SimulatorProvider = ({ children }: { children: React.ReactNode }) =
                 cheatSheetRef,
                 setSpeed,
                 highlightedId,
-                changeHighlightedId
+                changeHighlightedId,
+                settings,
             }}
         >
             {children}
