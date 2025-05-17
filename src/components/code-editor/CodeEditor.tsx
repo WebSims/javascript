@@ -17,7 +17,7 @@ interface InternalMonacoModel extends MonacoEditor.ITextModel {
 }
 
 const CodeEditor: React.FC = () => {
-    const { files, updateFileContent, currentFile, changeCurrentFile } = useSimulatorStore()
+    const { files, updateFileContent, currentFile, changeCurrentFile, toggleMode } = useSimulatorStore()
     const fileContent = files[currentFile]
     const [unsavedFiles, setUnsavedFiles] = useState<Set<string>>(new Set())
 
@@ -150,6 +150,21 @@ const CodeEditor: React.FC = () => {
                             return updated
                         })
                     }
+                },
+            })
+
+            // Add execution mode toggle action
+            editor.addAction({
+                id: 'toggleExecutionMode',
+                label: 'Change to Execution Mode',
+                keybindings: [
+                    // @ts-expect-error monaco is a global variable
+                    monaco.KeyMod.CtrlCmd | monaco.KeyCode.KeyR,
+                ],
+                contextMenuGroupId: 'navigation',
+                contextMenuOrder: 1.6,
+                run: () => {
+                    toggleMode()
                 },
             })
         }

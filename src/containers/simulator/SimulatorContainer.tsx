@@ -292,7 +292,7 @@ a[fn('x', 'Box') + 'One'].y = 1
 a.b = a.xBoxOne['y'].x`
 
 const SimulatorContainer: React.FC = () => {
-  const { mode, files, updateFileContent, currentFile } = useSimulatorStore()
+  const { mode, files, updateFileContent, currentFile, toggleMode } = useSimulatorStore()
   const fileContent = files[currentFile]
 
   useHotkeys(
@@ -311,6 +311,30 @@ const SimulatorContainer: React.FC = () => {
     },
     { preventDefault: true },
     [files, currentFile] // Depend on the files object and current file
+  )
+
+  useHotkeys(
+    'mod+r',
+    (event) => {
+      event.preventDefault()
+      if (mode !== 'EXECUTION') {
+        toggleMode()
+      }
+    },
+    { preventDefault: true },
+    [mode, toggleMode]
+  )
+
+  useHotkeys(
+    'mod+e',
+    (event) => {
+      event.preventDefault()
+      if (mode !== 'CODE') {
+        toggleMode()
+      }
+    },
+    { preventDefault: true },
+    [mode, toggleMode]
   )
 
   useEffect(() => {
