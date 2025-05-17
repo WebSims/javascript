@@ -1,4 +1,4 @@
-import { ESNode, VariableDeclarator, Identifier, ArrowFunctionExpression, ExpressionStatement } from "hermes-parser"
+import { ESNode, VariableDeclarator, Identifier, ExpressionStatement } from "hermes-parser"
 import { ExecStep, JSValue, Scope, Heap, MemoryChange, HeapObject, HeapRef, Declaration, TDZ, ScopeType, PUSH_SCOPE_KIND, MemVal } from "../types/simulation"
 import { cloneDeep } from "lodash" // Import cloneDeep from lodash
 
@@ -1099,7 +1099,7 @@ export const simulateExecution = (astNode: ESNode | null): ExecStep[] => {
             case "ConditionalExpression": return execConditionalExpression(node, currentScopeIndex)
             case "ArrayExpression": return execArrayExpression(node, currentScopeIndex)
             case "ObjectExpression": return execObjectExpression(node, currentScopeIndex)
-            case "MemberExpression": return execMemberExpression(node, currentScopeIndex, parentNode)
+            case "MemberExpression": return execMemberExpression(node, currentScopeIndex)
             case "ArrowFunctionExpression": return execArrowFunctionExpression(node, currentScopeIndex)
             case "IfStatement": return execIfStatement(node, currentScopeIndex)
             case "ForStatement": return execForStatement(node, currentScopeIndex)
