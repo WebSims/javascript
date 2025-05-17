@@ -126,6 +126,10 @@ interface CodeAreaProps {
     debug?: boolean
 }
 
+const EmptyStatement = () => (
+    <span className="text-slate-500 font-bold">;</span>
+)
+
 const Statement = ({ st, parent, parens }) => {
     const stRef = useRef<HTMLDivElement | HTMLSpanElement>(null)
     const { isExecuting: isExecutingParent, isExecuted: isExecutedParent, isErrorThrown: isErrorThrownParent } = useExecStep(parent, stRef)
@@ -143,6 +147,13 @@ const Statement = ({ st, parent, parens }) => {
     } else if (parent.type == "ArrowFunctionExpression") {
         st.category = "expression.data.fnArrImplicit"
         component = <Expression expr={st} parens={parens} parent={st} />
+    }
+
+    // EmptyStatement
+    if (st.type == "EmptyStatement") {
+        st.category = "statement.expression"
+        cheatSheetId = 'st-exp-useless'
+        component = <EmptyStatement />
     }
 
     // VariableDeclaration kind:string declarations:VariableDeclarator[]
