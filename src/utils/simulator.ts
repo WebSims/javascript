@@ -594,31 +594,35 @@ export const simulateExecution = (astNode: ESNode | null): ExecStep[] => {
             return lastStep
         }
 
+        for (const arg of astNode.arguments) {
+            const argStep = executionPhase(arg, scopeIndex)
+            if (argStep?.errorThrown) {
+                return argStep
+            }
+            if (argStep?.evaluatedValue) {
+                // Hack: rewrite the evaluatedValue to use as parameter for the function call
+                removeMemVal(argStep.evaluatedValue)
+                addMemVal({ ...argStep.evaluatedValue, parentNode: astNode })
+            }
+        }
+
         if (lastStep?.evaluatedValue === TDZ) {
-            const error = createErrorObject('ReferenceError', `Cannot access ${lastStep?.node.name} before initialization`, astNode)
+            const error = createErrorObject('ReferenceError', `Cannot access ${lastStep?.evaluatedValue?.value} before initialization`, astNode)
             return addErrorThrownStep(astNode, scopeIndex, error)
         }
 
         if (lastStep?.evaluatedValue?.type !== "reference") {
-            const error = createErrorObject('ReferenceError', `${lastStep?.node.name} is not a function`, astNode)
+            const error = createErrorObject('ReferenceError', `${lastStep?.evaluatedValue?.value} is not a function`, astNode)
             return addErrorThrownStep(astNode, scopeIndex, error)
         }
 
         const object = heap[lastStep.evaluatedValue?.ref]
         if (!object) {
-            const error = createErrorObject('ReferenceError', `${lastStep?.node.name} is not defined`, astNode)
+            const error = createErrorObject('ReferenceError', `${lastStep?.evaluatedValue?.value} is not defined`, astNode)
             return addErrorThrownStep(astNode, scopeIndex, error)
         }
 
         if (object?.type === "function") {
-            for (const arg of astNode.arguments) {
-                const argStep = executionPhase(arg, scopeIndex)
-                if (argStep?.evaluatedValue) {
-                    // Hack: rewrite the evaluatedValue to use as parameter for the function call
-                    removeMemVal(argStep.evaluatedValue)
-                    addMemVal({ ...argStep.evaluatedValue, parentNode: object.node })
-                }
-            }
             addEvaluatingStep(astNode, scopeIndex)
             removeMemVal(lastStep?.evaluatedValue)
 
@@ -944,6 +948,13 @@ export const simulateExecution = (astNode: ESNode | null): ExecStep[] => {
         for (const property of astNode.properties) {
             const propertyStep = executionPhase(property.value, scopeIndex)
             if (propertyStep?.errorThrown) return propertyStep
+
+            if (propertyStep?.evaluatedValue === TDZ) {
+                const error = createErrorObject('ReferenceError', `${property.key.name || property.key.value} is not defined`, astNode)
+                return addErrorThrownStep(astNode, scopeIndex, error)
+            }
+
+            console.log(propertyStep?.evaluatedValue)
             if (propertyStep?.evaluatedValue) properties[property.key.name || property.key.value] = propertyStep.evaluatedValue
         }
 
