@@ -944,7 +944,7 @@ export const simulateExecution = (astNode: ESNode | null): ExecStep[] => {
         for (const property of astNode.properties) {
             const propertyStep = executionPhase(property.value, scopeIndex)
             if (propertyStep?.errorThrown) return propertyStep
-            if (propertyStep?.evaluatedValue) properties[property.key.name] = propertyStep.evaluatedValue
+            if (propertyStep?.evaluatedValue) properties[property.key.name || property.key.value] = propertyStep.evaluatedValue
         }
 
         for (const property of Object.values(properties)) {
