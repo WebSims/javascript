@@ -359,7 +359,7 @@ export const simulateExecution = (astNode: ESNode | null): ExecStep[] => {
                 if (param.type === "Identifier") {
                     const paramName = param.name
                     const paramValueIndex = memVal.findIndex(item => item.parentNode === astNode)
-                    const paramValue: JSValue = memVal[paramValueIndex]
+                    const paramValue: JSValue = memVal[paramValueIndex] || { type: "primitive", value: undefined }
                     memVal.splice(paramValueIndex, 1)
                     const declaration = newDeclaration(paramName, "param", scopeIndex, paramValue)
                     if (declaration.parentNode) declarations.push(declaration)
@@ -367,7 +367,7 @@ export const simulateExecution = (astNode: ESNode | null): ExecStep[] => {
                     const paramName = param.left.name
                     const defaultParamValue = param.right.value
                     const paramValueIndex = memVal.findIndex(item => item.parentNode === astNode)
-                    const paramValue: JSValue = memVal[paramValueIndex]
+                    const paramValue: JSValue = memVal[paramValueIndex] || { type: "primitive", value: undefined }
                     if (paramValue.value === undefined) {
                         paramValue.value = defaultParamValue
                     }
@@ -478,7 +478,9 @@ export const simulateExecution = (astNode: ESNode | null): ExecStep[] => {
     }
 
     // --- Execution Pass --- 
-    const execBlockStatement = (astNode: ESNode, scopeIndex: number): ExecStep | undefined => {
+    const nodeHandlers: Record<string, (astNode: ESNode, scopeIndex: number) => ExecStep | undefined> = {}
+
+    nodeHandlers["Program"] = (astNode: ESNode, scopeIndex: number): ExecStep | undefined => {
         const statements = astNode.body as ESNode[]
         let lastStep: ExecStep | undefined
 
@@ -508,7 +510,9 @@ export const simulateExecution = (astNode: ESNode | null): ExecStep[] => {
         }
     }
 
-    const execExpressionStatement = (astNode: ESNode, scopeIndex: number): ExecStep | undefined => {
+    nodeHandlers["BlockStatement"] = nodeHandlers["Program"]
+
+    nodeHandlers["ExpressionStatement"] = (astNode: ESNode, scopeIndex: number): ExecStep | undefined => {
         addExecutingStep(astNode, scopeIndex)
         const expressionNode = (astNode as ExpressionStatement).expression
         const lastStep = executionPhase(expressionNode, scopeIndex)
@@ -519,7 +523,7 @@ export const simulateExecution = (astNode: ESNode | null): ExecStep[] => {
         return addExecutedStep(astNode, scopeIndex)
     }
 
-    const execLiteral = (astNode: ESNode, scopeIndex: number): ExecStep | undefined => {
+    nodeHandlers["Literal"] = (astNode: ESNode, scopeIndex: number): ExecStep | undefined => {
         addEvaluatingStep(astNode, scopeIndex)
 
         let evaluatedValue: JSValue;
@@ -542,7 +546,7 @@ export const simulateExecution = (astNode: ESNode | null): ExecStep[] => {
         return addEvaluatedStep(astNode, scopeIndex, evaluatedValue)
     }
 
-    const execVariableDeclaration = (astNode: ESNode, scopeIndex: number): ExecStep | undefined => {
+    nodeHandlers["VariableDeclaration"] = (astNode: ESNode, scopeIndex: number): ExecStep | undefined => {
         addExecutingStep(astNode, scopeIndex)
         if (astNode.kind === "const" && astNode.declarations.length === 0) {
             console.warn("Unhandled const declaration pattern in execution:", astNode.kind)
@@ -586,7 +590,7 @@ export const simulateExecution = (astNode: ESNode | null): ExecStep[] => {
         }
     }
 
-    const execCallExpression = (astNode: ESNode, scopeIndex: number): ExecStep | undefined => {
+    nodeHandlers["CallExpression"] = (astNode: ESNode, scopeIndex: number): ExecStep | undefined => {
         addEvaluatingStep(astNode, scopeIndex)
 
         let lastStep = executionPhase(astNode.callee, scopeIndex)
@@ -594,15 +598,14 @@ export const simulateExecution = (astNode: ESNode | null): ExecStep[] => {
             return lastStep
         }
 
+        const args = []
         for (const arg of astNode.arguments) {
             const argStep = executionPhase(arg, scopeIndex)
             if (argStep?.errorThrown) {
                 return argStep
             }
             if (argStep?.evaluatedValue) {
-                // Hack: rewrite the evaluatedValue to use as parameter for the function call
-                removeMemVal(argStep.evaluatedValue)
-                addMemVal({ ...argStep.evaluatedValue, parentNode: astNode })
+                args.push(argStep.evaluatedValue)
             }
         }
 
@@ -626,6 +629,12 @@ export const simulateExecution = (astNode: ESNode | null): ExecStep[] => {
             addEvaluatingStep(astNode, scopeIndex)
             removeMemVal(lastStep?.evaluatedValue)
 
+            for (const arg of args) {
+                // Hack: rewrite the evaluatedValue to use as parameter for the function call
+                removeMemVal(arg)
+                addMemVal({ ...arg, parentNode: object.node })
+            }
+
             lastStep = traverseAST(object.node as ESNode, scopeIndex, false)
 
             if (lastStep?.errorThrown) {
@@ -644,7 +653,7 @@ export const simulateExecution = (astNode: ESNode | null): ExecStep[] => {
         }
     }
 
-    const execIdentifier = (astNode: ESNode, scopeIndex: number): ExecStep | undefined => {
+    nodeHandlers["Identifier"] = (astNode: ESNode, scopeIndex: number): ExecStep | undefined => {
         addEvaluatingStep(astNode, scopeIndex)
 
         const varName = (astNode as Identifier).name;
@@ -654,8 +663,10 @@ export const simulateExecution = (astNode: ESNode | null): ExecStep[] => {
         }
 
         const variable = lookupVariable(varName, scopeIndex)
+        console.log(varName)
         if (variable !== -1) {
             addMemVal(variable.value)
+            console.log(variable)
             if (variable.value.type === "reference") {
                 return addEvaluatedStep(astNode, scopeIndex, variable.value)
             } else if (variable.value.type === "primitive" || variable.value.type === "error") {
@@ -667,7 +678,7 @@ export const simulateExecution = (astNode: ESNode | null): ExecStep[] => {
         }
     }
 
-    const execBinaryExpression = (astNode: ESNode, scopeIndex: number): ExecStep | undefined => {
+    nodeHandlers["BinaryExpression"] = (astNode: ESNode, scopeIndex: number): ExecStep | undefined => {
         addEvaluatingStep(astNode, scopeIndex)
 
         let leftStep: ExecStep | undefined
@@ -725,7 +736,7 @@ export const simulateExecution = (astNode: ESNode | null): ExecStep[] => {
         }
     }
 
-    const execReturnStatement = (astNode: ESNode, scopeIndex: number): ExecStep | undefined => {
+    nodeHandlers["ReturnStatement"] = (astNode: ESNode, scopeIndex: number): ExecStep | undefined => {
         addExecutingStep(astNode, scopeIndex)
         let evaluatedValue: JSValue | undefined = { type: 'primitive', value: undefined }
         if (astNode.argument) {
@@ -742,14 +753,14 @@ export const simulateExecution = (astNode: ESNode | null): ExecStep[] => {
         return addExecutedStep(astNode, scopeIndex, evaluatedValue)
     }
 
-    const execThrowStatement = (astNode: ESNode, scopeIndex: number): ExecStep | undefined => {
+    nodeHandlers["ThrowStatement"] = (astNode: ESNode, scopeIndex: number): ExecStep | undefined => {
         addExecutingStep(astNode, scopeIndex)
         const lastStep = executionPhase(astNode.argument, scopeIndex)
         return addExecutedStep(astNode, scopeIndex, undefined, lastStep?.evaluatedValue)
     }
 
     // --- TryStatement Execution ---
-    const execTryStatement = (astNode: ESNode, scopeIndex: number): ExecStep | undefined => {
+    nodeHandlers["TryStatement"] = (astNode: ESNode, scopeIndex: number): ExecStep | undefined => {
         addExecutingStep(astNode, scopeIndex)
         let evaluatedValue: JSValue | undefined
 
@@ -788,7 +799,7 @@ export const simulateExecution = (astNode: ESNode | null): ExecStep[] => {
         return addExecutedStep(astNode, scopeIndex, evaluatedValue)
     }
 
-    const execAssignmentExpression = (astNode: ESNode, scopeIndex: number): ExecStep | undefined => {
+    nodeHandlers["AssignmentExpression"] = (astNode: ESNode, scopeIndex: number): ExecStep | undefined => {
         addEvaluatingStep(astNode, scopeIndex)
 
         let leftObjectStep
@@ -879,12 +890,10 @@ export const simulateExecution = (astNode: ESNode | null): ExecStep[] => {
                     evaluatedValue,
                 })
             }
-
-
         }
     }
 
-    const execConditionalExpression = (astNode: ESNode, scopeIndex: number): ExecStep | undefined => {
+    nodeHandlers["ConditionalExpression"] = (astNode: ESNode, scopeIndex: number): ExecStep | undefined => {
         addEvaluatingStep(astNode, scopeIndex)
         let evalValue: JSValue | undefined
 
@@ -917,7 +926,7 @@ export const simulateExecution = (astNode: ESNode | null): ExecStep[] => {
         return addEvaluatedStep(astNode, scopeIndex, evalValue)
     }
 
-    const execArrayExpression = (astNode: ESNode, scopeIndex: number): ExecStep | undefined => {
+    nodeHandlers["ArrayExpression"] = (astNode: ESNode, scopeIndex: number): ExecStep | undefined => {
         addEvaluatingStep(astNode, scopeIndex)
 
         const elements: JSValue[] = []
@@ -941,7 +950,7 @@ export const simulateExecution = (astNode: ESNode | null): ExecStep[] => {
         return addEvaluatedStep(astNode, scopeIndex, { type: "reference", ref })
     }
 
-    const execObjectExpression = (astNode: ESNode, scopeIndex: number): ExecStep | undefined => {
+    nodeHandlers["ObjectExpression"] = (astNode: ESNode, scopeIndex: number): ExecStep | undefined => {
         addEvaluatingStep(astNode, scopeIndex)
 
         const properties: Record<string, JSValue> = {}
@@ -968,7 +977,7 @@ export const simulateExecution = (astNode: ESNode | null): ExecStep[] => {
         return addEvaluatedStep(astNode, scopeIndex, { type: "reference", ref })
     }
 
-    const execMemberExpression = (astNode: ESNode, scopeIndex: number): ExecStep | undefined => {
+    nodeHandlers["MemberExpression"] = (astNode: ESNode, scopeIndex: number): ExecStep | undefined => {
         addEvaluatingStep(astNode, scopeIndex)
 
         const objectStep = executionPhase(astNode.object, scopeIndex)
@@ -1032,7 +1041,7 @@ export const simulateExecution = (astNode: ESNode | null): ExecStep[] => {
         return addEvaluatedStep(astNode, scopeIndex, evaluatedValue)
     }
 
-    const execArrowFunctionExpression = (astNode: ESNode, scopeIndex: number): ExecStep | undefined => {
+    nodeHandlers["ArrowFunctionExpression"] = (astNode: ESNode, scopeIndex: number): ExecStep | undefined => {
         addEvaluatingStep(astNode, scopeIndex)
 
         const functionObject: HeapObject = {
@@ -1045,7 +1054,7 @@ export const simulateExecution = (astNode: ESNode | null): ExecStep[] => {
         return addEvaluatedStep(astNode, scopeIndex, { type: "reference", ref })
     }
 
-    const execIfStatement = (astNode: ESNode, scopeIndex: number): ExecStep | undefined => {
+    nodeHandlers["IfStatement"] = (astNode: ESNode, scopeIndex: number): ExecStep | undefined => {
         addExecutingStep(astNode, scopeIndex)
         let lastStep: ExecStep | undefined
 
@@ -1071,7 +1080,7 @@ export const simulateExecution = (astNode: ESNode | null): ExecStep[] => {
         return addExecutedStep(astNode, scopeIndex, lastStep?.evaluatedValue)
     }
 
-    const execForStatement = (astNode: ESNode, scopeIndex: number): ExecStep | undefined => {
+    nodeHandlers["ForStatement"] = (astNode: ESNode, scopeIndex: number): ExecStep | undefined => {
         const lastStep = creationPhase(astNode, scopeIndex)
 
         if (astNode.init) {
@@ -1084,40 +1093,22 @@ export const simulateExecution = (astNode: ESNode | null): ExecStep[] => {
 
     }
 
-    const execEmptyStatement = (astNode: ESNode, scopeIndex: number): ExecStep | undefined => {
+    nodeHandlers["EmptyStatement"] = (astNode: ESNode, scopeIndex: number): ExecStep | undefined => {
         addExecutingStep(astNode, scopeIndex)
         return addExecutedStep(astNode, scopeIndex)
     }
+
 
     const executionPhase = (node: ESNode | null, currentScopeIndex: number): ExecStep | undefined => {
         if (!node) return
         console.log("Executing node:", node.type, "in scope:", currentScopeIndex, "withinTry:")
 
-        switch (node.type) {
-            case "Program": return execBlockStatement(node, currentScopeIndex)
-            case "BlockStatement": return execBlockStatement(node, currentScopeIndex)
-            case "ExpressionStatement": return execExpressionStatement(node, currentScopeIndex)
-            case "Literal": return execLiteral(node, currentScopeIndex)
-            case "VariableDeclaration": return execVariableDeclaration(node, currentScopeIndex)
-            case "CallExpression": return execCallExpression(node, currentScopeIndex)
-            case "Identifier": return execIdentifier(node, currentScopeIndex)
-            case "BinaryExpression":
-            case "LogicalExpression": return execBinaryExpression(node, currentScopeIndex)
-            case "ReturnStatement": return execReturnStatement(node, currentScopeIndex)
-            case "ThrowStatement": return execThrowStatement(node, currentScopeIndex)
-            case "TryStatement": return execTryStatement(node, currentScopeIndex)
-            case "AssignmentExpression": return execAssignmentExpression(node, currentScopeIndex)
-            case "ConditionalExpression": return execConditionalExpression(node, currentScopeIndex)
-            case "ArrayExpression": return execArrayExpression(node, currentScopeIndex)
-            case "ObjectExpression": return execObjectExpression(node, currentScopeIndex)
-            case "MemberExpression": return execMemberExpression(node, currentScopeIndex)
-            case "ArrowFunctionExpression": return execArrowFunctionExpression(node, currentScopeIndex)
-            case "IfStatement": return execIfStatement(node, currentScopeIndex)
-            case "ForStatement": return execForStatement(node, currentScopeIndex)
-            case "EmptyStatement": return execEmptyStatement(node, currentScopeIndex)
-            default:
-                console.warn(`Execution Pass: Unhandled node type - ${node.type}`)
-                break;
+        const handler = nodeHandlers[node.type as keyof typeof nodeHandlers]
+        if (handler) {
+            return handler(node, currentScopeIndex)
+        } else {
+            console.warn(`Execution Pass: Unhandled node type - ${node.type}`)
+            return undefined
         }
     }
 
