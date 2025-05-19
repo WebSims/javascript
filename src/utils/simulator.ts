@@ -1089,7 +1089,10 @@ export const simulateExecution = (astNode: ESNode | null): ExecStep[] => {
 
         if (astNode.init) {
             const initStep = executionPhase(astNode.init, scopeIndex)
-            if (initStep?.errorThrown) return initStep
+            if (initStep?.errorThrown) {
+                destructionPhase(astNode, scopeIndex, initStep)
+                return initStep
+            }
             removeMemVal(initStep?.evaluatedValue)
         }
 
@@ -1097,7 +1100,10 @@ export const simulateExecution = (astNode: ESNode | null): ExecStep[] => {
         do {
             if (astNode.test) {
                 testStep = executionPhase(astNode.test, scopeIndex)
-                if (testStep?.errorThrown) return testStep
+                if (testStep?.errorThrown) {
+                    destructionPhase(astNode, scopeIndex, testStep)
+                    return testStep
+                }
                 removeMemVal(testStep?.evaluatedValue)
             } else {
                 testStep = { type: "primitive", value: true }
@@ -1105,7 +1111,10 @@ export const simulateExecution = (astNode: ESNode | null): ExecStep[] => {
 
             if (testStep?.evaluatedValue?.value) {
                 const bodyStep = traverseAST(astNode.body, scopeIndex, false)
-                if (bodyStep?.errorThrown) return bodyStep
+                if (bodyStep?.errorThrown) {
+                    destructionPhase(astNode, scopeIndex, bodyStep)
+                    return bodyStep
+                }
                 removeMemVal(bodyStep?.evaluatedValue)
 
                 if (astNode.update) {
@@ -1114,7 +1123,7 @@ export const simulateExecution = (astNode: ESNode | null): ExecStep[] => {
                     removeMemVal(updateStep?.evaluatedValue)
                 }
             } else {
-                return addExecutedStep(astNode, scopeIndex)
+                destructionPhase(astNode, scopeIndex, lastStep)
             }
         } while (testStep?.evaluatedValue?.value)
     }
