@@ -348,8 +348,8 @@ export const simulateExecution = (astNode: ESNode | null): ExecStep[] => {
                 return astNode
         }
     }
-    const creationPhase = (astNode: ESNode, scopeIndex: number): ExecStep => {
-        scopeIndex = addPushScopeStep(astNode).scopeIndex
+    const creationPhase = (astNode: ESNode): ExecStep => {
+        const scopeIndex = addPushScopeStep(astNode).scopeIndex
 
         const declarations: Declaration[] = []
 
@@ -515,7 +515,7 @@ export const simulateExecution = (astNode: ESNode | null): ExecStep[] => {
     nodeHandlers["ExpressionStatement"] = (astNode: ESNode, scopeIndex: number): ExecStep | undefined => {
         addExecutingStep(astNode, scopeIndex)
         const expressionNode = (astNode as ExpressionStatement).expression
-        const lastStep = executionPhase(expressionNode, scopeIndex)
+        let lastStep = executionPhase(expressionNode, scopeIndex)
         if (lastStep?.errorThrown) {
             return lastStep
         }
@@ -663,10 +663,8 @@ export const simulateExecution = (astNode: ESNode | null): ExecStep[] => {
         }
 
         const variable = lookupVariable(varName, scopeIndex)
-        console.log(varName)
         if (variable !== -1) {
             addMemVal(variable.value)
-            console.log(variable)
             if (variable.value.type === "reference") {
                 return addEvaluatedStep(astNode, scopeIndex, variable.value)
             } else if (variable.value.type === "primitive" || variable.value.type === "error") {
@@ -1081,14 +1079,45 @@ export const simulateExecution = (astNode: ESNode | null): ExecStep[] => {
     }
 
     nodeHandlers["ForStatement"] = (astNode: ESNode, scopeIndex: number): ExecStep | undefined => {
-        const lastStep = creationPhase(astNode, scopeIndex)
+        addExecutingStep(astNode, scopeIndex)
+
+        lastScopeIndex++
+        scopeIndex = lastScopeIndex
+
+        const lastStep = creationPhase(astNode)
+        if (lastStep?.errorThrown) return lastStep
 
         if (astNode.init) {
-            const initStep = executionPhase(astNode.init, lastStep.scopeIndex)
+            const initStep = executionPhase(astNode.init, scopeIndex)
             if (initStep?.errorThrown) return initStep
             removeMemVal(initStep?.evaluatedValue)
         }
 
+        let testStep: ExecStep | undefined
+        do {
+            if (astNode.test) {
+                testStep = executionPhase(astNode.test, scopeIndex)
+                if (testStep?.errorThrown) return testStep
+                removeMemVal(testStep?.evaluatedValue)
+            } else {
+                testStep = { type: "primitive", value: true }
+            }
+
+            if (testStep?.evaluatedValue?.value) {
+                const bodyStep = traverseAST(astNode.body, scopeIndex, false)
+                if (bodyStep?.errorThrown) return bodyStep
+                removeMemVal(bodyStep?.evaluatedValue)
+
+                if (astNode.update) {
+                    const updateStep = executionPhase(astNode.update, lastStep.scopeIndex)
+                    if (updateStep?.errorThrown) return updateStep
+                    removeMemVal(updateStep?.evaluatedValue)
+                }
+            } else {
+                return addExecutedStep(astNode, scopeIndex)
+            }
+        } while (testStep?.evaluatedValue?.value)
+    }
 
     nodeHandlers["UpdateExpression"] = (astNode: ESNode, scopeIndex: number): ExecStep | undefined => {
         addEvaluatingStep(astNode, scopeIndex)
@@ -1165,7 +1194,7 @@ export const simulateExecution = (astNode: ESNode | null): ExecStep[] => {
         scopeIndex = lastScopeIndex
 
         // Phase 1: Creation - hoisting and declarations
-        creationPhase(astNode, scopeIndex)
+        creationPhase(astNode)
 
         // Phase 2: Execution
         // Get the actual block to execute
