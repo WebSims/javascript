@@ -279,7 +279,7 @@ class Student extends Person {
   }
 }`
 
-const SIMULATOR_CODE_SAMPLE = `c = j = 1;
+const PROPERTY_CODE_SAMPLE = `c = j = 1;
 [[]][0][1] = 1
 const a={}
 {
@@ -290,6 +290,13 @@ const a={}
 const fn = (a, b) => a + b
 a[fn('x', 'Box') + 'One'].y = 1
 a.b = a.xBoxOne['y'].x`
+
+const SIMULATOR_CODE_SAMPLE = `i = 10
+let x = 0
+x = i++
+for (let i = 0; i <= 3; i++) {
+    i
+}`
 
 const SimulatorContainer: React.FC = () => {
   const { mode, files, updateFileContent, currentFile, toggleMode } = useSimulatorStore()
