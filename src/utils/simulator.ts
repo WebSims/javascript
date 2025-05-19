@@ -1119,7 +1119,10 @@ export const simulateExecution = (astNode: ESNode | null): ExecStep[] => {
 
                 if (astNode.update) {
                     const updateStep = executionPhase(astNode.update, lastStep.scopeIndex)
-                    if (updateStep?.errorThrown) return updateStep
+                    if (updateStep?.errorThrown) {
+                        destructionPhase(astNode, scopeIndex, updateStep)
+                        return updateStep
+                    }
                     removeMemVal(updateStep?.evaluatedValue)
                 }
             } else {
