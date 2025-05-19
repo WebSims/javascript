@@ -1089,8 +1089,28 @@ export const simulateExecution = (astNode: ESNode | null): ExecStep[] => {
             removeMemVal(initStep?.evaluatedValue)
         }
 
-        // const testStep = 
 
+    nodeHandlers["UpdateExpression"] = (astNode: ESNode, scopeIndex: number): ExecStep | undefined => {
+        addEvaluatingStep(astNode, scopeIndex)
+        const updateStep = executionPhase(astNode.argument, scopeIndex)
+        if (updateStep?.errorThrown) return updateStep
+        let evaluatedValue: JSValue | undefined = updateStep?.evaluatedValue
+
+        if (astNode.operator === '++') {
+            evaluatedValue = { type: "primitive", value: evaluatedValue?.value + 1 }
+        } else if (astNode.operator === '--') {
+            evaluatedValue = { type: "primitive", value: evaluatedValue?.value - 1 }
+        }
+
+        writeVariable(astNode.argument.name, evaluatedValue, scopeIndex)
+
+        if (astNode.prefix) {
+            removeMemVal(updateStep?.evaluatedValue)
+            addMemVal(evaluatedValue)
+            return addEvaluatedStep(astNode, scopeIndex, evaluatedValue)
+        } else {
+            return addEvaluatedStep(astNode, scopeIndex, updateStep?.evaluatedValue)
+        }
     }
 
     nodeHandlers["EmptyStatement"] = (astNode: ESNode, scopeIndex: number): ExecStep | undefined => {

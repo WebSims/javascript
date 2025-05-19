@@ -106,6 +106,7 @@ const decorations = {
             unary: { tooltip: "Operation (Unary Operator)", cheatSheetId: "exp-op-unary", classN: "ast-exp-op1" },
             binary: { tooltip: "Operation (Binary Operator)", cheatSheetId: "exp-op-binary", classN: "ast-exp-op2" },
             ternary: { tooltip: "Operation (Ternary Operator)", cheatSheetId: "exp-op-ternary", classN: "ast-exp-op3" },
+            update: { tooltip: "Operation (Update Operator)", cheatSheetId: "exp-op-update", classN: "ast-exp-op4" },
         },
         call: { tooltip: "Function call", cheatSheetId: "exp-func", classN: "" },
         new: { tooltip: "Constructor call", cheatSheetId: "exp-new", classN: "" },
@@ -382,6 +383,11 @@ const Expression = ({ fromAstOf, expr, parent, parens }: { fromAstOf?: any, expr
             expr.category = "expression.write.prop"
             component = <WriteProp of={left} setBy="=" setTo={right} parent={expr} parens={parens} />
         }
+    }
+
+    if (expr.type === 'UpdateExpression') {
+        expr.category = "expression.operator.update"
+        component = <OperatorUpdate prefix={expr.prefix} operator={expr.operator} argument={expr.argument} parens={parens} parent={expr} />
     }
 
     // console.log('rendering:', { expr, range0: expr.range[0], parenthized: expr.parenthized, parens: [...parens] })
@@ -980,6 +986,21 @@ const BlockStatement = ({ st, parent, parens }: { st: any, parent: any, parens: 
     )
 }
 
+const OperatorUpdate = ({ prefix, operator, argument, parent, parens }: {
+    prefix: boolean,
+    operator: string,
+    argument: any,
+    parent: any,
+    parens: any
+}) => {
+    return (
+        <>
+            {prefix && <span className="align-middle font-bold">{operator}</span>}
+            <Expression expr={argument} parens={parens} parent={parent} />
+            {!prefix && <span className="align-middle font-bold">{operator}</span>}
+        </>
+    )
+}
 
 const CodeArea: React.FC<CodeAreaProps> = ({ parent, parens, debug }) => {
     const { astOfCode, codeAreaRef } = useSimulatorStore()
