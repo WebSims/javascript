@@ -800,36 +800,34 @@ export const simulateExecution = (astNode: ESNode | null): ExecStep[] => {
     nodeHandlers["AssignmentExpression"] = (astNode: ESNode, scopeIndex: number): ExecStep | undefined => {
         addEvaluatingStep(astNode, scopeIndex)
 
-        let leftObjectStep
-        let leftPropertyStep
+        let objectStep
+        let propertyStep
         let property
 
         if (astNode.left.type === "MemberExpression") {
-            leftObjectStep = executionPhase(astNode.left.object, scopeIndex)
-            if (leftObjectStep && leftObjectStep.errorThrown) {
-                return leftStep
+            objectStep = executionPhase(astNode.left.object, scopeIndex)
+            if (objectStep && objectStep.errorThrown) {
+                return objectStep
             }
 
             if (astNode.left.computed) {
-                leftPropertyStep = executionPhase(astNode.left.property, scopeIndex)
-                if (leftPropertyStep && leftPropertyStep.errorThrown) {
-                    return leftPropertyStep
+                propertyStep = executionPhase(astNode.left.property, scopeIndex)
+                if (propertyStep && propertyStep.errorThrown) {
+                    return propertyStep
                 }
-                property = leftPropertyStep.evaluatedValue
+                property = propertyStep.evaluatedValue
             } else {
                 property = { type: "primitive", value: astNode.left.property.name }
-                leftObjectStep?.memorySnapshot.memVal.push(property)
+                objectStep?.memorySnapshot.memVal.push(property)
                 addMemVal(property)
             }
         }
 
         const rightStep = executionPhase(astNode.right, scopeIndex)
-        if (rightStep?.errorThrown) {
-            return rightStep
-        }
+        if (rightStep?.errorThrown) return rightStep
 
-        if (rightStep?.evaluatedValue) {
-            let evaluatedValue = rightStep.evaluatedValue
+        let evaluatedValue = rightStep?.evaluatedValue
+        if (evaluatedValue) {
             if (astNode.operator !== "=") {
                 const leftRaw = JSON.stringify(leftStep.evaluatedValue.value)
                 const rightRaw = JSON.stringify(rightStep.evaluatedValue.value)
@@ -1133,25 +1131,121 @@ export const simulateExecution = (astNode: ESNode | null): ExecStep[] => {
 
     nodeHandlers["UpdateExpression"] = (astNode: ESNode, scopeIndex: number): ExecStep | undefined => {
         addEvaluatingStep(astNode, scopeIndex)
-        const updateStep = executionPhase(astNode.argument, scopeIndex)
-        if (updateStep?.errorThrown) return updateStep
-        let evaluatedValue: JSValue | undefined = updateStep?.evaluatedValue
 
-        if (astNode.operator === '++') {
-            evaluatedValue = { type: "primitive", value: evaluatedValue?.value + 1 }
-        } else if (astNode.operator === '--') {
-            evaluatedValue = { type: "primitive", value: evaluatedValue?.value - 1 }
+        let objectStep
+        let propertyStep
+        let property
+
+        if (astNode.argument.type === "MemberExpression") {
+            objectStep = executionPhase(astNode.argument.object, scopeIndex)
+            if (objectStep && objectStep.errorThrown) {
+                return objectStep
+            }
+
+            if (astNode.argument.computed) {
+                propertyStep = executionPhase(astNode.argument.property, scopeIndex)
+                if (propertyStep && propertyStep.errorThrown) {
+                    return propertyStep
+                }
+                property = propertyStep.evaluatedValue
+            } else {
+                property = { type: "primitive", value: astNode.argument.property.name }
+                objectStep?.memorySnapshot.memVal.push(property)
+                addMemVal(property)
+            }
         }
 
-        writeVariable(astNode.argument.name, evaluatedValue, scopeIndex)
+        const evaluatedStep: ExecStep = {
+            node: astNode,
+            phase: "execution",
+            scopeIndex,
+            memoryChange: {
+                type: "none",
+            },
+            executing: false,
+            executed: false,
+            evaluating: false,
+            evaluated: true,
+            evaluatedValue: undefined,
+        }
+
+        let currentValue: JSValue | undefined
+        let evaluatedValue: JSValue | undefined
+
+        if (astNode.argument.type === "Identifier") {
+            const variable = lookupVariable(astNode.argument.name, scopeIndex)
+            if (variable === -1) {
+                const error = createErrorObject('ReferenceError', `${astNode.argument.name} is not defined`)
+                return addErrorThrownStep(astNode, scopeIndex, error)
+            }
+            currentValue = variable.value
+
+            if (astNode.operator === '++') {
+                evaluatedValue = { type: "primitive", value: currentValue.value + 1 }
+            } else if (astNode.operator === '--') {
+                evaluatedValue = { type: "primitive", value: currentValue.value - 1 }
+            }
+            const targetScopeIndex = writeVariable(astNode.argument.name, evaluatedValue, scopeIndex)
+
+            evaluatedStep.memoryChange = {
+                type: "write_variable",
+                scopeIndex: targetScopeIndex,
+                variableName: astNode.argument.name,
+                value: evaluatedValue,
+            }
+        } else {
+            if (objectStep?.evaluatedValue?.type !== "reference") {
+                const error = createErrorObject('TypeError', `Cannot read properties of undefined (reading ${property?.value})`)
+                return addErrorThrownStep(astNode, scopeIndex, error)
+            }
+
+            const ref = objectStep?.evaluatedValue?.ref
+            const object = heap[ref]
+            if (object) {
+                if (object.type === "object") {
+                    currentValue = object.properties[property.value]
+                } else if (object.type === "array") {
+                    currentValue = object.elements[property.value]
+                }
+            }
+
+            if (currentValue === undefined) {
+                currentValue = { type: "primitive", value: undefined }
+            }
+
+            if (astNode.operator === '++') {
+                evaluatedValue = { type: "primitive", value: currentValue.value + 1 }
+            } else if (astNode.operator === '--') {
+                evaluatedValue = { type: "primitive", value: currentValue.value - 1 }
+            }
+
+            console.log(evaluatedValue)
+            removeMemVal(objectStep?.evaluatedValue)
+            removeMemVal(property)
+
+            if (object) {
+                const propertyRef = writeProperty(ref, property.value, evaluatedValue)
+                if (propertyRef === -1) {
+                    const error = createErrorObject('TypeError', `Cannot set properties of undefined (setting '${property}')`)
+                    return addErrorThrownStep(astNode, scopeIndex, error)
+                }
+
+                evaluatedStep.memoryChange = {
+                    type: "write_property",
+                    ref,
+                    property,
+                    value: evaluatedValue,
+                }
+            }
+        }
 
         if (astNode.prefix) {
-            removeMemVal(updateStep?.evaluatedValue)
-            addMemVal(evaluatedValue)
-            return addEvaluatedStep(astNode, scopeIndex, evaluatedValue)
+            evaluatedStep.evaluatedValue = evaluatedValue
         } else {
-            return addEvaluatedStep(astNode, scopeIndex, updateStep?.evaluatedValue)
+            evaluatedStep.evaluatedValue = currentValue
         }
+        addMemVal(evaluatedStep.evaluatedValue)
+        return addStep(evaluatedStep)
     }
 
     nodeHandlers["EmptyStatement"] = (astNode: ESNode, scopeIndex: number): ExecStep | undefined => {
