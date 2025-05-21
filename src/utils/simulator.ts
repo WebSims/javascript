@@ -959,7 +959,6 @@ export const simulateExecution = (astNode: ESNode | null): ExecStep[] => {
                 return addErrorThrownStep(astNode, scopeIndex, error)
             }
 
-            console.log(propertyStep?.evaluatedValue)
             if (propertyStep?.evaluatedValue) properties[property.key.name || property.key.value] = propertyStep.evaluatedValue
         }
 
@@ -1219,7 +1218,6 @@ export const simulateExecution = (astNode: ESNode | null): ExecStep[] => {
                 evaluatedValue = { type: "primitive", value: currentValue.value - 1 }
             }
 
-            console.log(evaluatedValue)
             removeMemVal(objectStep?.evaluatedValue)
             removeMemVal(property)
 
@@ -1239,7 +1237,7 @@ export const simulateExecution = (astNode: ESNode | null): ExecStep[] => {
             }
         }
 
-        if (astNode.prefix) {
+        if (astNode.prefix || isNaN(evaluatedValue.value)) {
             evaluatedStep.evaluatedValue = evaluatedValue
         } else {
             evaluatedStep.evaluatedValue = currentValue
