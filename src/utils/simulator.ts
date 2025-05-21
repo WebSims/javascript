@@ -1108,7 +1108,7 @@ export const simulateExecution = (astNode: ESNode | null): ExecStep[] => {
 
             if (testStep?.evaluatedValue?.value) {
                 const bodyStep = traverseAST(astNode.body, scopeIndex, false)
-                if (bodyStep?.errorThrown) {
+                if (bodyStep?.evaluatedValue || bodyStep?.errorThrown) {
                     destructionPhase(astNode, scopeIndex, bodyStep)
                     return bodyStep
                 }
