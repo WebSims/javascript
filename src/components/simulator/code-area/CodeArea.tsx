@@ -901,11 +901,15 @@ const TryStatement = ({ st, parent, parens }: { st: any, parent: any, parens: an
         >
             <span className="keyword keyword-try text-blue-700 font-bold mr-2">try</span>
             <Statement st={st.block} parent={st} parens={parens} />
-            <span className="keyword keyword-catch text-red-700 font-bold mr-2">catch</span>
-            <span className="text-blue-600">(
-                {st.handler.param.name || ''}
-                )</span>
-            <Statement st={st.handler.body} parent={st} parens={parens} />
+            {st.handler && (
+                <>
+                    <span className="keyword keyword-catch text-red-700 font-bold mr-2">catch</span>
+                    <span className="text-blue-600">(
+                        {st.handler.param.name || ''}
+                        )</span>
+                    <Statement st={st.handler.body} parent={st} parens={parens} />
+                </>
+            )}
             {st.finalizer && (
                 <TryCatchFinallyStatement st={st.finalizer} parent={st} parens={parens} />
             )}

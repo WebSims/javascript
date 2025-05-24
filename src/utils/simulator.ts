@@ -769,18 +769,20 @@ export const simulateExecution = (astNode: ESNode | null): ExecStep[] => {
             removeMemVal(tryLastStep?.errorThrown)
             addMemVal({ ...tryLastStep?.errorThrown, parentNode: astNode.handler })
 
-            const catchLastStep = traverseAST(astNode.handler, scopeIndex, false)
+            if (astNode.handler) {
+                const catchLastStep = traverseAST(astNode.handler, scopeIndex, false)
 
-            if (astNode.finalizer) {
-                if (catchLastStep?.errorThrown) {
-                    removeMemVal(catchLastStep?.errorThrown)
+                if (astNode.finalizer) {
+                    if (catchLastStep?.errorThrown) {
+                        removeMemVal(catchLastStep?.errorThrown)
+                    }
+                } else {
+                    if (catchLastStep?.errorThrown) {
+                        return catchLastStep
+                    }
                 }
-            } else {
-                if (catchLastStep?.errorThrown) {
-                    return catchLastStep
-                }
+                evaluatedValue = catchLastStep?.evaluatedValue
             }
-            evaluatedValue = catchLastStep?.evaluatedValue
         } else {
             evaluatedValue = tryLastStep?.evaluatedValue
         }
@@ -790,6 +792,9 @@ export const simulateExecution = (astNode: ESNode | null): ExecStep[] => {
             const finalizerStep = traverseAST(astNode.finalizer, scopeIndex, false)
             if (finalizerStep?.errorThrown) {
                 return finalizerStep
+            }
+            if (!astNode.handler && tryLastStep?.errorThrown) {
+                return tryLastStep
             }
             evaluatedValue = finalizerStep?.evaluatedValue || tryLastStep?.evaluatedValue
         }
