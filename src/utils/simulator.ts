@@ -793,7 +793,8 @@ export const simulateExecution = (astNode: ESNode | null): ExecStep[] => {
             if (finalizerStep?.errorThrown) {
                 return finalizerStep
             }
-            if (!astNode.handler && tryLastStep?.errorThrown) {
+
+            if (!finalizerStep?.evaluatedValue && !astNode.handler && tryLastStep?.errorThrown) {
                 return tryLastStep
             }
             evaluatedValue = finalizerStep?.evaluatedValue || tryLastStep?.evaluatedValue
