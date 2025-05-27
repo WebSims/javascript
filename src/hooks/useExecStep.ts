@@ -10,66 +10,64 @@ export const useExecStep = (node?: ESNode, ref?: RefObject<HTMLElement | null>) 
     const [isEvaluated, setIsEvaluated] = useState(false)
     const [isErrorThrown, setIsErrorThrown] = useState(false)
 
+    const stepRange = currentExecStep?.node?.range
+    const nodeRange = node?.range
+
     const checkExecuting = (node: ESNode): boolean => {
-        if (!currentExecStep || !node) return false
-        if (currentExecStep.node && node.range) {
+        if (stepRange && nodeRange) {
             return (
-                currentExecStep.node.range[0] === node.range[0] &&
-                currentExecStep.node.range[1] === node.range[1] &&
+                stepRange[0] === nodeRange[0] &&
+                stepRange[1] === nodeRange[1] &&
                 currentExecStep.node.type === node.type &&
-                currentExecStep.executing
+                currentExecStep.type === 'EXECUTING'
             )
         }
         return false
     }
 
     const checkExecuted = (node: ESNode): boolean => {
-        if (!currentExecStep || !node) return false
-        if (currentExecStep.node && node.range) {
+        if (stepRange && nodeRange) {
             return (
-                currentExecStep.node.range[0] === node.range[0] &&
-                currentExecStep.node.range[1] === node.range[1] &&
+                stepRange[0] === nodeRange[0] &&
+                stepRange[1] === nodeRange[1] &&
                 currentExecStep.node.type === node.type &&
-                currentExecStep.executed
+                currentExecStep.type === 'EXECUTED'
             )
         }
         return false
     }
 
     const checkEvaluating = (node: ESNode): boolean => {
-        if (!currentExecStep || !node) return false
-        if (currentExecStep.node && node.range) {
+        if (stepRange && nodeRange) {
             return (
-                currentExecStep.node.range[0] === node.range[0] &&
-                currentExecStep.node.range[1] === node.range[1] &&
+                stepRange[0] === nodeRange[0] &&
+                stepRange[1] === nodeRange[1] &&
                 currentExecStep.node.type === node.type &&
-                currentExecStep.evaluating
+                currentExecStep.type === 'EVALUATING'
             )
         }
         return false
     }
 
     const checkEvaluated = (node: ESNode): boolean => {
-        if (!currentExecStep || !node) return false
-        if (currentExecStep.node && node.range) {
+        if (stepRange && nodeRange) {
             return (
-                currentExecStep.node.range[0] === node.range[0] &&
-                currentExecStep.node.range[1] === node.range[1] &&
+                stepRange[0] === nodeRange[0] &&
+                stepRange[1] === nodeRange[1] &&
                 currentExecStep.node.type === node.type &&
-                currentExecStep.evaluated
+                currentExecStep.type === 'EVALUATED'
             )
         }
         return false
     }
 
     const checkErrorThrown = (node: ESNode): boolean => {
-        if (!currentExecStep || !node) return false
-        if (currentExecStep.node && node.range) {
+        if (stepRange && nodeRange) {
             return (
-                currentExecStep.node.range[0] === node.range[0] &&
-                currentExecStep.node.range[1] === node.range[1] &&
+                stepRange[0] === nodeRange[0] &&
+                stepRange[1] === nodeRange[1] &&
                 currentExecStep.node.type === node.type &&
-                currentExecStep.errorThrown !== undefined
+                currentExecStep.bubbleUp === 'THROW'
             )
         }
         return false

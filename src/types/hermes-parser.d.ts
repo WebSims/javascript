@@ -19,13 +19,13 @@ declare module 'hermes-parser' {
 
     export interface VariableDeclaration extends ESNode {
         type: 'VariableDeclaration';
-        declarations: ESNode[];
+        declarations: VariableDeclarator[];
         kind: 'var' | 'let' | 'const';
     }
 
     export interface VariableDeclarator extends ESNode {
         type: 'VariableDeclarator';
-        id: ESNode;
+        id: Identifier;
         init: ESNode | null;
     }
 
@@ -52,7 +52,7 @@ declare module 'hermes-parser' {
 
     export interface ObjectExpression extends ESNode {
         type: 'ObjectExpression';
-        properties: ESNode[];
+        properties: Property[];
     }
 
     export interface Property extends ESNode {
@@ -72,6 +72,51 @@ declare module 'hermes-parser' {
         body: ESNode;
         expression: boolean;
         async: boolean;
+    }
+
+    export interface MemberExpression extends ESNode {
+        type: 'MemberExpression';
+        object: ESNode;
+        property: ESNode;
+        computed: boolean;
+    }
+
+    export interface CallExpression extends ESNode {
+        type: 'CallExpression';
+        callee: ESNode;
+        arguments: ESNode[];
+        optional: boolean;
+    }
+
+    export interface BinaryExpression extends ESNode {
+        type: 'BinaryExpression';
+        operator: string;
+        left: ESNode;
+        right: ESNode;
+    }
+
+    export interface ReturnStatement extends ESNode {
+        type: 'ReturnStatement';
+        argument: ESNode | null;
+    }
+
+    export interface ThrowStatement extends ESNode {
+        type: 'ThrowStatement';
+        argument: ESNode;
+    }
+
+    export interface TryStatement extends ESNode {
+        type: 'TryStatement';
+        block: ESNode;
+        handler: ESNode | null;
+        finalizer: ESNode | null;
+    }
+
+    export interface AssignmentExpression extends ESNode {
+        type: 'AssignmentExpression';
+        left: ESNode;
+        right: ESNode;
+        operator: string;
     }
 
     export interface MemberExpression extends ESNode {

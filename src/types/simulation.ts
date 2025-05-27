@@ -1,24 +1,33 @@
-import { ESNode } from "hermes-parser"
+import * as ESTree from "estree"
 
 // ----- Memory Model -----
 export const TDZ = { type: "primitive", value: "not_initialized" } as const
+export const UNDEFINED = { type: "primitive", value: undefined } as const
+export const BUBBLE_UP_VALUE = {
+    RETURN: 'RETURN',
+    THROW: 'THROW',
+    BREAK: 'BREAK',
+    CONTINUE: 'CONTINUE',
+} as const satisfies Record<'RETURN' | 'THROW' | 'BREAK' | 'CONTINUE', BubbleUp>
 
 // Represents a unique reference to an object/array/function in the heap
 export type HeapRef = number
 
 // Represents any value in the JavaScript simulation
 export type JSValue =
-    | { type: "primitive"; value: string | number | boolean | null | undefined | symbol | bigint | typeof TDZ }
+    | { type: "primitive"; value: ESTree.Literal["value"] }
     | { type: "reference"; ref: HeapRef }
-    | { type: "error"; value: string }
 // Consider adding symbol/bigint if needed by the code you simulate
+
+export type HeapObjectBase = {
+    properties: Record<string, JSValue>
+}
 
 // Represents a single object/array/function stored in the heap
 export type HeapObject =
-    | { type: "object"; properties: Record<string, JSValue> }
-    | { type: "array"; elements: JSValue[] }
-    // We'll need to represent functions stored on the heap too
-    | { type: "function"; node: ESNode }
+    | (HeapObjectBase & { type: "object" })
+    | (HeapObjectBase & { type: "array"; elements: JSValue[] })
+    | (HeapObjectBase & { type: "function"; node: ESTree.Function })
 
 // Represents the central heap storing all non-primitive values
 export type Heap = Record<HeapRef, HeapObject>
@@ -53,11 +62,8 @@ export const PUSH_SCOPE_KIND = {
 export type Declaration = {
     kind: "var" | "let" | "const" | "function" | "param" | "class" | "global",
     variableName: string,
-    initialValue: JSValue
-}
-
-export type MemVal = JSValue & {
-    parentNode?: ESNode
+    initialValue: JSValue,
+    scopeIndex: number
 }
 
 // ----- Memory Change -----
@@ -67,7 +73,6 @@ export type MemoryChange =
     | {
         type: "declaration"
         declarations: Declaration[]
-        scopeIndex: number // Index in the memorySnapshot.scopes array
         // Declaration implies an initial JSValue (primitive undefined or a function reference)
     }
     | {
@@ -103,28 +108,57 @@ export type MemoryChange =
         scopeIndex: number // Index in the memorySnapshot.scopes array
     }
 
+export type MemVal = JSValue & {
+}
+
+export type MemvalNew = JSValue
+// kind: "operand" | "evaluated" | "thrown" | "returned"
+
+export type MemvalChange = {
+    type: "push" | "pop"
+    value: JSValue
+}
+
+export type BubbleUp = 'RETURN' | 'THROW' | 'BREAK' | 'CONTINUE'
+
 // ----- Execution Step -----
 
 // Represents a single step in the code execution simulation
 export type ExecStep = {
     index: number // Sequential step index
-    node?: ESNode // The primary AST node associated with this step
+    node: ESTree.BaseNode // The primary AST node associated with this step
     phase: "initial" | "creation" | "execution" | "destruction" // Phase of execution
     scopeIndex: number // Index into memorySnapshot.scopes for the *active* scope
-    executing: boolean // Whether the step is currently being executed
-    executed: boolean // Whether the step has been executed
-    evaluating: boolean // Whether the step is currently evaluating an expression
-    evaluated: boolean // Whether the step has evaluated an expression
-    evaluatedValue?: JSValue // The result of evaluating this node (if it's an expression)
+    executing?: boolean // Whether the step is currently being executed
+    executed?: boolean // Whether the step has been executed
+    evaluating?: boolean // Whether the step is currently evaluating an expression
+    evaluated?: boolean // Whether the step has evaluated an expression
+    type: 'EXECUTING' | 'EXECUTED' | 'EVALUATING' | 'EVALUATED'
     memoryChange: MemoryChange // Description of the memory effect of this step
+    memvalChanges: MemvalChange[] // The memvals that were added or removed in this step
     memorySnapshot: { // Snapshot of the entire memory state *after* this step's change
         scopes: Scope[] // The call stack (array of Scope objects)
         heap: Heap // The heap storing shared objects/arrays/functions
-        memVal: MemVal[]
+        memval: MemvalNew[] // TODO: MemValNew
     }
     // TODO: instead of output and error, refactor to: 
     // consoleAdded: null | {type: "log" | "error" | 'info' | 'warn' | 'debug' | 'table' | ..., values: JSValue[]}
     // consoleSnapshot: {type: "log" | "error" | 'info' | 'warn' | 'debug' | 'table' | ..., values: JSValue[]}[]
     output?: string // Any output generated in this step (e.g., console.log)
+    bubbleUp?: BubbleUp
+    // TODO: remove both of these:
+    evaluatedValue?: JSValue // The result of evaluating this node (if it's an expression)
     errorThrown?: JSValue // Any error generated in this step
 }
+
+export type TraverseASTOptions = {
+    parentScopeIndex: number,
+    strict?: boolean,
+    callee?: ESTree.Function
+    catch?: ESTree.CatchClause
+}
+
+export type NodeHandler<T extends ESTree.BaseNode = ESTree.BaseNode> = (
+    astNode: T,
+    options: TraverseASTOptions
+) => void

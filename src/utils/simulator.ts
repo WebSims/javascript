@@ -1,6 +1,6 @@
-import { ESNode, VariableDeclarator, Identifier, ExpressionStatement } from "hermes-parser"
-import { ExecStep, JSValue, Scope, Heap, MemoryChange, HeapObject, HeapRef, Declaration, TDZ, ScopeType, PUSH_SCOPE_KIND, MemVal } from "../types/simulation"
-import { cloneDeep } from "lodash" // Import cloneDeep from lodash
+import * as ESTree from 'estree'
+import { ExecStep, JSValue, Heap, MemoryChange, HeapObject, HeapRef, Declaration, TDZ, ScopeType, PUSH_SCOPE_KIND, MemvalNew, MemvalChange, BubbleUp, UNDEFINED, BUBBLE_UP_VALUE, Scope, NodeHandler, TraverseASTOptions } from "../types/simulation"
+import { cloneDeep, forEach } from "lodash" // Import cloneDeep from lodash
 
 /**
  * Simulates the execution of JavaScript code represented by an AST.
@@ -9,7 +9,7 @@ import { cloneDeep } from "lodash" // Import cloneDeep from lodash
  * @param programNode The root Program node of the AST.
  * @returns An array of execution steps representing the simulation.
  */
-export const simulateExecution = (astNode: ESNode | null): ExecStep[] => {
+export const simulateExecution = (astNode: ESTree.BaseNode | null): ExecStep[] => {
     // Ensure we have a valid Program node
     if (!astNode) {
         console.error("Invalid AST provided to simulateExecution.")
@@ -19,10 +19,11 @@ export const simulateExecution = (astNode: ESNode | null): ExecStep[] => {
     const steps: ExecStep[] = [
         {
             index: 0,
-            memorySnapshot: { scopes: [], heap: {}, memVal: [] },
+            memorySnapshot: { scopes: [], heap: {}, memval: [] },
             phase: "initial",
             scopeIndex: 0,
             memoryChange: { type: "none" },
+            memvalChanges: [],
             executing: false,
             executed: false,
             evaluating: false,
@@ -31,19 +32,18 @@ export const simulateExecution = (astNode: ESNode | null): ExecStep[] => {
     ]
     const scopes: Scope[] = []
     const heap: Heap = {}
-    let memVal: MemVal[] = []
-    let nextRef: HeapRef = 0
+    const memval: MemvalNew[] = []
+
     let lastScopeIndex = -1
+    let lastRef: HeapRef = -1
     let stepCounter: number = 1
+    let stepMemvalChanges: MemvalChange[] = []
 
     // --- Helper Functions ---
-
-    const getNextRef = (): HeapRef => nextRef++
-
     const createMemorySnapshot = (): ExecStep["memorySnapshot"] => {
         // Crucial: Use a reliable deep copy mechanism here!
         // Use lodash cloneDeep
-        return cloneDeep({ scopes, heap, memVal })
+        return cloneDeep({ scopes, heap, memval })
     }
 
     // --- Step Helpers ---
@@ -53,12 +53,14 @@ export const simulateExecution = (astNode: ESNode | null): ExecStep[] => {
             ...stepData,
             index: stepCounter++,
             memorySnapshot: snapshot,
+            memvalChanges: stepMemvalChanges,
         }
         steps.push(step)
+        stepMemvalChanges = []
         return step
     }
-    const addPushScopeStep = (astNode: ESNode): ExecStep => {
-        const getPushScopeType = (astNode: ESNode): ScopeType => {
+    const addPushScopeStep = (astNode: ESTree.BaseNode) => {
+        const getPushScopeType = (astNode: ESTree.BaseNode): ScopeType => {
             switch (astNode.type) {
                 case "Program":
                     return "global"
@@ -74,148 +76,171 @@ export const simulateExecution = (astNode: ESNode | null): ExecStep[] => {
 
         const kind = PUSH_SCOPE_KIND[astNode.type as keyof typeof PUSH_SCOPE_KIND]
 
-        const block: ESNode = getBlock(astNode)
-        return addStep({
-            node: block,
+        addStep({
+            node: astNode,
             phase: "creation",
             scopeIndex,
             memoryChange: { type: "push_scope", kind, scope },
+            memvalChanges: [],
             executing: true,
             executed: false,
             evaluating: false,
             evaluated: false,
+            type: 'EXECUTING',
         })
     }
-    const addHoistingStep = (astNode: ESNode, scopeIndex: number, declarations: Declaration[]): ExecStep => {
-        const block = getBlock(astNode)
+    const addHoistingStep = (astNode: ESTree.BaseNode, scopeIndex: number, declarations: Declaration[]): ExecStep => {
         return addStep({
-            node: block,
+            node: astNode,
             phase: "creation",
             scopeIndex,
             memoryChange: { type: "declaration", declarations, scopeIndex },
+            memvalChanges: [],
             executing: true,
             executed: false,
             evaluating: false,
             evaluated: false,
+            type: 'EXECUTING',
         })
     }
-    const addExecutingStep = (astNode: ESNode, scopeIndex: number): ExecStep => {
+    const addExecutingStep = ({
+        astNode,
+        scopeIndex,
+    }: {
+        astNode: ESTree.BaseNode,
+        scopeIndex: number
+    }): ExecStep => {
         return addStep({
             node: astNode,
             phase: "execution",
             scopeIndex,
             memoryChange: { type: "none" },
+            memvalChanges: [],
             executing: true,
             executed: false,
             evaluating: false,
             evaluated: false,
+            type: 'EXECUTING',
         })
     }
-    const addExecutedStep = (astNode: ESNode, scopeIndex: number, evaluatedValue?: JSValue, errorThrown?: JSValue): ExecStep => {
+
+    const addExecutedStep = ({
+        astNode,
+        scopeIndex,
+        memoryChange = { type: "none" },
+        bubbleUp,
+    }: {
+        astNode: ESTree.BaseNode,
+        scopeIndex: number,
+        memoryChange?: MemoryChange,
+        bubbleUp?: 'RETURN' | 'THROW' | 'BREAK' | 'CONTINUE'
+    }) => {
         return addStep({
             node: astNode,
             phase: "execution",
             scopeIndex,
-            memoryChange: { type: "none" },
+            memoryChange,
+            memvalChanges: [],
             executing: false,
             executed: true,
             evaluating: false,
             evaluated: false,
-            evaluatedValue,
-            errorThrown,
+            type: 'EXECUTED',
+            bubbleUp
         })
     }
-    const addEvaluatingStep = (astNode: ESNode, scopeIndex: number): ExecStep => {
+
+    const addEvaluatingStep = ({
+        astNode,
+        scopeIndex,
+    }: {
+        astNode: ESTree.BaseNode,
+        scopeIndex: number
+    }): ExecStep => {
         return addStep({
             node: astNode,
             phase: "execution",
             scopeIndex,
             memoryChange: { type: "none" },
+            memvalChanges: [],
             executing: false,
             executed: false,
             evaluating: true,
             evaluated: false,
+            type: 'EVALUATING',
         })
     }
-    const addEvaluatedStep = (astNode: ESNode, scopeIndex: number, evaluatedValue: JSValue): ExecStep => {
-        return addStep({
+
+    const addEvaluatedStep = ({
+        astNode,
+        scopeIndex,
+        memoryChange = { type: "none" },
+        bubbleUp,
+    }: {
+        astNode: ESTree.BaseNode,
+        scopeIndex: number,
+        memoryChange?: MemoryChange,
+        bubbleUp?: BubbleUp,
+    }) => {
+        addStep({
             node: astNode,
             phase: "execution",
             scopeIndex,
-            memoryChange: { type: "none" },
+            memoryChange,
+            memvalChanges: stepMemvalChanges,
             executing: false,
             executed: false,
             evaluating: false,
             evaluated: true,
-            evaluatedValue,
+            type: 'EVALUATED',
+            bubbleUp
         })
+        stepMemvalChanges = []
     }
-    const addErrorThrownStep = (astNode: ESNode, scopeIndex: number, error: JSValue): ExecStep => {
+
+    const addErrorThrownStep = ({
+        astNode,
+        scopeIndex,
+    }: {
+        astNode: ESTree.BaseNode,
+        scopeIndex: number,
+        error?: JSValue,
+    }) => {
         return addStep({
             node: astNode,
             phase: "execution",
             scopeIndex,
             memoryChange: { type: "none" },
-            executing: false,
-            executed: false,
-            evaluating: false,
-            evaluated: false,
-            errorThrown: error,
+            memvalChanges: stepMemvalChanges,
+            type: 'EXECUTED',
+            bubbleUp: 'THROW'
         })
     }
-    const addPopScopeStep = (astNode: ESNode, scopeIndex: number, evaluatedValue: JSValue | undefined, errorThrown: JSValue | undefined): ExecStep => {
-        // const closingScope = scopes[scopeIndex]
-        // const heapItemsToPotentiallyDelete = Object.values(closingScope.variables)
-        //     .filter((item): item is Extract<JSValue, { type: 'reference' }> => item.type === 'reference')
 
-        // heapItemsToPotentiallyDelete.forEach(itemToDelete => {
-        //     const refToDelete = itemToDelete.ref
-        //     let isReferencedElsewhere = false
-
-        //     // Check all *other* scopes
-        //     for (let i = 0; i < scopes.length; i++) {
-        //         if (i === scopeIndex) continue // Skip the scope being closed
-
-        //         const otherScope = scopes[i]
-        //         const variablesInOtherScope = Object.values(otherScope.variables)
-
-        //         for (const variableInOtherScope of variablesInOtherScope) {
-        //             if (variableInOtherScope.type === 'reference' && variableInOtherScope.ref === refToDelete) {
-        //                 isReferencedElsewhere = true
-        //                 break // Found a reference, no need to check further in this scope
-        //             }
-        //         }
-
-        //         if (isReferencedElsewhere) {
-        //             break // Found a reference, no need to check other scopes
-        //         }
-        //     }
-
-        //     // Only delete if not referenced elsewhere
-        //     if (!isReferencedElsewhere) {
-        //         // console.log(`Deleting heap item ref: ${refToDelete} as it's no longer referenced.`);
-        //         delete heap[refToDelete]
-        //     }
-        //     // else {
-        //     // Optional: console.log(`Keeping heap item ref: ${refToDelete} as it's referenced in another scope.`);
-        //     // }
-        // })
-
+    const addPopScopeStep = ({
+        astNode,
+        scopeIndex,
+        bubbleUp,
+    }: {
+        astNode: ESTree.BaseNode,
+        scopeIndex: number,
+        bubbleUp?: BubbleUp
+    }) => {
         scopes.splice(scopeIndex, 1)
-
-        astNode = getBlock(astNode)
-        return addStep({
+        addStep({
             node: astNode,
             phase: "destruction",
             scopeIndex: scopeIndex,
+            memvalChanges: stepMemvalChanges,
             memoryChange: { type: "pop_scope", scopeIndex },
             executing: false,
             executed: true,
             evaluating: false,
             evaluated: false,
-            evaluatedValue,
-            errorThrown,
+            type: 'EXECUTED',
+            bubbleUp,
         })
+        stepMemvalChanges = []
     }
 
     // --- Memory Manipulation Helpers (Simplified placeholders) ---
@@ -226,11 +251,39 @@ export const simulateExecution = (astNode: ESNode | null): ExecStep[] => {
         return { scope, scopeIndex }
     }
 
-    const allocateHeapObject = (obj: HeapObject): HeapRef => {
-        const ref = getNextRef()
-        heap[ref] = obj
-        // TODO: Consider a step for heap allocation?
-        return ref
+    const createHeapObject = ({
+        properties,
+        elements,
+        node
+    }: {
+        properties?: Record<string, JSValue>,
+        elements?: JSValue[],
+        node?: ESTree.Function,
+    }): HeapObject => {
+        let object: HeapObject
+        const commonProperties = properties || {}
+
+        if (elements) {
+            object = {
+                type: "array",
+                properties: commonProperties,
+                elements: elements
+            }
+        } else if (node) {
+            object = {
+                type: "function",
+                properties: commonProperties,
+                node: node
+            }
+        } else {
+            object = {
+                type: "object",
+                properties: commonProperties
+            }
+        }
+
+        heap[++lastRef] = object
+        return object
     }
 
     const lookupVariable = (name: string, startingScopeIndex: number): { value: JSValue, scopeIndex: number } | -1 => {
@@ -242,14 +295,14 @@ export const simulateExecution = (astNode: ESNode | null): ExecStep[] => {
         return -1
     }
 
-    const newDeclaration = (name: string, kind: Extract<MemoryChange, { type: 'declaration' }>['declarations'][number]['kind'], scopeIndex: number, initialValue: JSValue): (Declaration | undefined) => {
-        if (scopeIndex < 0 || scopeIndex >= scopes.length) {
-            console.error(`Invalid scopeIndex ${scopeIndex} for declaring ${name}`)
-            return
-        }
+    const newDeclaration = (name: string, kind: Extract<MemoryChange, { type: 'declaration' }>['declarations'][number]['kind'], scopeIndex: number, initialValue: JSValue): Declaration => {
         scopes[scopeIndex].variables[name] = initialValue
-        return { kind, variableName: name, initialValue }
-        // Step generation happens in the passes
+        return {
+            kind,
+            variableName: name,
+            initialValue,
+            scopeIndex
+        }
     }
 
     const writeVariable = (name: string, value: JSValue, scopeIndex: number): number => {
@@ -258,41 +311,56 @@ export const simulateExecution = (astNode: ESNode | null): ExecStep[] => {
             scopes[lookup.scopeIndex].variables[name] = value
             return lookup.scopeIndex
         }
-        // Handle potential ReferenceError or global assignment (if intended)
         console.warn(`Attempted to write to undeclared variable ${name}`)
         // For simplicity, let's assign to global if not found (like non-strict mode)
-        scopes[0].variables[name] = value // Or throw error
-        return 0 // Indicate it wasn't found in declared scopes
+        scopes[0].variables[name] = value
+        return 0
     }
 
-    const writeProperty = (ref: number, property: string, value: JSValue): number => {
+    const writeProperty = (ref: number, property: string, value: JSValue) => {
         const heapObj = heap[ref]
-        if (heapObj) {
-            if (heapObj.type === 'object') {
+        if (heapObj.type === 'array') {
+            const isNumber = !isNaN(parseInt(property))
+            if (isNumber) {
+                heapObj.elements[parseInt(property)] = value
+            } else {
                 heapObj.properties[property] = value
-            } else if (heapObj.type === 'array') {
-                heapObj.elements[property] = value
             }
-            return ref
         } else {
-            return -1
+            heapObj.properties[property] = value
         }
     }
 
-    const addMemVal = (value: JSValue) => {
-        memVal.push(value)
-    }
-
-    const removeMemVal = (value: JSValue) => {
-        memVal.splice(memVal.lastIndexOf(value), 1)
-    }
-
-    const clearMemVal = (astNode?: ESNode) => {
-        if (astNode) {
-            memVal = memVal.filter(item => item.parentNode !== astNode)
+    const readProperty = (ref: number, property: string): JSValue => {
+        const heapObj = heap[ref]
+        if (heapObj.type === "array") {
+            const isNumber = !isNaN(parseInt(property))
+            if (isNumber) {
+                return heapObj.elements[parseInt(property)]
+            } else {
+                return heapObj.properties[property] || UNDEFINED
+            }
         } else {
-            memVal = []
+            return heapObj.properties[property] || UNDEFINED
         }
+    }
+
+    // --- MemVal Helpers ---
+    const pushMemval = (value: MemvalNew) => {
+        memval.push(value)
+        stepMemvalChanges.push({ type: "push", value })
+    }
+
+    const popMemval = (): MemvalNew => {
+        const value = memval.pop()
+        if (value) {
+            stepMemvalChanges.push({ type: "pop", value })
+        }
+        return value as MemvalNew
+    }
+
+    const readMemval = (shift?: number): MemvalNew => {
+        return shift ? memval[memval.length - 1 - shift] : memval[memval.length - 1]
     }
 
     /**
@@ -303,782 +371,686 @@ export const simulateExecution = (astNode: ESNode | null): ExecStep[] => {
      * @param astNode Optional AST node for tracking
      * @returns A JSValue representing the error
      */
-    const createErrorObject = (errorType: string, message: string): JSValue => {
-        const errorObject: HeapObject = {
-            type: 'object',
+    const createErrorObject = (errorType: string, message: string) => {
+        createHeapObject({
             properties: {
                 name: { type: 'primitive', value: errorType },
                 message: { type: 'primitive', value: message },
                 stack: { type: 'primitive', value: `${errorType}: ${message}` }
             }
-        }
+        })
 
-        const ref = allocateHeapObject(errorObject)
-
-        const heapRefValue: JSValue = {
-            type: 'reference',
-            ref: ref
-        }
-
-        addMemVal(heapRefValue)
-
-        return heapRefValue
+        pushMemval({ type: 'reference', ref: lastRef })
     }
+
     const getErrorString = (error: JSValue): string => {
         const errorObject = heap[error.ref]
         return errorObject?.properties?.stack?.value
     }
-
     const printError = (error: JSValue): void => {
         console.error(getErrorString(error))
     }
 
-    // --- Creation Pass --- 
-    const getBlock = (astNode: ESNode): ESNode => {
-        switch (astNode.type) {
-            case "FunctionDeclaration":
-            case "ArrowFunctionExpression":
-            case "CatchClause":
-                return astNode.body as ESNode
-            case "TryStatement":
-                return astNode.block as ESNode
-            case "ForStatement":
-                return { ...astNode, body: [astNode.init] } as ESNode
-            default:
-                return astNode
-        }
-    }
-    const creationPhase = (astNode: ESNode): ExecStep => {
-        const scopeIndex = addPushScopeStep(astNode).scopeIndex
+    const nodeHandlers: Partial<{
+        Program: NodeHandler<ESTree.BlockStatement>
+        BlockStatement: NodeHandler<ESTree.BlockStatement>
+        ExpressionStatement: NodeHandler<ESTree.ExpressionStatement>
+        Literal: NodeHandler<ESTree.Literal>
+        VariableDeclaration: NodeHandler<ESTree.VariableDeclaration>
+        CallExpression: NodeHandler<ESTree.CallExpression>
+        Identifier: NodeHandler<ESTree.Identifier>
+        BinaryExpression: NodeHandler<ESTree.BinaryExpression>
+        LogicalExpression: NodeHandler<ESTree.LogicalExpression>
+        ReturnStatement: NodeHandler<ESTree.ReturnStatement>
+        ThrowStatement: NodeHandler<ESTree.ThrowStatement>
+        TryStatement: NodeHandler<ESTree.TryStatement>
+        AssignmentExpression: NodeHandler<ESTree.AssignmentExpression>
+        ConditionalExpression: NodeHandler<ESTree.ConditionalExpression>
+        ArrayExpression: NodeHandler<ESTree.ArrayExpression>
+        ObjectExpression: NodeHandler<ESTree.ObjectExpression>
+        MemberExpression: NodeHandler<ESTree.MemberExpression>
+        ArrowFunctionExpression: NodeHandler<ESTree.ArrowFunctionExpression>
+        IfStatement: NodeHandler<ESTree.IfStatement>
+        ForStatement: NodeHandler<ESTree.ForStatement>
+        ContinueStatement: NodeHandler<ESTree.ContinueStatement>
+        UpdateExpression: NodeHandler<ESTree.UpdateExpression>
+        EmptyStatement: NodeHandler<ESTree.EmptyStatement>
+    }> = {}
 
-        const declarations: Declaration[] = []
+    nodeHandlers["BlockStatement"] = (astNode, options) => {
+        const statements = astNode.body
 
-        // Use for FunctionDeclaration, ArrowFunctionExpression
-        if (astNode.params) {
-            for (const param of astNode.params) {
-                if (param.type === "Identifier") {
-                    const paramName = param.name
-                    const paramValueIndex = memVal.findIndex(item => item.parentNode === astNode)
-                    const paramValue: JSValue = memVal[paramValueIndex] || { type: "primitive", value: undefined }
-                    memVal.splice(paramValueIndex, 1)
-                    const declaration = newDeclaration(paramName, "param", scopeIndex, paramValue)
-                    if (declaration.parentNode) declarations.push(declaration)
-                } else if (param.type === "AssignmentPattern") {
-                    const paramName = param.left.name
-                    const defaultParamValue = param.right.value
-                    const paramValueIndex = memVal.findIndex(item => item.parentNode === astNode)
-                    const paramValue: JSValue = memVal[paramValueIndex] || { type: "primitive", value: undefined }
-                    if (paramValue.value === undefined) {
-                        paramValue.value = defaultParamValue
-                    }
-                    memVal.splice(paramValueIndex, 1)
-                    if (paramValue.parentNode) delete paramValue.parentNode
-                    const declaration = newDeclaration(paramName, "param", scopeIndex, paramValue)
-                    if (declaration) declarations.push(declaration)
-                } else {
-                    console.warn("Unhandled param type:", param.type)
+        if (Array.isArray(statements)) {
+            for (const statement of statements) {
+                // Skip function declarations as they are already handled in the creation phase
+                if (statement.type === "FunctionDeclaration") {
+                    continue
                 }
-            }
-            clearMemVal(astNode)
-        }
-        // Use for CatchClause
-        if (astNode.param) {
-            const paramName = astNode.param.name
-            const paramValueIndex = memVal.findIndex(item => item.parentNode === astNode)
-            const paramValue: JSValue = memVal[paramValueIndex]
-            memVal.splice(paramValueIndex, 1)
-            if (paramValue.parentNode) delete paramValue.parentNode
-            const declaration = newDeclaration(paramName, "param", scopeIndex, paramValue)
-            if (declaration) declarations.push(declaration)
-        }
-
-        const block: ESNode = getBlock(astNode)
-        if (block.type === "Program" || block.type === "BlockStatement" || block.type === "ForStatement") {
-            for (const node of block.body) {
-                if (!node) continue
-
-                switch (node.type) {
-                    case "FunctionDeclaration":
-                        {
-                            // Check type string, id exists, and then CAST id to Identifier to access properties
-                            if (node.id) {
-                                // Cast node.id to Identifier AFTER checking it exists
-                                const idNode = node.id as Identifier
-                                if (idNode.type === 'Identifier') { // Check type on the casted object
-                                    const functionName = idNode.name // Access name from casted object
-                                    // 1. Allocate Function Object on Heap
-                                    const functionObject: HeapObject = {
-                                        type: "function",
-                                        node: node
-                                    }
-                                    const ref = allocateHeapObject(functionObject)
-
-                                    const declaration = newDeclaration(functionName, "function", scopeIndex, { type: "reference", ref })
-                                    if (declaration) declarations.push(declaration)
-                                } else {
-                                    console.warn("FunctionDeclaration id is not an Identifier?", idNode)
-                                }
-                            } else {
-                                console.warn("Hoisting unnamed FunctionDeclaration?", node)
-                            }
-                        }
-                        break;
-
-                    case "VariableDeclaration":
-                        {
-                            if (node.kind === "var") {
-                                for (const declarator of (node.declarations as VariableDeclarator[])) {
-                                    if (declarator.id?.type === "Identifier") {
-                                        const idNode = declarator.id as Identifier
-                                        const varName = idNode.name
-                                        const initialValue: JSValue = { type: "primitive", value: undefined }
-                                        const declaration = newDeclaration(varName, "var", scopeIndex, initialValue)
-                                        if (declaration) declarations.push(declaration)
-                                    } else {
-                                        console.warn("Unhandled var declaration pattern in creation:", declarator.id?.type)
-                                    }
-                                }
-                            }
-                            if (node.kind === "let" || node.kind === "const") {
-                                for (const declarator of (node.declarations as VariableDeclarator[])) {
-                                    if (declarator.id?.type === "Identifier") {
-                                        const idNode = declarator.id as Identifier
-                                        const varName = idNode.name
-                                        const initialValue: JSValue = TDZ
-                                        const declaration = newDeclaration(varName, node.kind, scopeIndex, initialValue)
-                                        if (declaration) declarations.push(declaration)
-                                    } else {
-                                        console.warn("Unhandled let/const declaration pattern in creation:", declarator.id?.type)
-                                    }
-                                }
-                            }
-                        }
-                        break;
-
-                    // case "ExpressionStatement":
-                    //     {
-                    //         const expression = node.expression
-                    //         if (expression.type === "AssignmentExpression") {
-                    //             const varName = expression.left.name
-                    //             const variable = lookupVariable(varName, scopeIndex)
-                    //             if (variable === -1) {
-                    //                 const initialValue: JSValue = { type: "primitive", value: undefined }
-                    //                 const declaration = newDeclaration(varName, "global", 0, initialValue)
-                    //                 if (declaration) declarations.push(declaration)
-                    //             }
-                    //         }
-                    //     }
-                    //     break;
-                }
-            }
-        }
-
-        console.log("Creation Phase:", scopeIndex)
-        return addHoistingStep(astNode, scopeIndex, declarations)
-    }
-
-    // --- Execution Pass --- 
-    const nodeHandlers: Record<string, (astNode: ESNode, scopeIndex: number) => ExecStep | undefined> = {}
-
-    nodeHandlers["Program"] = (astNode: ESNode, scopeIndex: number): ExecStep | undefined => {
-        const statements = astNode.body as ESNode[]
-        let lastStep: ExecStep | undefined
-
-        if (!Array.isArray(statements) || statements.length === 0) {
-            return lastStep
-        }
-
-        for (const statement of statements) {
-            // Skip function declarations as they are already handled in the creation phase
-            if (statement.type === "FunctionDeclaration" || statement.type === "ArrowFunctionExpression") {
-                continue
-            }
-
-            if (statement.type === "BlockStatement") {
-                lastStep = traverseAST(statement, scopeIndex, false)
-            } else {
-                lastStep = executionPhase(statement, scopeIndex)
-            }
-
-            if (lastStep?.errorThrown) {
-                return lastStep
-            }
-
-            if (lastStep?.evaluatedValue) {
-                return lastStep
+                traverseAST(statement, options)
             }
         }
     }
 
-    nodeHandlers["BlockStatement"] = nodeHandlers["Program"]
+    nodeHandlers["Program"] = nodeHandlers["BlockStatement"]
 
-    nodeHandlers["ExpressionStatement"] = (astNode: ESNode, scopeIndex: number): ExecStep | undefined => {
-        addExecutingStep(astNode, scopeIndex)
-        const expressionNode = (astNode as ExpressionStatement).expression
-        let lastStep = executionPhase(expressionNode, scopeIndex)
-        if (lastStep?.errorThrown) {
-            return lastStep
-        }
-        if (lastStep?.evaluatedValue) removeMemVal(lastStep.evaluatedValue)
-        return addExecutedStep(astNode, scopeIndex)
+    nodeHandlers["ExpressionStatement"] = (astNode, options) => {
+        addExecutingStep({ astNode, scopeIndex: lastScopeIndex })
+
+        traverseAST(astNode.expression, options)
+
+        popMemval()
+        addExecutedStep({ astNode, scopeIndex: lastScopeIndex })
     }
 
-    nodeHandlers["Literal"] = (astNode: ESNode, scopeIndex: number): ExecStep | undefined => {
-        addEvaluatingStep(astNode, scopeIndex)
+    nodeHandlers["Literal"] = (astNode) => {
+        addEvaluatingStep({ astNode, scopeIndex: lastScopeIndex })
 
-        let evaluatedValue: JSValue;
-        const literalValue = astNode.value
-        if (literalValue === null) {
-            evaluatedValue = { type: "primitive", value: null };
-        } else if (typeof literalValue === 'string' || typeof literalValue === 'number' || typeof literalValue === 'boolean') {
-            evaluatedValue = { type: "primitive", value: literalValue };
-            // Last resort: cast to any to bypass instanceof type check issue
-        } else if (typeof literalValue === 'object' && literalValue !== null && (literalValue as any) instanceof RegExp) {
-            console.warn("RegExp Literal evaluation not fully implemented")
-            evaluatedValue = { type: "primitive", value: astNode.raw };
+        const evaluatedValue: JSValue = { type: "primitive", value: astNode.value }
+        pushMemval(evaluatedValue)
+
+        addEvaluatedStep({ astNode, scopeIndex: lastScopeIndex })
+    }
+
+    const getIdentifierFromPattern = (pattern: ESTree.Pattern) => {
+        if (pattern.type === "Identifier") {
+            return pattern
+        } else if (pattern.type === "AssignmentPattern") {
+            return getIdentifierFromPattern(pattern.left)
         } else {
-            console.warn("Unhandled Literal type:", typeof literalValue)
-            evaluatedValue = { type: "primitive", value: undefined };
+            console.warn("Unhandled pattern type:", pattern.type)
         }
-
-        addMemVal(evaluatedValue)
-
-        return addEvaluatedStep(astNode, scopeIndex, evaluatedValue)
     }
 
-    nodeHandlers["VariableDeclaration"] = (astNode: ESNode, scopeIndex: number): ExecStep | undefined => {
-        addExecutingStep(astNode, scopeIndex)
-        if (astNode.kind === "const" && astNode.declarations.length === 0) {
-            console.warn("Unhandled const declaration pattern in execution:", astNode.kind)
-        }
+    nodeHandlers["VariableDeclaration"] = (astNode, options) => {
+        for (const declarator of astNode.declarations) {
+            addExecutingStep({ astNode, scopeIndex: lastScopeIndex })
 
-        if (Array.isArray(astNode.declarations)) {
-            for (const declarator of (astNode.declarations as VariableDeclarator[])) {
-                if (declarator.id?.type === 'Identifier') {
-                    const idNode = declarator.id as Identifier;
-                    const varName = idNode.name;
+            let evaluatedValue: JSValue = UNDEFINED
+            if (declarator.init) {
+                traverseAST(declarator.init, options)
+                evaluatedValue = popMemval()
+            }
 
-                    let value: JSValue = { type: "primitive", value: undefined }
-                    if (declarator.init) {
-                        const lastStep = executionPhase(declarator.init, scopeIndex)
-                        if (lastStep?.errorThrown) {
-                            return lastStep
-                        }
-                        if (lastStep?.evaluatedValue) {
-                            value = lastStep.evaluatedValue
-                            removeMemVal(lastStep.evaluatedValue)
-                        }
-                    }
-                    const targetScopeIndex = writeVariable(varName, value, scopeIndex)
-                    return addStep({
-                        node: astNode,
-                        phase: "execution",
-                        scopeIndex,
-                        memoryChange: {
-                            type: "write_variable",
-                            scopeIndex: targetScopeIndex,
-                            variableName: varName,
-                            value,
-                        },
-                        executing: false,
-                        executed: true,
-                        evaluating: false,
-                        evaluated: false,
-                    })
+            const identifier = getIdentifierFromPattern(declarator.id)
+            let memoryChange: MemoryChange | undefined
+            if (identifier) {
+                const targetScopeIndex = writeVariable(identifier.name, evaluatedValue, lastScopeIndex)
+                memoryChange = {
+                    type: "write_variable",
+                    scopeIndex: targetScopeIndex,
+                    variableName: identifier.name,
+                    value: evaluatedValue,
                 }
             }
+            addExecutedStep({ astNode, scopeIndex: lastScopeIndex, memoryChange })
         }
     }
 
-    nodeHandlers["CallExpression"] = (astNode: ESNode, scopeIndex: number): ExecStep | undefined => {
-        addEvaluatingStep(astNode, scopeIndex)
-
-        let lastStep = executionPhase(astNode.callee, scopeIndex)
-        if (lastStep?.errorThrown) {
-            return lastStep
-        }
+    nodeHandlers["CallExpression"] = (astNode, options) => {
+        traverseAST(astNode.callee, options)
 
         const args = []
         for (const arg of astNode.arguments) {
-            const argStep = executionPhase(arg, scopeIndex)
-            if (argStep?.errorThrown) {
-                return argStep
-            }
-            if (argStep?.evaluatedValue) {
-                args.push(argStep.evaluatedValue)
-            }
+            traverseAST(arg, options)
+            const popedArg = popMemval()
+            args.push(popedArg)
         }
 
-        if (lastStep?.evaluatedValue === TDZ) {
-            const error = createErrorObject('ReferenceError', `Cannot access ${lastStep?.evaluatedValue?.value} before initialization`, astNode)
-            return addErrorThrownStep(astNode, scopeIndex, error)
-        }
-
-        if (lastStep?.evaluatedValue?.type !== "reference") {
-            const error = createErrorObject('ReferenceError', `${lastStep?.evaluatedValue?.value} is not a function`, astNode)
-            return addErrorThrownStep(astNode, scopeIndex, error)
-        }
-
-        const object = heap[lastStep.evaluatedValue?.ref]
-        if (!object) {
-            const error = createErrorObject('ReferenceError', `${lastStep?.evaluatedValue?.value} is not defined`, astNode)
-            return addErrorThrownStep(astNode, scopeIndex, error)
-        }
-
-        if (object?.type === "function") {
-            addEvaluatingStep(astNode, scopeIndex)
-            removeMemVal(lastStep?.evaluatedValue)
-
-            for (const arg of args) {
-                // Hack: rewrite the evaluatedValue to use as parameter for the function call
-                removeMemVal(arg)
-                addMemVal({ ...arg, parentNode: object.node })
+        const fnRef = popMemval()
+        if (fnRef) {
+            if (fnRef.type !== "reference") {
+                createErrorObject('ReferenceError', `${astNode.callee.name} is not a function`)
+                addErrorThrownStep({ astNode, scopeIndex: lastScopeIndex })
+                throw BUBBLE_UP_VALUE.THROW
             }
 
-            lastStep = traverseAST(object.node as ESNode, scopeIndex, false)
+            const object = heap[fnRef.ref]
+            if (object.type === "function") {
+                args.forEach(arg => pushMemval(arg))
+                pushMemval({ type: 'primitive', value: args.length })
+                pushMemval(fnRef)
 
-            if (lastStep?.errorThrown) {
-                return addErrorThrownStep(astNode, scopeIndex, lastStep.errorThrown)
-            } else {
-                if (!lastStep?.evaluatedValue) {
-                    addMemVal({ type: "primitive", value: undefined })
-                    return addEvaluatedStep(astNode, scopeIndex, { type: "primitive", value: undefined })
+                addEvaluatingStep({ astNode, scopeIndex: lastScopeIndex })
+
+                popMemval()
+
+                try {
+                    traverseAST(object.node.body, { ...options, callee: object.node })
+                    pushMemval(UNDEFINED)
+                    addEvaluatedStep({ astNode, scopeIndex: lastScopeIndex })
+                } catch (bubbleUp) {
+                    switch (bubbleUp) {
+                        case BUBBLE_UP_VALUE.RETURN:
+                            addEvaluatedStep({ astNode, scopeIndex: lastScopeIndex, bubbleUp })
+                            break
+                        case BUBBLE_UP_VALUE.THROW:
+                            addErrorThrownStep({ astNode, scopeIndex: lastScopeIndex })
+                            throw bubbleUp
+                        default:
+                            throw bubbleUp
+                    }
                 }
-                return addEvaluatedStep(astNode, scopeIndex, lastStep?.evaluatedValue)
+            } else {
+                createErrorObject('TypeError', `${astNode.callee.name} is not a function`)
+                addErrorThrownStep({ astNode, scopeIndex: lastScopeIndex })
+                throw BUBBLE_UP_VALUE.THROW
             }
-        } else {
-            removeMemVal(lastStep?.evaluatedValue)
-            const error = createErrorObject('TypeError', `${lastStep?.node.name} is not a function`, astNode)
-            return addErrorThrownStep(astNode, scopeIndex, error)
         }
     }
 
-    nodeHandlers["Identifier"] = (astNode: ESNode, scopeIndex: number): ExecStep | undefined => {
-        addEvaluatingStep(astNode, scopeIndex)
+    nodeHandlers["Identifier"] = (astNode) => {
+        addEvaluatingStep({ astNode, scopeIndex: lastScopeIndex })
 
-        const varName = (astNode as Identifier).name;
+        const varName = astNode.name
         if (varName === 'undefined') {
-            addMemVal({ type: "primitive", value: undefined })
-            return addEvaluatedStep(astNode, scopeIndex, { type: "primitive", value: undefined })
-        }
-
-        const variable = lookupVariable(varName, scopeIndex)
-        if (variable !== -1) {
-            addMemVal(variable.value)
-            if (variable.value.type === "reference") {
-                return addEvaluatedStep(astNode, scopeIndex, variable.value)
-            } else if (variable.value.type === "primitive" || variable.value.type === "error") {
-                return addEvaluatedStep(astNode, scopeIndex, variable.value)
-            }
+            const evaluatedValue = { type: "primitive", value: undefined } as const
+            pushMemval(evaluatedValue)
+            addEvaluatedStep({ astNode, scopeIndex: lastScopeIndex })
         } else {
-            const error = createErrorObject('ReferenceError', `${varName} is not defined`, astNode)
-            return addErrorThrownStep(astNode, scopeIndex, error)
+            const variable = lookupVariable(varName, lastScopeIndex)
+            if (variable !== -1) {
+                const evaluatedValue = variable.value
+                if (evaluatedValue === TDZ) {
+                    createErrorObject('ReferenceError', `${varName} is not defined`)
+                    addErrorThrownStep({ astNode, scopeIndex: lastScopeIndex })
+                    throw BUBBLE_UP_VALUE.THROW
+                } else {
+                    pushMemval(evaluatedValue)
+                    addEvaluatedStep({ astNode, scopeIndex: lastScopeIndex })
+                }
+            } else {
+                createErrorObject('ReferenceError', `${varName} is not defined`)
+                addErrorThrownStep({ astNode, scopeIndex: lastScopeIndex })
+                throw BUBBLE_UP_VALUE.THROW
+            }
         }
     }
 
-    nodeHandlers["BinaryExpression"] = (astNode: ESNode, scopeIndex: number): ExecStep | undefined => {
-        addEvaluatingStep(astNode, scopeIndex)
+    nodeHandlers["BinaryExpression"] = (astNode, options) => {
+        addEvaluatingStep({ astNode, scopeIndex: lastScopeIndex })
 
-        let leftStep: ExecStep | undefined
-        let rightStep: ExecStep | undefined
+
+        traverseAST(astNode.left, options)
+        traverseAST(astNode.right, options)
+
+        const rightValue = popMemval()
+        const leftValue = popMemval()
+
+        // TODO: reference have problem for example:
+        // ([] >= {}); => should be false but return true
+        // Solution 1: use heap value instead of reference and create it and competive without using eval
+        const rightRaw = rightValue.type === "reference"
+            ? `heap[${rightValue.ref}]`
+            : JSON.stringify(rightValue.value)
+
+        const leftRaw = leftValue.type === "reference"
+            ? `heap[${leftValue.ref}]`
+            : JSON.stringify(leftValue.value)
+
+        const value = eval(`${leftRaw}${astNode.operator}${rightRaw}`)
+        const evaluatedValue = {
+            type: "primitive",
+            value
+        } as const
+
+        pushMemval(evaluatedValue)
+        addEvaluatedStep({ astNode, scopeIndex: lastScopeIndex })
+    }
+
+    nodeHandlers["LogicalExpression"] = (astNode, options) => {
+        addEvaluatingStep({ astNode, scopeIndex: lastScopeIndex })
+
+        let rightValue: JSValue
 
         if (astNode.operator === "&&") {
-            leftStep = executionPhase(astNode.left, scopeIndex)
-            if (leftStep?.errorThrown) return leftStep
+            traverseAST(astNode.left, options)
 
-            if (leftStep?.evaluatedValue?.value === true) {
-                rightStep = executionPhase(astNode.right, scopeIndex)
-                if (rightStep?.errorThrown) return rightStep
+            const leftResult = readMemval()
+            if (leftResult.type === "primitive" && leftResult.value === true) {
+                traverseAST(astNode.right, options)
+                rightValue = popMemval()
             } else {
-                rightStep = { type: "primitive", value: false }
+                rightValue = { type: "primitive", value: false }
             }
         } else if (astNode.operator === "||") {
-            leftStep = executionPhase(astNode.left, scopeIndex)
-            if (leftStep?.errorThrown) return leftStep
+            traverseAST(astNode.left, options)
 
-            if (leftStep?.evaluatedValue?.value === true) {
-                rightStep = { type: "primitive", value: true }
+            const leftResult = readMemval()
+            if (leftResult.type === "primitive" && leftResult.value === true) {
+                rightValue = { type: "primitive", value: true }
             } else {
-                rightStep = executionPhase(astNode.right, scopeIndex)
-                if (rightStep?.errorThrown) return rightStep
+                traverseAST(astNode.right, options)
+                rightValue = popMemval()
             }
         } else {
-            leftStep = executionPhase(astNode.left, scopeIndex);
-            if (leftStep?.errorThrown) return leftStep
-
-            rightStep = executionPhase(astNode.right, scopeIndex);
-            if (rightStep?.errorThrown) return rightStep
+            traverseAST(astNode.left, options)
+            traverseAST(astNode.right, options)
+            rightValue = popMemval()
         }
+        const leftValue = popMemval()
 
+        // TODO: reference have problem for example:
+        // ([] >= {}); => should be false but return true
+        // Solution 1: use heap value instead of reference and create it and competive without using eval
+        const rightRaw = rightValue.type === "reference"
+            ? `heap[${rightValue.ref}]`
+            : JSON.stringify(rightValue.value)
 
-        if (astNode.operator) {
-            // TODO: reference have problem for example:
-            // ([] >= {}); => should be false but return true
-            // Solution 1: use heap value instead of reference and create it and competive without using eval
-            const leftRaw = leftStep?.evaluatedValue?.type === "reference"
-                ? `heap[${leftStep.evaluatedValue.ref}]`
-                : JSON.stringify(leftStep?.evaluatedValue?.value)
-            const rightRaw = rightStep?.evaluatedValue?.type === "reference"
-                ? `heap[${rightStep.evaluatedValue.ref}]`
-                : JSON.stringify(rightStep?.evaluatedValue?.value)
-            const value = eval(`${leftRaw}${astNode.operator}${rightRaw}`)
-            const evaluatedValue = {
-                type: "primitive",
-                value
-            } as const
+        const leftRaw = leftValue.type === "reference"
+            ? `heap[${leftValue.ref}]`
+            : JSON.stringify(leftValue.value)
 
-            removeMemVal(leftStep.evaluatedValue)
-            removeMemVal(rightStep.evaluatedValue)
-            addMemVal(evaluatedValue)
-            return addEvaluatedStep(astNode, scopeIndex, evaluatedValue)
-        }
+        const value = eval(`${leftRaw}${astNode.operator}${rightRaw}`)
+        const evaluatedValue = {
+            type: "primitive",
+            value
+        } as const
+
+        pushMemval(evaluatedValue)
+        addEvaluatedStep({ astNode, scopeIndex: lastScopeIndex })
     }
 
-    nodeHandlers["ReturnStatement"] = (astNode: ESNode, scopeIndex: number): ExecStep | undefined => {
-        addExecutingStep(astNode, scopeIndex)
-        let evaluatedValue: JSValue | undefined = { type: 'primitive', value: undefined }
+    nodeHandlers["ReturnStatement"] = (astNode, options) => {
+        addExecutingStep({ astNode, scopeIndex: lastScopeIndex })
+
         if (astNode.argument) {
-            const lastStep = executionPhase(astNode.argument, scopeIndex)
-            if (lastStep?.errorThrown) {
-                return lastStep
-            }
-            if (lastStep?.evaluatedValue) {
-                evaluatedValue = lastStep.evaluatedValue
-            }
+            traverseAST(astNode.argument, options)
         } else {
-            addMemVal(evaluatedValue)
+            pushMemval(UNDEFINED)
         }
-        return addExecutedStep(astNode, scopeIndex, evaluatedValue)
+
+        addExecutedStep({ astNode, scopeIndex: lastScopeIndex, bubbleUp: BUBBLE_UP_VALUE.RETURN })
+        throw BUBBLE_UP_VALUE.RETURN
     }
 
-    nodeHandlers["ThrowStatement"] = (astNode: ESNode, scopeIndex: number): ExecStep | undefined => {
-        addExecutingStep(astNode, scopeIndex)
-        const lastStep = executionPhase(astNode.argument, scopeIndex)
-        return addExecutedStep(astNode, scopeIndex, undefined, lastStep?.evaluatedValue)
+    nodeHandlers["ThrowStatement"] = (astNode, options) => {
+        addExecutingStep({ astNode, scopeIndex: lastScopeIndex })
+
+        traverseAST(astNode.argument, options)
+
+        addErrorThrownStep({ astNode, scopeIndex: lastScopeIndex })
+        throw BUBBLE_UP_VALUE.THROW
     }
 
-    // --- TryStatement Execution ---
-    nodeHandlers["TryStatement"] = (astNode: ESNode, scopeIndex: number): ExecStep | undefined => {
-        addExecutingStep(astNode, scopeIndex)
-        let evaluatedValue: JSValue | undefined
+    nodeHandlers["TryStatement"] = (astNode, options) => {
+        addExecutingStep({ astNode, scopeIndex: lastScopeIndex })
 
-        const tryLastStep = traverseAST(astNode, scopeIndex, false)
+        const finalizerHandler = () => {
+            if (astNode.finalizer) {
+                try {
+                    traverseAST(astNode.finalizer, options)
+                } catch (finalizerBubbleUp) {
+                    if (finalizerBubbleUp === BUBBLE_UP_VALUE.THROW) {
+                        addErrorThrownStep({ astNode, scopeIndex: lastScopeIndex })
+                        throw finalizerBubbleUp
+                    }
+                    addExecutedStep({ astNode, scopeIndex: lastScopeIndex })
+                    throw finalizerBubbleUp
+                }
+            }
+        }
 
-        if (tryLastStep?.errorThrown) {
-            // Hack: rewrite the errorThrown to use as parameter for the catch block
-            removeMemVal(tryLastStep?.errorThrown)
-            addMemVal({ ...tryLastStep?.errorThrown, parentNode: astNode.handler })
-
+        const catchHandler = () => {
             if (astNode.handler) {
-                const catchLastStep = traverseAST(astNode.handler, scopeIndex, false)
+                try {
+                    traverseAST(astNode.handler.body, { ...options, catch: astNode.handler })
+                } catch (catchBubbleUp) {
+                    if (astNode.finalizer) {
+                        const catchValue = popMemval()
+                        finalizerHandler()
+                        pushMemval(catchValue)
+                    }
 
-                if (astNode.finalizer) {
-                    if (catchLastStep?.errorThrown) {
-                        removeMemVal(catchLastStep?.errorThrown)
+                    if (catchBubbleUp === BUBBLE_UP_VALUE.THROW) {
+                        addErrorThrownStep({ astNode, scopeIndex: lastScopeIndex })
+                        throw catchBubbleUp
                     }
-                } else {
-                    if (catchLastStep?.errorThrown) {
-                        return catchLastStep
-                    }
+                    addExecutedStep({ astNode, scopeIndex: lastScopeIndex })
+                    throw catchBubbleUp
                 }
-                evaluatedValue = catchLastStep?.evaluatedValue
             }
-        } else {
-            evaluatedValue = tryLastStep?.evaluatedValue
         }
 
-        if (astNode.finalizer) {
-            if (astNode.finalizer.body.length > 0) removeMemVal(evaluatedValue)
-            const finalizerStep = traverseAST(astNode.finalizer, scopeIndex, false)
-            if (finalizerStep?.errorThrown) {
-                return finalizerStep
+        try {
+            traverseAST(astNode.block, options)
+            finalizerHandler()
+            addExecutedStep({ astNode, scopeIndex: lastScopeIndex })
+        } catch (tryBubbleUp) {
+            if (tryBubbleUp === BUBBLE_UP_VALUE.THROW) {
+                if (astNode.handler) {
+                    catchHandler()
+                    finalizerHandler()
+                    addExecutedStep({ astNode, scopeIndex: lastScopeIndex })
+                } else {
+                    if (astNode.finalizer) {
+                        finalizerHandler()
+                    }
+                    addErrorThrownStep({ astNode, scopeIndex: lastScopeIndex })
+                    throw tryBubbleUp
+                }
             }
 
-            if (!finalizerStep?.evaluatedValue && !astNode.handler && tryLastStep?.errorThrown) {
-                return tryLastStep
+            if (tryBubbleUp === BUBBLE_UP_VALUE.RETURN) {
+                if (astNode.finalizer) {
+                    const tryValue = popMemval()
+                    finalizerHandler()
+                    pushMemval(tryValue)
+                }
+                addExecutedStep({ astNode, scopeIndex: lastScopeIndex })
+                throw tryBubbleUp
             }
-            evaluatedValue = finalizerStep?.evaluatedValue || tryLastStep?.evaluatedValue
         }
-
-        return addExecutedStep(astNode, scopeIndex, evaluatedValue)
     }
 
-    nodeHandlers["AssignmentExpression"] = (astNode: ESNode, scopeIndex: number): ExecStep | undefined => {
-        addEvaluatingStep(astNode, scopeIndex)
+    nodeHandlers["AssignmentExpression"] = (astNode, options) => {
+        addEvaluatingStep({ astNode, scopeIndex: lastScopeIndex })
 
-        let objectStep
-        let propertyStep
-        let property
+        if (astNode.operator === "=") {
+            // Assignment
+            if (astNode.left.type === "MemberExpression") {
+                const memberExpression = astNode.left
+                traverseAST(memberExpression.object, options)
 
-        if (astNode.left.type === "MemberExpression") {
-            objectStep = executionPhase(astNode.left.object, scopeIndex)
-            if (objectStep && objectStep.errorThrown) {
-                return objectStep
-            }
-
-            if (astNode.left.computed) {
-                propertyStep = executionPhase(astNode.left.property, scopeIndex)
-                if (propertyStep && propertyStep.errorThrown) {
-                    return propertyStep
+                if (memberExpression.computed) {
+                    traverseAST(memberExpression.property, options)
+                } else {
+                    const propertyNode = memberExpression.property
+                    if (propertyNode.type === 'Identifier' || propertyNode.type === 'PrivateIdentifier') {
+                        pushMemval({ type: "primitive", value: propertyNode.name })
+                    }
                 }
-                property = propertyStep.evaluatedValue
+
+                if (readMemval(1) === UNDEFINED) {
+                    const evaluatedProperty = popMemval()
+                    popMemval()
+                    createErrorObject('TypeError', `Cannot set properties of undefined (setting '${evaluatedProperty.value}')`)
+                    addErrorThrownStep({ astNode, scopeIndex: lastScopeIndex })
+                    throw BUBBLE_UP_VALUE.THROW
+                }
+
+                traverseAST(astNode.right, options)
+                const evaluatedValue = popMemval()
+                const evaluatedProperty = popMemval()
+                const evaluatedObject = popMemval()
+
+                if (evaluatedObject.type === "reference" && evaluatedProperty.type === "primitive") {
+                    const stringProperty = String(evaluatedProperty.value)
+                    writeProperty(evaluatedObject.ref, stringProperty, evaluatedValue)
+
+                    pushMemval(evaluatedValue)
+
+                    const memoryChange: MemoryChange = {
+                        type: "write_property",
+                        ref: evaluatedObject.ref,
+                        property: stringProperty,
+                        value: evaluatedValue,
+                    }
+                    addEvaluatedStep({ astNode, scopeIndex: lastScopeIndex, memoryChange })
+                } else {
+                    pushMemval(evaluatedValue)
+                    addEvaluatedStep({ astNode, scopeIndex: lastScopeIndex })
+                }
             } else {
-                property = { type: "primitive", value: astNode.left.property.name }
-                objectStep?.memorySnapshot.memVal.push(property)
-                addMemVal(property)
-            }
-        }
+                const identifier = getIdentifierFromPattern(astNode.left)
+                if (identifier) {
+                    const lookupResult = lookupVariable(identifier.name, lastScopeIndex)
 
-        const rightStep = executionPhase(astNode.right, scopeIndex)
-        if (rightStep?.errorThrown) return rightStep
+                    traverseAST(astNode.right, options)
+                    const evaluatedValue = popMemval()
 
-        let evaluatedValue = rightStep?.evaluatedValue
-        if (evaluatedValue) {
-            if (astNode.operator !== "=") {
-                const leftRaw = JSON.stringify(leftStep.evaluatedValue.value)
-                const rightRaw = JSON.stringify(rightStep.evaluatedValue.value)
-                const value = eval(`${leftRaw}${astNode.operator.replace("=", "")}${rightRaw}`)
-                evaluatedValue = { type: "primitive", value } as const
-            }
+                    if (lookupResult === -1 && options.strict) {
+                        createErrorObject('ReferenceError', `${identifier.name} is not defined`)
+                        addErrorThrownStep({ astNode, scopeIndex: lastScopeIndex })
+                        throw BUBBLE_UP_VALUE.THROW
+                    }
 
-            if (astNode.left.type === "Identifier") {
-                const targetScopeIndex = writeVariable(astNode.left.name, evaluatedValue, scopeIndex)
-                removeMemVal(rightStep.evaluatedValue)
-                addMemVal(evaluatedValue)
-                return addStep({
-                    node: astNode,
-                    phase: "execution",
-                    scopeIndex,
-                    memoryChange: {
+                    const targetScopeIndex = writeVariable(identifier.name, evaluatedValue, lastScopeIndex)
+                    pushMemval(evaluatedValue)
+
+                    const memoryChange: MemoryChange = {
                         type: "write_variable",
                         scopeIndex: targetScopeIndex,
-                        variableName: astNode.left.name,
+                        variableName: identifier.name,
                         value: evaluatedValue,
-                    },
-                    executing: false,
-                    executed: false,
-                    evaluating: false,
-                    evaluated: true,
-                    evaluatedValue,
-                })
-            } else {
-                const ref = leftObjectStep?.evaluatedValue?.ref
-                const propertyRef = writeProperty(ref, property.value, evaluatedValue)
+                    }
+                    addEvaluatedStep({ astNode, scopeIndex: lastScopeIndex, memoryChange })
+                }
+            }
+        } else {
+            // Update && Assignment
+            if (astNode.left.type === "MemberExpression") {
+                const memberExpression = astNode.left
+                traverseAST(memberExpression.object, options)
 
-                removeMemVal(leftObjectStep?.evaluatedValue)
-                removeMemVal(property)
-                removeMemVal(rightStep.evaluatedValue)
-
-                if (propertyRef === -1) {
-                    const error = createErrorObject('TypeError', `Cannot set properties of undefined (setting '${property}')`)
-                    return addErrorThrownStep(astNode, scopeIndex, error)
+                if (memberExpression.computed) {
+                    traverseAST(memberExpression.property, options)
+                } else {
+                    const propertyNode = memberExpression.property
+                    if (propertyNode.type === 'Identifier' || propertyNode.type === 'PrivateIdentifier') {
+                        pushMemval({ type: "primitive", value: propertyNode.name })
+                    }
                 }
 
-                addMemVal(evaluatedValue)
-                return addStep({
-                    node: astNode,
-                    phase: "execution",
-                    scopeIndex,
-                    memoryChange: {
+                if (readMemval(1) === UNDEFINED) {
+                    const evaluatedProperty = popMemval()
+                    popMemval()
+                    createErrorObject('TypeError', `Cannot read properties of undefined (reading '${evaluatedProperty.value}')`)
+                    addErrorThrownStep({ astNode, scopeIndex: lastScopeIndex })
+                    throw BUBBLE_UP_VALUE.THROW
+                }
+
+                traverseAST(astNode.right, options)
+
+                const evaluatedRight = popMemval()
+                const evaluatedProperty = popMemval()
+                const evaluatedObject = popMemval()
+
+                let evaluatedLeft: JSValue = UNDEFINED
+                if (evaluatedObject.type === "reference" && evaluatedProperty.type === "primitive") {
+                    evaluatedLeft = readProperty(evaluatedObject.ref, String(evaluatedProperty.value))
+                }
+
+                // TODO: reference have problem.
+                const leftRaw = JSON.stringify(evaluatedLeft.value)
+                const rightRaw = JSON.stringify(evaluatedRight.value)
+                const value = eval(`${leftRaw}${astNode.operator.replace("=", "")}${rightRaw}`)
+                const evaluatedValue = { type: "primitive", value } as const
+
+                if (evaluatedObject.type === "reference" && evaluatedProperty.type === "primitive") {
+                    const stringProperty = String(evaluatedProperty.value)
+                    writeProperty(evaluatedObject.ref, stringProperty, evaluatedValue)
+
+                    pushMemval(evaluatedValue)
+
+                    const memoryChange: MemoryChange = {
                         type: "write_property",
-                        ref,
-                        property,
+                        ref: evaluatedObject.ref,
+                        property: stringProperty,
                         value: evaluatedValue,
-                    },
-                    executing: false,
-                    executed: false,
-                    evaluating: false,
-                    evaluated: true,
-                    evaluatedValue,
-                })
-            }
-        }
-    }
-
-    nodeHandlers["ConditionalExpression"] = (astNode: ESNode, scopeIndex: number): ExecStep | undefined => {
-        addEvaluatingStep(astNode, scopeIndex)
-        let evalValue: JSValue | undefined
-
-        const testStep = executionPhase(astNode.test, scopeIndex)
-        if (testStep?.errorThrown) {
-            return testStep
-        }
-
-        const testEvalValue = testStep?.evaluatedValue
-        const isTestTruthy = testEvalValue?.value === true
-        if (testEvalValue) {
-            removeMemVal(testEvalValue)
-            if (isTestTruthy) {
-                const consequentStep = executionPhase(astNode.consequent, scopeIndex)
-                if (consequentStep?.errorThrown) return consequentStep
-
-                if (consequentStep?.evaluatedValue) {
-                    evalValue = consequentStep.evaluatedValue
+                    }
+                    addEvaluatedStep({ astNode, scopeIndex: lastScopeIndex, memoryChange })
+                } else {
+                    pushMemval(evaluatedValue)
+                    addEvaluatedStep({ astNode, scopeIndex: lastScopeIndex })
                 }
             } else {
-                const alternateStep = executionPhase(astNode.alternate, scopeIndex)
-                if (alternateStep?.errorThrown) return alternateStep
+                const identifier = getIdentifierFromPattern(astNode.left)
+                if (identifier) {
+                    const lookupResult = lookupVariable(identifier.name, lastScopeIndex)
+                    if (lookupResult === -1) {
+                        createErrorObject('ReferenceError', `${identifier.name} is not defined`)
+                        addErrorThrownStep({ astNode, scopeIndex: lastScopeIndex })
+                        throw BUBBLE_UP_VALUE.THROW
+                    }
 
-                if (alternateStep?.evaluatedValue) {
-                    evalValue = alternateStep.evaluatedValue
+                    traverseAST(astNode.right, options)
+
+                    const evaluatedRight = popMemval()
+                    const evaluatedLeft = lookupResult.value
+                    // TODO: reference have problem.
+                    const leftRaw = JSON.stringify(evaluatedLeft.value)
+                    const rightRaw = JSON.stringify(evaluatedRight.value)
+                    const value = eval(`${leftRaw}${astNode.operator.replace("=", "")}${rightRaw}`)
+                    const evaluatedValue = { type: "primitive", value } as const
+
+                    const targetScopeIndex = writeVariable(identifier.name, evaluatedValue, lastScopeIndex)
+                    pushMemval(evaluatedValue)
+
+                    const memoryChange: MemoryChange = {
+                        type: "write_variable",
+                        scopeIndex: targetScopeIndex,
+                        variableName: identifier.name,
+                        value: evaluatedValue,
+                    }
+                    addEvaluatedStep({ astNode, scopeIndex: lastScopeIndex, memoryChange })
                 }
             }
         }
-
-        return addEvaluatedStep(astNode, scopeIndex, evalValue)
     }
 
-    nodeHandlers["ArrayExpression"] = (astNode: ESNode, scopeIndex: number): ExecStep | undefined => {
-        addEvaluatingStep(astNode, scopeIndex)
+    nodeHandlers["ConditionalExpression"] = (astNode, options) => {
+        addEvaluatingStep({ astNode, scopeIndex: lastScopeIndex })
 
-        const elements: JSValue[] = []
+        traverseAST(astNode.test, options)
+
+        const evaluatedTest = popMemval()
+        if (evaluatedTest.value) {
+            traverseAST(astNode.consequent, options)
+        } else {
+            traverseAST(astNode.alternate, options)
+        }
+
+        popMemval()
+        addEvaluatedStep({ astNode, scopeIndex: lastScopeIndex })
+    }
+
+    nodeHandlers["ArrayExpression"] = (astNode, options) => {
+        addEvaluatingStep({ astNode, scopeIndex: lastScopeIndex })
+
         for (const element of astNode.elements) {
             if (element) {
-                const elementStep = executionPhase(element, scopeIndex)
-                if (elementStep?.errorThrown) return elementStep
-                if (elementStep?.evaluatedValue) elements.push(elementStep.evaluatedValue)
+                traverseAST(element, options)
             } else {
-                elements.push({ type: "primitive", value: undefined })
+                pushMemval(UNDEFINED)
             }
         }
 
-        for (const element of elements) {
-            removeMemVal(element)
-        }
+        const elements: JSValue[] = []
+        forEach(astNode.elements, () => {
+            elements.unshift(popMemval())
+        })
 
-        const arrayObject: HeapObject = { type: "array", elements }
-        const ref = allocateHeapObject(arrayObject)
-        addMemVal({ type: "reference", ref })
-        return addEvaluatedStep(astNode, scopeIndex, { type: "reference", ref })
+        const object = createHeapObject({
+            elements
+        })
+        pushMemval({ type: "reference", ref: lastRef })
+
+        const memoryChange: MemoryChange = {
+            type: "create_heap_object",
+            ref: lastRef,
+            value: object,
+        }
+        return addEvaluatedStep({ astNode, scopeIndex: lastScopeIndex, memoryChange })
     }
 
-    nodeHandlers["ObjectExpression"] = (astNode: ESNode, scopeIndex: number): ExecStep | undefined => {
-        addEvaluatingStep(astNode, scopeIndex)
+    nodeHandlers["ObjectExpression"] = (astNode, options) => {
+        addEvaluatingStep({ astNode, scopeIndex: lastScopeIndex })
 
         const properties: Record<string, JSValue> = {}
         for (const property of astNode.properties) {
-            const propertyStep = executionPhase(property.value, scopeIndex)
-            if (propertyStep?.errorThrown) return propertyStep
-
-            if (propertyStep?.evaluatedValue === TDZ) {
-                const error = createErrorObject('ReferenceError', `${property.key.name || property.key.value} is not defined`, astNode)
-                return addErrorThrownStep(astNode, scopeIndex, error)
-            }
-
-            if (propertyStep?.evaluatedValue) properties[property.key.name || property.key.value] = propertyStep.evaluatedValue
+            traverseAST(property.value, options)
         }
 
-        for (const property of Object.values(properties)) {
-            removeMemVal(property)
+        for (let i = astNode.properties.length - 1; i >= 0; i--) {
+            const property = astNode.properties[i]
+            const keyNode = property.key
+            const key = keyNode.name || keyNode.value
+            properties[key] = popMemval()
         }
 
-        const objectObject: HeapObject = { type: "object", properties }
-        const ref = allocateHeapObject(objectObject)
-        addMemVal({ type: "reference", ref })
-        return addEvaluatedStep(astNode, scopeIndex, { type: "reference", ref })
+        const object = createHeapObject({ properties })
+        pushMemval({ type: "reference", ref: lastRef })
+
+        const memoryChange: MemoryChange = {
+            type: "create_heap_object",
+            ref: lastRef,
+            value: object,
+        }
+        return addEvaluatedStep({ astNode, scopeIndex: lastScopeIndex, memoryChange })
     }
 
-    nodeHandlers["MemberExpression"] = (astNode: ESNode, scopeIndex: number): ExecStep | undefined => {
-        addEvaluatingStep(astNode, scopeIndex)
+    nodeHandlers["MemberExpression"] = (astNode, options) => {
+        addEvaluatingStep({ astNode, scopeIndex: lastScopeIndex })
 
-        const objectStep = executionPhase(astNode.object, scopeIndex)
-        if (objectStep?.errorThrown) return objectStep
+        traverseAST(astNode.object, options)
 
-        let evaluatedValue: JSValue | undefined
-        if (objectStep?.evaluatedValue?.type === "reference") {
-            const object = heap[objectStep?.evaluatedValue?.ref]
-            if (!object) {
-                const error = createErrorObject('TypeError', `Cannot read properties of undefined (reading ${objectStep?.evaluatedValue?.value})`, astNode)
-                return addErrorThrownStep(astNode, scopeIndex, error)
-            }
+        let evaluatedValue: JSValue = UNDEFINED
 
+        const evaluatedObject = readMemval()
+        if (evaluatedObject.type === "reference") {
             if (astNode.computed) {
-                const propertyStep = executionPhase(astNode.property, scopeIndex)
-                if (propertyStep?.errorThrown) return propertyStep
-                removeMemVal(propertyStep?.evaluatedValue)
+                traverseAST(astNode.property, options)
+                const evaluatedProperty = popMemval()
+                evaluatedValue = readProperty(evaluatedObject.ref, evaluatedProperty.value)
+            } else {
+                evaluatedValue = readProperty(evaluatedObject.ref, astNode.property.name)
+            }
+        }
 
-                if (object.type === "object") {
-                    evaluatedValue = object.properties[propertyStep.evaluatedValue?.value]
-                } else if (object.type === "array") {
-                    evaluatedValue = object.elements[propertyStep.evaluatedValue?.value]
-                } else {
-                    const error = createErrorObject('ReferenceError', `${objectStep?.node.name} is not an object or array`, astNode)
-                    return addErrorThrownStep(astNode, scopeIndex, error)
+        if (evaluatedObject.type === "primitive") {
+            if (astNode.computed) {
+                traverseAST(astNode.property, options)
+                const evaluatedProperty = popMemval()
+
+                if (evaluatedObject === UNDEFINED) {
+                    popMemval()
+                    createErrorObject('TypeError', `Cannot read properties of undefined (reading ${evaluatedProperty.value})`)
+                    addErrorThrownStep({ astNode, scopeIndex: lastScopeIndex })
+                    throw BUBBLE_UP_VALUE.THROW
                 }
             } else {
-                if (object.type === "object") {
-                    evaluatedValue = object.properties[astNode.property.name]
-                } else if (object.type === "array") {
-                    evaluatedValue = object.elements[astNode.property.name]
-                } else {
-                    evaluatedValue = { type: "primitive", value: undefined }
+                if (evaluatedObject === UNDEFINED) {
+                    popMemval()
+                    createErrorObject('TypeError', `Cannot read properties of undefined (reading ${astNode.property.name})`)
+                    addErrorThrownStep({ astNode, scopeIndex: lastScopeIndex })
+                    throw BUBBLE_UP_VALUE.THROW
                 }
             }
-        } else if (objectStep?.evaluatedValue.type === "primitive") {
-            if (astNode.computed) {
-                const propertyStep = executionPhase(astNode.property, scopeIndex)
-                if (propertyStep?.errorThrown) return propertyStep
-
-                removeMemVal(propertyStep?.evaluatedValue)
-
-                if (objectStep.evaluatedValue.value === undefined) {
-                    const error = createErrorObject('TypeError', `Cannot read properties of undefined (reading ${propertyStep?.evaluatedValue?.value})`)
-                    return addErrorThrownStep(astNode, scopeIndex, error)
-                } else {
-                    evaluatedValue = { type: 'primitive', value: objectStep?.evaluatedValue.value[propertyStep?.evaluatedValue?.value] }
-                }
-            } else if (objectStep.evaluatedValue.value === undefined) {
-                const error = createErrorObject('TypeError', `Cannot read properties of undefined (reading ${astNode?.property?.name})`)
-                return addErrorThrownStep(astNode, scopeIndex, error)
-            }
-        }
-        removeMemVal(objectStep?.evaluatedValue)
-
-        if (evaluatedValue === undefined) {
-            evaluatedValue = { type: "primitive", value: undefined }
         }
 
-        addMemVal(evaluatedValue)
-        return addEvaluatedStep(astNode, scopeIndex, evaluatedValue)
+        popMemval()
+        pushMemval(evaluatedValue)
+        return addEvaluatedStep({ astNode, scopeIndex: lastScopeIndex })
     }
 
-    nodeHandlers["ArrowFunctionExpression"] = (astNode: ESNode, scopeIndex: number): ExecStep | undefined => {
-        addEvaluatingStep(astNode, scopeIndex)
+    nodeHandlers["ArrowFunctionExpression"] = (astNode) => {
+        addEvaluatingStep({ astNode, scopeIndex: lastScopeIndex })
 
-        const functionObject: HeapObject = {
-            type: "function",
-            node: astNode,
+        const object = createHeapObject({ node: astNode })
+        pushMemval({ type: "reference", ref: lastRef })
+
+        const memoryChange: MemoryChange = {
+            type: "create_heap_object",
+            ref: lastRef,
+            value: object,
         }
-
-        const ref = allocateHeapObject(functionObject)
-        addMemVal({ type: "reference", ref })
-        return addEvaluatedStep(astNode, scopeIndex, { type: "reference", ref })
+        addEvaluatedStep({ astNode, scopeIndex: lastScopeIndex, memoryChange })
     }
 
-    nodeHandlers["IfStatement"] = (astNode: ESNode, scopeIndex: number): ExecStep | undefined => {
-        addExecutingStep(astNode, scopeIndex)
-        let lastStep: ExecStep | undefined
+    nodeHandlers["IfStatement"] = (astNode, options) => {
+        addExecutingStep({ astNode, scopeIndex: lastScopeIndex })
 
-        const testStep = executionPhase(astNode.test, scopeIndex)
-        if (testStep?.errorThrown) return testStep
-        removeMemVal(testStep?.evaluatedValue)
+        traverseAST(astNode.test, options)
 
-        if (Boolean(testStep?.evaluatedValue?.value)) {
-            if (isBlock(astNode.consequent)) {
-                lastStep = traverseAST(astNode.consequent, scopeIndex, false)
-            } else {
-                lastStep = executionPhase(astNode.consequent, scopeIndex)
+        const evaluatedTest = popMemval()
 
-            }
-        } else {
-            if (astNode.alternate) {
-                lastStep = traverseAST(astNode.alternate, scopeIndex, false)
-            }
+        if (evaluatedTest.value) {
+            traverseAST(astNode.consequent, options)
+        } if (astNode.alternate) {
+            traverseAST(astNode.alternate, options)
         }
-        if (lastStep?.errorThrown) {
-            return lastStep
-        }
-        return addExecutedStep(astNode, scopeIndex, lastStep?.evaluatedValue)
+
+        return addExecutedStep({ astNode, scopeIndex: lastScopeIndex })
     }
 
     nodeHandlers["ForStatement"] = (astNode: ESNode, scopeIndex: number): ExecStep | undefined => {
@@ -1132,6 +1104,11 @@ export const simulateExecution = (astNode: ESNode | null): ExecStep[] => {
                 destructionPhase(astNode, scopeIndex, lastStep)
             }
         } while (testStep?.evaluatedValue?.value)
+    }
+
+    nodeHandlers["ContinueStatement"] = (astNode) => {
+        addExecutingStep({ astNode, scopeIndex: lastScopeIndex })
+        return addExecutedStep({ astNode, scopeIndex: lastScopeIndex })
     }
 
     nodeHandlers["UpdateExpression"] = (astNode: ESNode, scopeIndex: number): ExecStep | undefined => {
@@ -1252,79 +1229,140 @@ export const simulateExecution = (astNode: ESNode | null): ExecStep[] => {
         return addStep(evaluatedStep)
     }
 
-    nodeHandlers["EmptyStatement"] = (astNode: ESNode, scopeIndex: number): ExecStep | undefined => {
-        addExecutingStep(astNode, scopeIndex)
-        return addExecutedStep(astNode, scopeIndex)
+    nodeHandlers["EmptyStatement"] = (astNode) => {
+        addExecutingStep({ astNode, scopeIndex: lastScopeIndex })
+        addExecutedStep({ astNode, scopeIndex: lastScopeIndex })
     }
 
+    const isBlock = (node: ESTree.BaseNode): boolean => {
+        return node.type === "BlockStatement" || node.type === "Program"
+    }
 
-    const executionPhase = (node: ESNode | null, currentScopeIndex: number): ExecStep | undefined => {
-        if (!node) return
-        console.log("Executing node:", node.type, "in scope:", currentScopeIndex, "withinTry:")
-
-        const handler = nodeHandlers[node.type as keyof typeof nodeHandlers]
-        if (handler) {
-            return handler(node, currentScopeIndex)
-        } else {
-            console.warn(`Execution Pass: Unhandled node type - ${node.type}`)
-            return undefined
+    const isStrict = (astNode: ESTree.BaseNode, options: TraverseASTOptions): boolean => {
+        if (options.strict) return true
+        if (astNode.type === "Program" || options.callee) {
+            const firstStatement = (astNode as ESTree.BlockStatement).body[0]
+            if (firstStatement && firstStatement.type === "ExpressionStatement") {
+                const expr = firstStatement.expression
+                return expr.type === "Literal" && (expr as ESTree.Literal).value === "use strict"
+            }
         }
-    }
-
-    const destructionPhase = (astNode: ESNode, scopeIndex: number, lastStep: ExecStep | undefined) => {
-        if (lastStep?.errorThrown) printError(lastStep.errorThrown)
-        addPopScopeStep(astNode, scopeIndex, lastStep?.evaluatedValue, lastStep?.errorThrown)
-        console.log("Destruction Phase:", scopeIndex)
-    }
-
-    const isBlock = (node: ESNode): boolean => {
-        return (
-            node.type === "Program" ||
-            node?.type === "FunctionDeclaration" ||
-            node?.type === "TryStatement" ||
-            node?.type === "CatchClause" ||
-            node?.type === "ArrowFunctionExpression" ||
-            node?.type === "BlockStatement"
-        )
-    }
-
-    const isStrict = (node: ESNode): boolean => {
-        return node?.body[0]?.expression?.type === "Literal" && node?.body[0]?.expression?.value === "use strict"
+        return false
     }
 
     // --- Simulation Execution --- 
-    function traverseAST(astNode: ESNode, scopeIndex: number, strict: boolean): ExecStep | undefined {
-        // Check for non-block nodes early to avoid unnecessary scope creation
-        if (!isBlock(astNode)) {
-            return executionPhase(astNode, scopeIndex)
+    function traverseAST(
+        astNode: ESTree.BaseNode,
+        options: TraverseASTOptions
+    ) {
+        if (isBlock(astNode)) {
+            try {
+                options.strict = isStrict(astNode, options)
+
+                lastScopeIndex++
+                if (options.callee) {
+                    options.parentScopeIndex = lastScopeIndex
+                }
+
+                const blockNode = astNode as ESTree.BlockStatement
+
+                // Phase 1: Creation - hoisting and declarations
+                addPushScopeStep(blockNode)
+                const declarations: Declaration[] = []
+
+                if (options.callee || options.catch) {
+                    const params = options.callee ? options.callee.params : options.catch ? [options.catch.param as ESTree.Pattern] : []
+                    const args = []
+
+                    if (options.callee) {
+                        const argsCount = popMemval()
+                        for (let i = 0; i < argsCount.value; i++) {
+                            const arg = popMemval()
+                            args.push(arg)
+                        }
+                        delete options.callee
+                    } else if (options.catch) {
+                        args.push(popMemval())
+                        delete options.catch
+                    }
+
+                    for (const param of params) {
+                        let paramValue = args.pop() || UNDEFINED
+                        if (param.type === "AssignmentPattern" && paramValue === UNDEFINED) {
+                            traverseAST(param.right, options)
+                            paramValue = popMemval()
+                        }
+                        const identifier = getIdentifierFromPattern(param)
+                        if (!identifier) continue
+
+                        const declaration = newDeclaration(identifier.name, "param", lastScopeIndex, paramValue)
+                        declarations.push(declaration)
+                    }
+                }
+
+                for (const node of blockNode.body) {
+                    if (node.type === "FunctionDeclaration") {
+                        createHeapObject({ node })
+                        const declaration = newDeclaration(
+                            node.id.name,
+                            "function",
+                            options.parentScopeIndex,
+                            { type: "reference", ref: lastRef }
+                        )
+                        declarations.push(declaration)
+                    }
+
+                    if (node.type === "VariableDeclaration") {
+                        for (const declarator of node.declarations) {
+                            const identifier = getIdentifierFromPattern(declarator.id)
+                            if (!identifier) continue
+
+                            const initialValue = node.kind === "var" ? UNDEFINED : TDZ
+                            const scopeIndex = node.kind === "var" ? options.parentScopeIndex : lastScopeIndex
+                            const declaration = newDeclaration(
+                                identifier.name,
+                                node.kind,
+                                scopeIndex,
+                                initialValue
+                            )
+                            declarations.push(declaration)
+                        }
+                    }
+                }
+
+                addHoistingStep(blockNode, lastScopeIndex, declarations)
+
+                // Phase 2: Execution  
+                const handler = nodeHandlers[astNode.type as keyof typeof nodeHandlers] as NodeHandler<typeof astNode>
+                if (handler) {
+                    handler(astNode, options)
+                } else {
+                    console.warn(`Execution Pass: Unhandled node type - ${astNode.type}`)
+                }
+
+                // Phase 3: Destruction - except for global scope
+                if (lastScopeIndex !== 0) {
+                    addPopScopeStep({ astNode, scopeIndex: lastScopeIndex })
+                    lastScopeIndex--
+                }
+            } catch (bubbleUp) {
+                if (lastScopeIndex !== 0) {
+                    addPopScopeStep({ astNode, scopeIndex: lastScopeIndex, bubbleUp: bubbleUp as BubbleUp })
+                    lastScopeIndex--
+                    throw bubbleUp
+                }
+            }
+        } else {
+            const handler = nodeHandlers[astNode.type as keyof typeof nodeHandlers] as NodeHandler<typeof astNode>
+            if (handler) {
+                handler(astNode, options)
+            } else {
+                console.warn(`Execution Pass: Unhandled node type - ${astNode.type}`)
+            }
         }
-
-        // For block nodes, handle scope creation and execution
-        lastScopeIndex++
-        scopeIndex = lastScopeIndex
-
-        // Phase 1: Creation - hoisting and declarations
-        creationPhase(astNode)
-
-        // Phase 2: Execution
-        // Get the actual block to execute
-        const block = getBlock(astNode)
-        const lastStep = executionPhase(block, scopeIndex)
-
-        // Phase 3: Destruction - except for global scope
-        if (scopeIndex !== 0) {
-            destructionPhase(astNode, scopeIndex, lastStep)
-            lastScopeIndex--
-        }
-
-        return steps[steps.length - 1]
     }
 
-    try {
-        traverseAST(astNode, 0, false, false)
-    } catch (e) {
-        console.log(e)
-    }
+    traverseAST(astNode, { parentScopeIndex: 0 })
 
     console.log("Simulation finished. Steps:", steps.length)
     return steps
