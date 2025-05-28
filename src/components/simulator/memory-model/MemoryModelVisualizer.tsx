@@ -2,8 +2,7 @@ import { useEffect, useRef } from "react"
 import * as d3 from "d3"
 import ELK from "elkjs/lib/elk.bundled.js"
 import type { ElkNode as ElkLayoutNode, ElkEdge as ElkLayoutEdge } from "elkjs/lib/elk-api"
-import { Scope, Heap, JSValue } from "@/types/simulation"
-import { ZoomInIcon, ZoomOutIcon, HomeIcon } from "lucide-react"
+import { JSValue, HEAP_OBJECT_TYPE } from "@/types/simulation"
 import { useSimulatorStore } from "@/hooks/useSimulatorStore"
 
 type HeapObjectData = {
@@ -133,11 +132,11 @@ const MemoryModelVisualizer = () => {
             let objColor = "#fefcbf"
             let objBorderColor = "#ecc94b"
 
-            if (obj.type === "array") {
+            if (obj.type === HEAP_OBJECT_TYPE.ARRAY) {
                 objType = "ARRAY"
                 objColor = "#c6f6d5"
                 objBorderColor = "#68d391"
-            } else if (obj.type === "function") {
+            } else if (obj.type === HEAP_OBJECT_TYPE.FUNCTION) {
                 objType = "FUNCTION"
                 objColor = "#bee3f8"
                 objBorderColor = "#63b3ed"
@@ -145,13 +144,13 @@ const MemoryModelVisualizer = () => {
 
             const properties: { name: string; value: string; target?: string }[] = []
 
-            if (obj.type === "object") {
+            if (obj.type === HEAP_OBJECT_TYPE.OBJECT) {
                 // Process object properties
                 Object.entries(obj.properties).forEach(([propName, propValue]) => {
                     const property = formatPropertyValue(propName, propValue)
                     properties.push(property)
                 })
-            } else if (obj.type === "array") {
+            } else if (obj.type === HEAP_OBJECT_TYPE.ARRAY) {
                 // Process array elements
                 obj.elements.forEach((element, index) => {
                     if (element !== undefined) {
@@ -164,7 +163,7 @@ const MemoryModelVisualizer = () => {
                     name: "length",
                     value: String(obj.elements.length)
                 })
-            } else if (obj.type === "function") {
+            } else if (obj.type === HEAP_OBJECT_TYPE.FUNCTION) {
                 // Display function node information
                 properties.push({
                     name: "type",
