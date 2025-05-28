@@ -1,16 +1,8 @@
 import * as ESTree from 'estree'
-import { ExecStep, JSValue, Heap, MemoryChange, HeapObject, HeapRef, Declaration, TDZ, ScopeType, PUSH_SCOPE_KIND, MemvalNew, MemvalChange, BubbleUp, UNDEFINED, BUBBLE_UP_VALUE, Scope, NodeHandler, TraverseASTOptions } from "../types/simulation"
+import { ExecStep, JSValue, Heap, MemoryChange, HeapObject, HeapRef, Declaration, TDZ, ScopeType, PUSH_SCOPE_KIND, MemVal, MemvalChange, BubbleUp, UNDEFINED, BUBBLE_UP_TYPE, Scope, NodeHandler, TraverseASTOptions, HEAP_OBJECT_TYPE } from "../types/simulation"
 import { cloneDeep, forEach } from "lodash" // Import cloneDeep from lodash
 
-/**
- * Simulates the execution of JavaScript code represented by an AST.
- * Performs a two-pass process: hoisting followed by execution.
- *
- * @param programNode The root Program node of the AST.
- * @returns An array of execution steps representing the simulation.
- */
 export const simulateExecution = (astNode: ESTree.BaseNode | null): ExecStep[] => {
-    // Ensure we have a valid Program node
     if (!astNode) {
         console.error("Invalid AST provided to simulateExecution.")
         return []
@@ -29,7 +21,7 @@ export const simulateExecution = (astNode: ESTree.BaseNode | null): ExecStep[] =
     ]
     const scopes: Scope[] = []
     const heap: Heap = {}
-    const memval: MemvalNew[] = []
+    const memval: MemVal[] = []
 
     let lastScopeIndex = -1
     let lastRef: HeapRef = -1
@@ -129,9 +121,9 @@ export const simulateExecution = (astNode: ESTree.BaseNode | null): ExecStep[] =
         addStep({
             node: astNode,
             type: 'EXECUTED',
-            bubbleUp: BUBBLE_UP_VALUE.THROW
+            bubbleUp: BUBBLE_UP_TYPE.THROW
         })
-        throw BUBBLE_UP_VALUE.THROW
+        throw BUBBLE_UP_TYPE.THROW
     }
 
     const addPopScopeStep = (astNode: ESTree.BaseNode, bubbleUp?: BubbleUp) => {
@@ -164,20 +156,20 @@ export const simulateExecution = (astNode: ESTree.BaseNode | null): ExecStep[] =
 
         if (elements) {
             object = {
-                type: "array",
+                type: HEAP_OBJECT_TYPE.ARRAY,
                 properties: commonProperties,
                 elements: elements
             }
 
         } else if (node) {
             object = {
-                type: "function",
+                type: HEAP_OBJECT_TYPE.FUNCTION,
                 properties: commonProperties,
                 node: node
             }
         } else {
             object = {
-                type: "object",
+                type: HEAP_OBJECT_TYPE.OBJECT,
                 properties: commonProperties
             }
         }
@@ -226,7 +218,7 @@ export const simulateExecution = (astNode: ESTree.BaseNode | null): ExecStep[] =
     const writeProperty = (ref: number, property: string, value: JSValue) => {
         const heapObj = heap[ref]
 
-        if (heapObj.type === 'array') {
+        if (heapObj.type === HEAP_OBJECT_TYPE.ARRAY) {
             const isNumber = !isNaN(parseInt(property))
             if (isNumber) {
                 heapObj.elements[parseInt(property)] = value
@@ -247,7 +239,7 @@ export const simulateExecution = (astNode: ESTree.BaseNode | null): ExecStep[] =
 
     const readProperty = (ref: number, property: string): JSValue => {
         const heapObj = heap[ref]
-        if (heapObj.type === "array") {
+        if (heapObj.type === HEAP_OBJECT_TYPE.ARRAY) {
             const isNumber = !isNaN(parseInt(property))
             if (isNumber) {
                 return heapObj.elements[parseInt(property)]
@@ -260,20 +252,20 @@ export const simulateExecution = (astNode: ESTree.BaseNode | null): ExecStep[] =
     }
 
     // --- MemVal Helpers ---
-    const pushMemval = (value: MemvalNew) => {
+    const pushMemval = (value: MemVal) => {
         memval.push(value)
         stepMemvalChanges.push({ type: "push", value })
     }
 
-    const popMemval = (): MemvalNew => {
+    const popMemval = (): MemVal => {
         const value = memval.pop()
         if (value) {
             stepMemvalChanges.push({ type: "pop", value })
         }
-        return value as MemvalNew
+        return value as MemVal
     }
 
-    const readMemval = (shift?: number): MemvalNew => {
+    const readMemval = (shift?: number): MemVal => {
         return shift ? memval[memval.length - 1 - shift] : memval[memval.length - 1]
     }
 
@@ -406,7 +398,7 @@ export const simulateExecution = (astNode: ESTree.BaseNode | null): ExecStep[] =
         const fnRef = popMemval()
         if (fnRef.type === "reference") {
             const object = heap[fnRef.ref]
-            if (object.type === "function") {
+            if (object.type === HEAP_OBJECT_TYPE.FUNCTION) {
                 args.forEach(arg => pushMemval(arg))
                 pushMemval({ type: 'primitive', value: args.length })
                 pushMemval(fnRef)
@@ -420,9 +412,9 @@ export const simulateExecution = (astNode: ESTree.BaseNode | null): ExecStep[] =
                     pushMemval(UNDEFINED)
                     addEvaluatedStep(astNode)
                 } catch (bubbleUp) {
-                    if (bubbleUp === BUBBLE_UP_VALUE.RETURN) {
+                    if (bubbleUp === BUBBLE_UP_TYPE.RETURN) {
                         addEvaluatedStep(astNode, bubbleUp)
-                    } else if (bubbleUp === BUBBLE_UP_VALUE.THROW) {
+                    } else if (bubbleUp === BUBBLE_UP_TYPE.THROW) {
                         addThrownStep(astNode)
                     } else {
                         throw bubbleUp
@@ -431,7 +423,7 @@ export const simulateExecution = (astNode: ESTree.BaseNode | null): ExecStep[] =
             } else {
                 createErrorObject('TypeError', `${astNode.callee.name} is not a function`)
                 addThrownStep(astNode)
-                throw BUBBLE_UP_VALUE.THROW
+                throw BUBBLE_UP_TYPE.THROW
             }
         } else {
             createErrorObject('ReferenceError', `${astNode.callee.name} is not a function`)
@@ -553,8 +545,8 @@ export const simulateExecution = (astNode: ESTree.BaseNode | null): ExecStep[] =
         } else {
             pushMemval(UNDEFINED)
         }
-        addExecutedStep(astNode, BUBBLE_UP_VALUE.RETURN)
-        throw BUBBLE_UP_VALUE.RETURN
+        addExecutedStep(astNode, BUBBLE_UP_TYPE.RETURN)
+        throw BUBBLE_UP_TYPE.RETURN
     }
 
     nodeHandlers["ThrowStatement"] = (astNode, options) => {
@@ -571,7 +563,7 @@ export const simulateExecution = (astNode: ESTree.BaseNode | null): ExecStep[] =
                 try {
                     traverseAST(astNode.finalizer, options)
                 } catch (finalizerBubbleUp) {
-                    if (finalizerBubbleUp === BUBBLE_UP_VALUE.THROW) {
+                    if (finalizerBubbleUp === BUBBLE_UP_TYPE.THROW) {
                         addThrownStep(astNode)
                     }
                     addExecutedStep(astNode)
@@ -591,7 +583,7 @@ export const simulateExecution = (astNode: ESTree.BaseNode | null): ExecStep[] =
                         pushMemval(catchValue)
                     }
 
-                    if (catchBubbleUp === BUBBLE_UP_VALUE.THROW) {
+                    if (catchBubbleUp === BUBBLE_UP_TYPE.THROW) {
                         addThrownStep(astNode)
                     }
                     addExecutedStep(astNode)
@@ -605,7 +597,7 @@ export const simulateExecution = (astNode: ESTree.BaseNode | null): ExecStep[] =
             finalizerHandler()
             addExecutedStep(astNode)
         } catch (tryBubbleUp) {
-            if (tryBubbleUp === BUBBLE_UP_VALUE.THROW) {
+            if (tryBubbleUp === BUBBLE_UP_TYPE.THROW) {
                 if (astNode.handler) {
                     catchHandler()
                     finalizerHandler()
@@ -618,7 +610,7 @@ export const simulateExecution = (astNode: ESTree.BaseNode | null): ExecStep[] =
                 }
             }
 
-            if (tryBubbleUp === BUBBLE_UP_VALUE.RETURN) {
+            if (tryBubbleUp === BUBBLE_UP_TYPE.RETURN) {
                 if (astNode.finalizer) {
                     const tryValue = popMemval()
                     finalizerHandler()
