@@ -127,13 +127,8 @@ export type BubbleUp = 'RETURN' | 'THROW' | 'BREAK' | 'CONTINUE'
 export type ExecStep = {
     index: number // Sequential step index
     node: ESTree.BaseNode // The primary AST node associated with this step
-    phase: "initial" | "creation" | "execution" | "destruction" // Phase of execution
     scopeIndex: number // Index into memorySnapshot.scopes for the *active* scope
-    executing?: boolean // Whether the step is currently being executed
-    executed?: boolean // Whether the step has been executed
-    evaluating?: boolean // Whether the step is currently evaluating an expression
-    evaluated?: boolean // Whether the step has evaluated an expression
-    type: 'EXECUTING' | 'EXECUTED' | 'EVALUATING' | 'EVALUATED'
+    type: 'INITIAL' | 'EXECUTING' | 'EXECUTED' | 'EVALUATING' | 'EVALUATED'
     memoryChange: MemoryChange // Description of the memory effect of this step
     memvalChanges: MemvalChange[] // The memvals that were added or removed in this step
     memorySnapshot: { // Snapshot of the entire memory state *after* this step's change
