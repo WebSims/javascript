@@ -80,31 +80,31 @@ const MemoryModelVisualizer = () => {
             }
 
             // Process variables in scope
-            const variables = Object.entries(scope.variables).map(([name, value]) => {
+            const variables = Object.entries(scope.variables).map(([name, variable]) => {
                 const varId = `var-${scopeId}-${name}`
                 let varType = "primitive"
                 let target = undefined
 
                 // Check if it's a reference to a heap object
-                if (value.type === "reference") {
+                if (variable.value.type === "reference") {
                     varType = "reference"
-                    target = `obj-${value.ref}`
+                    target = `obj-${variable.value.ref}`
                 }
 
                 // Format the value for display
                 let displayValue: string
-                if (value.type === "primitive") {
-                    if (value.value === undefined) {
+                if (variable.value.type === "primitive") {
+                    if (variable.value.value === undefined) {
                         displayValue = "undefined"
-                    } else if (value.value === null) {
+                    } else if (variable.value.value === null) {
                         displayValue = "null"
-                    } else if (value.value === "not_initialized") {
+                    } else if (variable.value.value === "not_initialized") {
                         displayValue = "<TDZ>"
                     } else {
-                        displayValue = String(value.value)
+                        displayValue = String(variable.value.value)
                     }
                 } else {
-                    displayValue = `[Reference: ${value.ref}]`
+                    displayValue = `[Reference: ${variable.value.ref}]`
                 }
 
                 return {

@@ -47,10 +47,26 @@ export type Heap = Record<HeapRef, HeapObject>
 // ----- Scope -----
 export type ScopeType = "global" | "function" | "block"
 
+export const DECLARATION_TYPE = {
+    VAR: "var",
+    LET: "let",
+    CONST: "const",
+    FUNCTION: "function",
+    CLASS: "class",
+    PARAM: "param",
+    GLOBAL: "global",
+} as const
+export type DeclarationType = 'var' | 'let' | 'const' | 'function' | 'class' | 'param' | 'global'
+
 // Represents a single activation record (scope) on the call stack
+export type VariableValue = {
+    declarationType: DeclarationType,
+    value: JSValue,
+}
+
 export type Scope = {
     type: ScopeType
-    variables: Record<string, JSValue> // Maps variable names to their values (primitive or reference)
+    variables: Record<string, VariableValue> // Maps variable names to their values (primitive or reference)
     thisValue?: JSValue // The 'this' binding for this scope
     // Add other scope-specific info if needed (e.g., is it a block scope?)
 }
@@ -73,7 +89,7 @@ export const PUSH_SCOPE_KIND = {
 } as const satisfies Record<string, PushScopeKind>
 
 export type Declaration = {
-    kind: "var" | "let" | "const" | "function" | "param" | "class" | "global",
+    declarationType: DeclarationType,
     variableName: string,
     initialValue: JSValue,
     scopeIndex: number
@@ -146,7 +162,7 @@ export type ExecStep = {
     index: number // Sequential step index
     node: ESTree.BaseNode // The primary AST node associated with this step
     scopeIndex: number // Index into memorySnapshot.scopes for the *active* scope
-    type: 'INITIAL' | 'EXECUTING' | 'EXECUTED' | 'EVALUATING' | 'EVALUATED'
+    type: 'INITIAL' | 'PUSH_SCOPE' | 'POP_SCOPE' | 'HOISTING' | 'EXECUTING' | 'EXECUTED' | 'EVALUATING' | 'EVALUATED'
     memorySnapshot: { // Snapshot of the entire memory state *after* this step's change
         scopes: Scope[] // The call stack (array of Scope objects)
         heap: Heap // The heap storing shared objects/arrays/functions
@@ -166,9 +182,11 @@ export type TraverseASTOptions = {
     strict?: boolean,
     callee?: ESTree.Function
     catch?: ESTree.CatchClause
+    isRoot?: boolean
 }
 
-export type NodeHandler<T extends ESTree.BaseNode = ESTree.BaseNode> = (
-    astNode: T,
-    options: TraverseASTOptions
-) => void
+export type NodeHandler<T extends ESTree.Node> = (node: T, options: TraverseASTOptions) => void
+
+export type NodeHandlerMap = {
+    [K in ESTree.Node['type']]?: NodeHandler<Extract<ESTree.Node, { type: K }>>
+}

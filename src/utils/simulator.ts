@@ -1,8 +1,8 @@
 import * as ESTree from 'estree'
-import { ExecStep, JSValue, Heap, MemoryChange, HeapObject, HeapRef, Declaration, TDZ, ScopeType, PUSH_SCOPE_KIND, MemVal, MemvalChange, BubbleUp, UNDEFINED, BUBBLE_UP_TYPE, Scope, NodeHandler, TraverseASTOptions, HEAP_OBJECT_TYPE } from "../types/simulation"
+import { ExecStep, JSValue, Heap, MemoryChange, HeapObject, HeapRef, Declaration, TDZ, ScopeType, PUSH_SCOPE_KIND, MemVal, MemvalChange, BubbleUp, UNDEFINED, BUBBLE_UP_TYPE, Scope, TraverseASTOptions, HEAP_OBJECT_TYPE, NodeHandlerMap, NodeHandler, DeclarationType, DECLARATION_TYPE, VariableValue } from "../types/simulation"
 import { cloneDeep, forEach } from "lodash" // Import cloneDeep from lodash
 
-export const simulateExecution = (astNode: ESTree.BaseNode | null): ExecStep[] => {
+export const simulateExecution = (astNode: ESTree.Program | null): ExecStep[] => {
     if (!astNode) {
         console.error("Invalid AST provided to simulateExecution.")
         return []
@@ -28,6 +28,7 @@ export const simulateExecution = (astNode: ESTree.BaseNode | null): ExecStep[] =
     let stepCounter: number = 1
     let stepMemoryChange: MemoryChange = { type: "none" }
     let stepMemvalChanges: MemvalChange[] = []
+    let declarations: Declaration[] = []
 
     // --- Helper Functions ---
     const createMemorySnapshot = (): ExecStep["memorySnapshot"] => {
@@ -61,16 +62,17 @@ export const simulateExecution = (astNode: ESTree.BaseNode | null): ExecStep[] =
 
         addStep({
             node: astNode,
-            type: 'EXECUTING',
+            type: 'PUSH_SCOPE',
         })
     }
 
-    const addHoistingStep = (astNode: ESTree.BaseNode, declarations: Declaration[]) => {
+    const addHoistingStep = (astNode: ESTree.BaseNode) => {
         stepMemoryChange = { type: "declaration", declarations }
         addStep({
             node: astNode,
-            type: 'EXECUTING',
+            type: 'HOISTING',
         })
+        declarations = []
     }
 
     const addExecutingStep = (astNode: ESTree.BaseNode) => {
@@ -119,7 +121,7 @@ export const simulateExecution = (astNode: ESTree.BaseNode | null): ExecStep[] =
         scopes.splice(lastScopeIndex, 1)
         addStep({
             node: astNode,
-            type: 'EXECUTED',
+            type: 'POP_SCOPE',
             bubbleUp,
         })
     }
@@ -168,7 +170,7 @@ export const simulateExecution = (astNode: ESTree.BaseNode | null): ExecStep[] =
         return object
     }
 
-    const lookupVariable = (name: string): { variable: JSValue, scopeIndex: number } | undefined => {
+    const lookupVariable = (name: string): { variable: VariableValue, scopeIndex: number } | undefined => {
         for (let i = lastScopeIndex; i >= 0; i--) {
             if (Object.prototype.hasOwnProperty.call(scopes[i].variables, name)) {
                 return { variable: scopes[i].variables[name], scopeIndex: i }
@@ -176,32 +178,42 @@ export const simulateExecution = (astNode: ESTree.BaseNode | null): ExecStep[] =
         }
     }
 
-    const newDeclaration = (name: string, kind: Extract<MemoryChange, { type: 'declaration' }>['declarations'][number]['kind'], scopeIndex: number, initialValue: JSValue): Declaration => {
-        scopes[scopeIndex].variables[name] = initialValue
-        return {
-            kind,
+    const newDeclaration = (
+        name: string,
+        initialValue: JSValue,
+        declarationType: DeclarationType,
+        scopeIndex: number,
+    ) => {
+        scopes[scopeIndex].variables[name] = {
+            declarationType,
+            value: initialValue,
+        }
+        declarations.push({
+            declarationType,
             variableName: name,
             initialValue,
             scopeIndex
-        }
+        })
     }
 
-    const writeVariable = (name: string, value: JSValue) => {
+    const writeVariable = (name: string, value: JSValue, declarationType: DeclarationType, parentScopeIndex: number) => {
         const lookupResult = lookupVariable(name)
-        let scopeIndex = 0
+        let scopeIndex = parentScopeIndex
         if (lookupResult) {
-            scopes[lookupResult.scopeIndex].variables[name] = value
+            // if (lookupResult.variable.declarationType === declarationType || declarationType === DECLARATION_TYPE.FUNCTION) {
+            scopes[lookupResult.scopeIndex].variables[name] = { declarationType, value }
             scopeIndex = lookupResult.scopeIndex
+            // }
+        } else {
+            scopes[scopeIndex].variables[name] = { declarationType, value }
         }
-
-        scopes[0].variables[name] = value
-
         stepMemoryChange = {
             type: "write_variable",
             scopeIndex,
             variableName: name,
             value
         }
+
     }
 
     const writeProperty = (ref: number, property: string, value: JSValue) => {
@@ -286,58 +298,36 @@ export const simulateExecution = (astNode: ESTree.BaseNode | null): ExecStep[] =
         console.error(getErrorString(error))
     }
 
-    const nodeHandlers: Partial<{
-        Program: NodeHandler<ESTree.BlockStatement>
-        BlockStatement: NodeHandler<ESTree.BlockStatement>
-        ExpressionStatement: NodeHandler<ESTree.ExpressionStatement>
-        Literal: NodeHandler<ESTree.Literal>
-        VariableDeclaration: NodeHandler<ESTree.VariableDeclaration>
-        CallExpression: NodeHandler<ESTree.CallExpression>
-        Identifier: NodeHandler<ESTree.Identifier>
-        BinaryExpression: NodeHandler<ESTree.BinaryExpression>
-        LogicalExpression: NodeHandler<ESTree.LogicalExpression>
-        ReturnStatement: NodeHandler<ESTree.ReturnStatement>
-        ThrowStatement: NodeHandler<ESTree.ThrowStatement>
-        TryStatement: NodeHandler<ESTree.TryStatement>
-        AssignmentExpression: NodeHandler<ESTree.AssignmentExpression>
-        ConditionalExpression: NodeHandler<ESTree.ConditionalExpression>
-        ArrayExpression: NodeHandler<ESTree.ArrayExpression>
-        ObjectExpression: NodeHandler<ESTree.ObjectExpression>
-        MemberExpression: NodeHandler<ESTree.MemberExpression>
-        ArrowFunctionExpression: NodeHandler<ESTree.ArrowFunctionExpression>
-        IfStatement: NodeHandler<ESTree.IfStatement>
-        ForStatement: NodeHandler<ESTree.ForStatement>
-        ContinueStatement: NodeHandler<ESTree.ContinueStatement>
-        UpdateExpression: NodeHandler<ESTree.UpdateExpression>
-        EmptyStatement: NodeHandler<ESTree.EmptyStatement>
-    }> = {}
+    const execHandlers: NodeHandlerMap = {}
 
-    nodeHandlers["BlockStatement"] = (astNode, options) => {
-        const statements = astNode.body
-
-        if (Array.isArray(statements)) {
-            for (const statement of statements) {
-                // Skip function declarations as they are already handled in the creation phase
-                if (statement.type === "FunctionDeclaration") {
-                    continue
-                }
-                traverseAST(statement, options)
+    execHandlers["Program"] = (astNode, options) => {
+        for (const statement of astNode.body) {
+            if (statement.type === "FunctionDeclaration") {
+                continue
             }
+            traverseExec(statement, options)
         }
     }
 
-    nodeHandlers["Program"] = nodeHandlers["BlockStatement"]
+    execHandlers["BlockStatement"] = (astNode, options) => {
+        for (const statement of astNode.body) {
+            if (statement.type === "FunctionDeclaration") {
+                continue
+            }
+            traverseExec(statement, options)
+        }
+    }
 
-    nodeHandlers["ExpressionStatement"] = (astNode, options) => {
+    execHandlers["ExpressionStatement"] = (astNode, options) => {
         addExecutingStep(astNode)
 
-        traverseAST(astNode.expression, options)
+        traverseExec(astNode.expression, options)
 
         popMemval()
         addExecutedStep(astNode)
     }
 
-    nodeHandlers["Literal"] = (astNode) => {
+    execHandlers["Literal"] = (astNode) => {
         addEvaluatingStep(astNode)
 
         const evaluatedValue: JSValue = { type: "primitive", value: astNode.value }
@@ -356,29 +346,30 @@ export const simulateExecution = (astNode: ESTree.BaseNode | null): ExecStep[] =
         }
     }
 
-    nodeHandlers["VariableDeclaration"] = (astNode, options) => {
+    execHandlers["VariableDeclaration"] = (astNode, options) => {
         for (const declarator of astNode.declarations) {
             addExecutingStep(astNode)
 
             let evaluatedValue: JSValue = UNDEFINED
             if (declarator.init) {
-                traverseAST(declarator.init, options)
+                traverseExec(declarator.init, options)
                 evaluatedValue = popMemval()
             }
 
             const identifier = getIdentifierFromPattern(declarator.id)
             if (identifier) {
-                writeVariable(identifier.name, evaluatedValue)
+                const declarationType = astNode.kind === DECLARATION_TYPE.CONST ? DECLARATION_TYPE.CONST : astNode.kind === DECLARATION_TYPE.LET ? DECLARATION_TYPE.LET : DECLARATION_TYPE.VAR
+                writeVariable(identifier.name, evaluatedValue, declarationType, options.parentScopeIndex)
             }
             addExecutedStep(astNode)
         }
     }
 
-    nodeHandlers["CallExpression"] = (astNode, options) => {
-        traverseAST(astNode.callee, options)
+    execHandlers["CallExpression"] = (astNode, options) => {
+        traverseExec(astNode.callee, options)
 
         for (const arg of astNode.arguments) {
-            traverseAST(arg, options)
+            traverseExec(arg, options)
         }
         const args: JSValue[] = []
         astNode.arguments.forEach(() => args.unshift(popMemval()))
@@ -396,7 +387,7 @@ export const simulateExecution = (astNode: ESTree.BaseNode | null): ExecStep[] =
                 popMemval()
 
                 try {
-                    traverseAST(
+                    traverseExec(
                         object.node.body,
                         { ...options, callee: object.node }
                     )
@@ -424,7 +415,7 @@ export const simulateExecution = (astNode: ESTree.BaseNode | null): ExecStep[] =
         }
     }
 
-    nodeHandlers["Identifier"] = (astNode) => {
+    execHandlers["Identifier"] = (astNode) => {
         addEvaluatingStep(astNode)
 
         if (astNode.name === 'undefined') {
@@ -433,9 +424,9 @@ export const simulateExecution = (astNode: ESTree.BaseNode | null): ExecStep[] =
         } else {
             const lookupResult = lookupVariable(astNode.name)
             if (lookupResult) {
-                const evaluatedValue = lookupResult.variable
+                const evaluatedValue = lookupResult.variable.value
                 if (evaluatedValue === TDZ) {
-                    createErrorObject('ReferenceError', `${astNode.name} is not defined`)
+                    createErrorObject('ReferenceError', `Cannot access '${astNode.name}' before initialization`)
                     addThrownStep(astNode)
                 } else {
                     pushMemval(evaluatedValue)
@@ -448,11 +439,11 @@ export const simulateExecution = (astNode: ESTree.BaseNode | null): ExecStep[] =
         }
     }
 
-    nodeHandlers["BinaryExpression"] = (astNode, options) => {
+    execHandlers["BinaryExpression"] = (astNode, options) => {
         addEvaluatingStep(astNode)
 
-        traverseAST(astNode.left, options)
-        traverseAST(astNode.right, options)
+        traverseExec(astNode.left, options)
+        traverseExec(astNode.right, options)
 
         const rightValue = popMemval()
         const leftValue = popMemval()
@@ -478,34 +469,34 @@ export const simulateExecution = (astNode: ESTree.BaseNode | null): ExecStep[] =
         addEvaluatedStep(astNode)
     }
 
-    nodeHandlers["LogicalExpression"] = (astNode, options) => {
+    execHandlers["LogicalExpression"] = (astNode, options) => {
         addEvaluatingStep(astNode)
 
         let rightValue: JSValue
 
         if (astNode.operator === "&&") {
-            traverseAST(astNode.left, options)
+            traverseExec(astNode.left, options)
 
             const leftResult = readMemval()
             if (leftResult.type === "primitive" && leftResult.value === true) {
-                traverseAST(astNode.right, options)
+                traverseExec(astNode.right, options)
                 rightValue = popMemval()
             } else {
                 rightValue = { type: "primitive", value: false }
             }
         } else if (astNode.operator === "||") {
-            traverseAST(astNode.left, options)
+            traverseExec(astNode.left, options)
 
             const leftResult = readMemval()
             if (leftResult.type === "primitive" && leftResult.value === true) {
                 rightValue = { type: "primitive", value: true }
             } else {
-                traverseAST(astNode.right, options)
+                traverseExec(astNode.right, options)
                 rightValue = popMemval()
             }
         } else {
-            traverseAST(astNode.left, options)
-            traverseAST(astNode.right, options)
+            traverseExec(astNode.left, options)
+            traverseExec(astNode.right, options)
             rightValue = popMemval()
         }
         const leftValue = popMemval()
@@ -531,10 +522,10 @@ export const simulateExecution = (astNode: ESTree.BaseNode | null): ExecStep[] =
         addEvaluatedStep(astNode)
     }
 
-    nodeHandlers["ReturnStatement"] = (astNode, options) => {
+    execHandlers["ReturnStatement"] = (astNode, options) => {
         addExecutingStep(astNode)
         if (astNode.argument) {
-            traverseAST(astNode.argument, options)
+            traverseExec(astNode.argument, options)
         } else {
             pushMemval(UNDEFINED)
         }
@@ -542,19 +533,19 @@ export const simulateExecution = (astNode: ESTree.BaseNode | null): ExecStep[] =
         throw BUBBLE_UP_TYPE.RETURN
     }
 
-    nodeHandlers["ThrowStatement"] = (astNode, options) => {
+    execHandlers["ThrowStatement"] = (astNode, options) => {
         addExecutingStep(astNode)
-        traverseAST(astNode.argument, options)
+        traverseExec(astNode.argument, options)
         addThrownStep(astNode)
     }
 
-    nodeHandlers["TryStatement"] = (astNode, options) => {
+    execHandlers["TryStatement"] = (astNode, options) => {
         addExecutingStep(astNode)
 
         const finalizerHandler = () => {
             if (astNode.finalizer) {
                 try {
-                    traverseAST(astNode.finalizer, options)
+                    traverseExec(astNode.finalizer, options)
                 } catch (finalizerBubbleUp) {
                     if (finalizerBubbleUp === BUBBLE_UP_TYPE.THROW) {
                         addThrownStep(astNode)
@@ -568,7 +559,7 @@ export const simulateExecution = (astNode: ESTree.BaseNode | null): ExecStep[] =
         const catchHandler = () => {
             if (astNode.handler) {
                 try {
-                    traverseAST(astNode.handler.body, { ...options, catch: astNode.handler })
+                    traverseExec(astNode.handler.body, { ...options, catch: astNode.handler })
                 } catch (catchBubbleUp) {
                     if (astNode.finalizer) {
                         const catchValue = popMemval()
@@ -586,7 +577,7 @@ export const simulateExecution = (astNode: ESTree.BaseNode | null): ExecStep[] =
         }
 
         try {
-            traverseAST(astNode.block, options)
+            traverseExec(astNode.block, options)
             finalizerHandler()
             addExecutedStep(astNode)
         } catch (tryBubbleUp) {
@@ -615,17 +606,17 @@ export const simulateExecution = (astNode: ESTree.BaseNode | null): ExecStep[] =
         }
     }
 
-    nodeHandlers["AssignmentExpression"] = (astNode, options) => {
+    execHandlers["AssignmentExpression"] = (astNode, options) => {
         addEvaluatingStep(astNode)
 
         if (astNode.operator === "=") {
             // Assignment
             if (astNode.left.type === "MemberExpression") {
                 const memberExpression = astNode.left
-                traverseAST(memberExpression.object, options)
+                traverseExec(memberExpression.object, options)
 
                 if (memberExpression.computed) {
-                    traverseAST(memberExpression.property, options)
+                    traverseExec(memberExpression.property, options)
                 } else {
                     const propertyNode = memberExpression.property
                     if (propertyNode.type === 'Identifier' || propertyNode.type === 'PrivateIdentifier') {
@@ -640,7 +631,7 @@ export const simulateExecution = (astNode: ESTree.BaseNode | null): ExecStep[] =
                     addThrownStep(astNode)
                 }
 
-                traverseAST(astNode.right, options)
+                traverseExec(astNode.right, options)
                 const evaluatedValue = popMemval()
                 const evaluatedProperty = popMemval()
                 const evaluatedObject = popMemval()
@@ -657,16 +648,31 @@ export const simulateExecution = (astNode: ESTree.BaseNode | null): ExecStep[] =
             } else {
                 const identifier = getIdentifierFromPattern(astNode.left)
                 if (identifier) {
-                    traverseAST(astNode.right, options)
+                    traverseExec(astNode.right, options)
                     const evaluatedValue = popMemval()
 
                     const lookupResult = lookupVariable(identifier.name)
-                    if (!lookupResult && options.strict) {
-                        createErrorObject('ReferenceError', `${identifier.name} is not defined`)
-                        addThrownStep(astNode)
+                    if (lookupResult) {
+                        if (lookupResult.variable.value === TDZ) {
+                            createErrorObject('ReferenceError', `Cannot access '${identifier.name}' before initialization`)
+                            addThrownStep(astNode)
+                        } else {
+                            writeVariable(
+                                identifier.name,
+                                evaluatedValue,
+                                lookupResult.variable.declarationType,
+                                options.parentScopeIndex
+                            )
+                        }
+                    } else {
+                        if (options.strict) {
+                            createErrorObject('ReferenceError', `${identifier.name} is not defined`)
+                            addThrownStep(astNode)
+                        } else {
+                            newDeclaration(identifier.name, evaluatedValue, DECLARATION_TYPE.GLOBAL, 0)
+                        }
                     }
 
-                    writeVariable(identifier.name, evaluatedValue)
                     pushMemval(evaluatedValue)
                     addEvaluatedStep(astNode)
                 }
@@ -675,10 +681,10 @@ export const simulateExecution = (astNode: ESTree.BaseNode | null): ExecStep[] =
             // Update && Assignment
             if (astNode.left.type === "MemberExpression") {
                 const memberExpression = astNode.left
-                traverseAST(memberExpression.object, options)
+                traverseExec(memberExpression.object, options)
 
                 if (memberExpression.computed) {
-                    traverseAST(memberExpression.property, options)
+                    traverseExec(memberExpression.property, options)
                 } else {
                     const propertyNode = memberExpression.property
                     if (propertyNode.type === 'Identifier' || propertyNode.type === 'PrivateIdentifier') {
@@ -693,7 +699,7 @@ export const simulateExecution = (astNode: ESTree.BaseNode | null): ExecStep[] =
                     addThrownStep(astNode)
                 }
 
-                traverseAST(astNode.right, options)
+                traverseExec(astNode.right, options)
 
                 const evaluatedRight = popMemval()
                 const evaluatedProperty = popMemval()
@@ -723,51 +729,56 @@ export const simulateExecution = (astNode: ESTree.BaseNode | null): ExecStep[] =
                 const identifier = getIdentifierFromPattern(astNode.left)
                 if (identifier) {
                     const lookupResult = lookupVariable(identifier.name)
-                    if (!lookupResult) {
+                    if (lookupResult) {
+                        traverseExec(astNode.right, options)
+
+                        const evaluatedRight = popMemval()
+                        const evaluatedLeft = lookupResult.variable.value
+                        // TODO: reference have problem.
+                        const leftRaw = JSON.stringify(evaluatedLeft.value)
+                        const rightRaw = JSON.stringify(evaluatedRight.value)
+                        const value = eval(`${leftRaw}${astNode.operator.replace("=", "")}${rightRaw}`)
+                        const evaluatedValue = { type: "primitive", value } as const
+
+                        writeVariable(
+                            identifier.name,
+                            evaluatedValue,
+                            lookupResult.variable.declarationType,
+                            options.parentScopeIndex
+                        )
+                        pushMemval(evaluatedValue)
+                        addEvaluatedStep(astNode)
+                    } else {
                         createErrorObject('ReferenceError', `${identifier.name} is not defined`)
                         addThrownStep(astNode)
                     }
-
-                    traverseAST(astNode.right, options)
-
-                    const evaluatedRight = popMemval()
-                    const evaluatedLeft = lookupResult.variable
-                    // TODO: reference have problem.
-                    const leftRaw = JSON.stringify(evaluatedLeft.value)
-                    const rightRaw = JSON.stringify(evaluatedRight.value)
-                    const value = eval(`${leftRaw}${astNode.operator.replace("=", "")}${rightRaw}`)
-                    const evaluatedValue = { type: "primitive", value } as const
-
-                    writeVariable(identifier.name, evaluatedValue)
-                    pushMemval(evaluatedValue)
-                    addEvaluatedStep(astNode)
                 }
             }
         }
     }
 
-    nodeHandlers["ConditionalExpression"] = (astNode, options) => {
+    execHandlers["ConditionalExpression"] = (astNode, options) => {
         addEvaluatingStep(astNode)
 
-        traverseAST(astNode.test, options)
+        traverseExec(astNode.test, options)
 
         const evaluatedTest = popMemval()
         if (evaluatedTest.value) {
-            traverseAST(astNode.consequent, options)
+            traverseExec(astNode.consequent, options)
         } else {
-            traverseAST(astNode.alternate, options)
+            traverseExec(astNode.alternate, options)
         }
 
         popMemval()
         addEvaluatedStep(astNode)
     }
 
-    nodeHandlers["ArrayExpression"] = (astNode, options) => {
+    execHandlers["ArrayExpression"] = (astNode, options) => {
         addEvaluatingStep(astNode)
 
         for (const element of astNode.elements) {
             if (element) {
-                traverseAST(element, options)
+                traverseExec(element, options)
             } else {
                 pushMemval(UNDEFINED)
             }
@@ -783,12 +794,12 @@ export const simulateExecution = (astNode: ESTree.BaseNode | null): ExecStep[] =
         addEvaluatedStep(astNode)
     }
 
-    nodeHandlers["ObjectExpression"] = (astNode, options) => {
+    execHandlers["ObjectExpression"] = (astNode, options) => {
         addEvaluatingStep(astNode)
 
         const properties: Record<string, JSValue> = {}
         for (const property of astNode.properties) {
-            traverseAST(property.value, options)
+            traverseExec(property.value, options)
         }
 
         for (let i = astNode.properties.length - 1; i >= 0; i--) {
@@ -803,17 +814,17 @@ export const simulateExecution = (astNode: ESTree.BaseNode | null): ExecStep[] =
         addEvaluatedStep(astNode)
     }
 
-    nodeHandlers["MemberExpression"] = (astNode, options) => {
+    execHandlers["MemberExpression"] = (astNode, options) => {
         addEvaluatingStep(astNode)
 
-        traverseAST(astNode.object, options)
+        traverseExec(astNode.object, options)
 
         let evaluatedValue: JSValue = UNDEFINED
 
         const evaluatedObject = readMemval()
         if (evaluatedObject.type === "reference") {
             if (astNode.computed) {
-                traverseAST(astNode.property, options)
+                traverseExec(astNode.property, options)
                 const evaluatedProperty = popMemval()
                 evaluatedValue = readProperty(evaluatedObject.ref, evaluatedProperty.value)
             } else {
@@ -823,7 +834,7 @@ export const simulateExecution = (astNode: ESTree.BaseNode | null): ExecStep[] =
 
         if (evaluatedObject.type === "primitive") {
             if (astNode.computed) {
-                traverseAST(astNode.property, options)
+                traverseExec(astNode.property, options)
                 const evaluatedProperty = popMemval()
 
                 if (evaluatedObject === UNDEFINED) {
@@ -845,7 +856,7 @@ export const simulateExecution = (astNode: ESTree.BaseNode | null): ExecStep[] =
         return addEvaluatedStep(astNode)
     }
 
-    nodeHandlers["ArrowFunctionExpression"] = (astNode) => {
+    execHandlers["ArrowFunctionExpression"] = (astNode) => {
         addEvaluatingStep(astNode)
 
         createHeapObject({ node: astNode })
@@ -853,23 +864,23 @@ export const simulateExecution = (astNode: ESTree.BaseNode | null): ExecStep[] =
         addEvaluatedStep(astNode)
     }
 
-    nodeHandlers["IfStatement"] = (astNode, options) => {
+    execHandlers["IfStatement"] = (astNode, options) => {
         addExecutingStep(astNode)
 
-        traverseAST(astNode.test, options)
+        traverseExec(astNode.test, options)
 
         const evaluatedTest = popMemval()
 
         if (evaluatedTest.value) {
-            traverseAST(astNode.consequent, options)
+            traverseExec(astNode.consequent, options)
         } if (astNode.alternate) {
-            traverseAST(astNode.alternate, options)
+            traverseExec(astNode.alternate, options)
         }
 
         addExecutedStep(astNode)
     }
 
-    nodeHandlers["ForStatement"] = (astNode: ESNode, scopeIndex: number): ExecStep | undefined => {
+    execHandlers["ForStatement"] = (astNode: ESNode, scopeIndex: number): ExecStep | undefined => {
         addExecutingStep(astNode)
 
         lastScopeIndex++
@@ -901,7 +912,7 @@ export const simulateExecution = (astNode: ESTree.BaseNode | null): ExecStep[] =
             }
 
             if (testStep?.evaluatedValue?.value) {
-                const bodyStep = traverseAST(astNode.body, scopeIndex, false)
+                const bodyStep = traverseExec(astNode.body, scopeIndex, false)
                 if (bodyStep?.evaluatedValue || bodyStep?.errorThrown) {
                     destructionPhase(astNode, scopeIndex, bodyStep)
                     return bodyStep
@@ -922,20 +933,20 @@ export const simulateExecution = (astNode: ESTree.BaseNode | null): ExecStep[] =
         } while (testStep?.evaluatedValue?.value)
     }
 
-    nodeHandlers["ContinueStatement"] = (astNode) => {
+    execHandlers["ContinueStatement"] = (astNode) => {
         addExecutingStep(astNode)
         return addExecutedStep(astNode)
     }
 
-    nodeHandlers["UpdateExpression"] = (astNode, options) => {
+    execHandlers["UpdateExpression"] = (astNode, options) => {
         addEvaluatingStep(astNode)
 
         if (astNode.argument.type === "MemberExpression") {
             const memberExpression = astNode.argument
-            traverseAST(memberExpression.object, options)
+            traverseExec(memberExpression.object, options)
 
             if (memberExpression.computed) {
-                traverseAST(memberExpression.property, options)
+                traverseExec(memberExpression.property, options)
             } else {
                 const propertyNode = memberExpression.property
                 if (propertyNode.type === 'Identifier' || propertyNode.type === 'PrivateIdentifier') {
@@ -973,24 +984,29 @@ export const simulateExecution = (astNode: ESTree.BaseNode | null): ExecStep[] =
         } else if (astNode.argument.type === 'Identifier') {
             const identifier = astNode.argument
             const lookupResult = lookupVariable(identifier.name)
-            if (!lookupResult) {
+            if (lookupResult) {
+                // TODO: reference have problem.
+                const value = eval(`${lookupResult.variable.value}${astNode.operator[0]}1`)
+                const evaluatedValue = { type: "primitive", value } as const
+
+                writeVariable(
+                    identifier.name,
+                    evaluatedValue,
+                    lookupResult.variable.declarationType,
+                    options.parentScopeIndex
+                )
+                pushMemval(evaluatedValue)
+                addEvaluatedStep(astNode)
+            } else {
                 createErrorObject('ReferenceError', `${identifier.name} is not defined`)
                 addThrownStep(astNode)
             }
-
-            // TODO: reference have problem.
-            const value = eval(`${lookupResult.variable.value}${astNode.operator[0]}1`)
-            const evaluatedValue = { type: "primitive", value } as const
-
-            writeVariable(identifier.name, evaluatedValue)
-            pushMemval(evaluatedValue)
-            addEvaluatedStep(astNode)
         } else {
             console.warn(`UpdateExpression: Unhandled argument type - ${astNode.argument.type}`)
         }
     }
 
-    nodeHandlers["EmptyStatement"] = (astNode) => {
+    execHandlers["EmptyStatement"] = (astNode) => {
         addExecutingStep(astNode)
         addExecutedStep(astNode)
     }
@@ -1011,14 +1027,162 @@ export const simulateExecution = (astNode: ESTree.BaseNode | null): ExecStep[] =
         return false
     }
 
+
+    const hoistingHandlers: NodeHandlerMap = {}
+    hoistingHandlers["Program"] = (astNode, options) => {
+        for (const node of astNode.body) {
+            if (isBlock(node) || !options.isRoot) {
+                traverseHoisting(node, options, false)
+            } else {
+                traverseHoisting(node, options, true)
+            }
+        }
+    }
+    hoistingHandlers["BlockStatement"] = (astNode, options) => {
+        for (const node of astNode.body) {
+            if (isBlock(node) || !options.isRoot) {
+                traverseHoisting(node, options, false)
+            } else {
+                traverseHoisting(node, options, true)
+            }
+        }
+    }
+    hoistingHandlers["FunctionDeclaration"] = (astNode, options) => {
+        const lookupResult = lookupVariable(astNode.id.name)
+        if (lookupResult) {
+            if (options.isRoot && lookupResult.scopeIndex !== lastScopeIndex) {
+                if (lookupResult.variable.declarationType === DECLARATION_TYPE.VAR || lookupResult.variable.declarationType === DECLARATION_TYPE.FUNCTION) {
+                    createHeapObject({ node: astNode })
+                    writeVariable(
+                        astNode.id.name,
+                        { type: "reference", ref: lastRef },
+                        DECLARATION_TYPE.FUNCTION,
+                        options.parentScopeIndex
+                    )
+                } else {
+                    createHeapObject({ node: astNode })
+                    const initialValue = { type: "reference", ref: lastRef } as const
+                    newDeclaration(
+                        astNode.id.name,
+                        initialValue,
+                        DECLARATION_TYPE.FUNCTION,
+                        lastScopeIndex
+                    )
+                }
+            }
+        } else {
+            if (options.parentScopeIndex === lastScopeIndex) {
+                createHeapObject({ node: astNode })
+                const initialValue = { type: "reference", ref: lastRef } as const
+                newDeclaration(
+                    astNode.id.name,
+                    initialValue,
+                    DECLARATION_TYPE.FUNCTION,
+                    options.parentScopeIndex
+                )
+            } else {
+                const initialValue = UNDEFINED
+                newDeclaration(
+                    astNode.id.name,
+                    initialValue,
+                    DECLARATION_TYPE.FUNCTION,
+                    options.parentScopeIndex
+                )
+            }
+        }
+    }
+    hoistingHandlers["VariableDeclaration"] = (astNode, options) => {
+        for (const declarator of astNode.declarations) {
+            const identifier = getIdentifierFromPattern(declarator.id)
+            if (identifier) {
+                const declarationType = astNode.kind === DECLARATION_TYPE.CONST ? DECLARATION_TYPE.CONST : astNode.kind === DECLARATION_TYPE.LET ? DECLARATION_TYPE.LET : DECLARATION_TYPE.VAR
+                const initialValue = astNode.kind === DECLARATION_TYPE.VAR ? UNDEFINED : TDZ
+                const scopeIndex = astNode.kind === DECLARATION_TYPE.VAR ? options.parentScopeIndex : lastScopeIndex
+                const lookupResult = lookupVariable(identifier.name)
+                if (lookupResult) {
+                    if (options.parentScopeIndex === lastScopeIndex && lookupResult.variable.declarationType !== DECLARATION_TYPE.FUNCTION) {
+                        newDeclaration(
+                            identifier.name,
+                            initialValue,
+                            declarationType,
+                            scopeIndex
+                        )
+                    }
+                    if (declarationType === DECLARATION_TYPE.LET || declarationType === DECLARATION_TYPE.CONST) {
+                        newDeclaration(
+                            identifier.name,
+                            initialValue,
+                            declarationType,
+                            scopeIndex
+                        )
+                    }
+                } else {
+                    if (declarationType === DECLARATION_TYPE.VAR) {
+                        newDeclaration(
+                            identifier.name,
+                            initialValue,
+                            declarationType,
+                            scopeIndex
+                        )
+                    }
+                }
+            }
+        }
+
+    }
+    hoistingHandlers["IfStatement"] = (astNode, options) => {
+        if (astNode.consequent) {
+            traverseHoisting(astNode.consequent, options, false)
+        }
+        if (astNode.alternate) {
+            traverseHoisting(astNode.alternate, options, false)
+        }
+    }
+
+    function traverseHoisting(astNode: ESTree.Node, options: TraverseASTOptions, isRoot: boolean = true) {
+        if (options.callee || options.catch) {
+            const params = options.callee ? options.callee.params : options.catch ? [options.catch.param as ESTree.Pattern] : []
+            const args = []
+
+            if (options.callee) {
+                const argsCount = popMemval()
+                for (let i = 0; i < argsCount.value; i++) {
+                    const arg = popMemval()
+                    args.push(arg)
+                }
+                delete options.callee
+            } else if (options.catch) {
+                args.push(popMemval())
+                delete options.catch
+            }
+
+            for (const param of params) {
+                let paramValue = args.pop() || UNDEFINED
+                if (param.type === "AssignmentPattern" && paramValue === UNDEFINED) {
+                    traverseExec(param.right, options)
+                    paramValue = popMemval()
+                }
+                const identifier = getIdentifierFromPattern(param)
+                if (!identifier) continue
+
+                newDeclaration(identifier.name, paramValue, DECLARATION_TYPE.PARAM, lastScopeIndex)
+            }
+        }
+
+        console.log(astNode.type, isRoot, options.isRoot)
+        const handler = hoistingHandlers[astNode.type] as NodeHandler<typeof astNode>
+        if (handler) {
+            handler(astNode, { ...options, isRoot })
+        }
+    }
+
     // --- Simulation Execution --- 
-    function traverseAST(
-        astNode: ESTree.BaseNode,
+    function traverseExec(
+        astNode: ESTree.Node,
         options: TraverseASTOptions
     ) {
         if (isBlock(astNode) || options.callee) {
             try {
-
                 options.strict = isStrict(astNode, options)
 
                 lastScopeIndex++
@@ -1026,77 +1190,21 @@ export const simulateExecution = (astNode: ESTree.BaseNode | null): ExecStep[] =
                     options.parentScopeIndex = lastScopeIndex
                 }
 
-                // Phase 1: Creation - hoisting and declarations
+                // Phase 1: push scope - hoisting and declarations
                 addPushScopeStep(astNode, options)
-                const declarations: Declaration[] = []
+                console.log(3333)
+                traverseHoisting(astNode, options)
+                addHoistingStep(astNode)
 
-                if (options.callee || options.catch) {
-                    const params = options.callee ? options.callee.params : options.catch ? [options.catch.param as ESTree.Pattern] : []
-                    const args = []
-
-                    if (options.callee) {
-                        const argsCount = popMemval()
-                        for (let i = 0; i < argsCount.value; i++) {
-                            const arg = popMemval()
-                            args.push(arg)
-                        }
-                        delete options.callee
-                    } else if (options.catch) {
-                        args.push(popMemval())
-                        delete options.catch
-                    }
-
-                    for (const param of params) {
-                        let paramValue = args.pop() || UNDEFINED
-                        if (param.type === "AssignmentPattern" && paramValue === UNDEFINED) {
-                            traverseAST(param.right, options)
-                            paramValue = popMemval()
-                        }
-                        const identifier = getIdentifierFromPattern(param)
-                        if (!identifier) continue
-
-                        const declaration = newDeclaration(identifier.name, "param", lastScopeIndex, paramValue)
-                        declarations.push(declaration)
-                    }
-                }
-
-                if (astNode.type === "BlockStatement") {
-                    for (const node of astNode.body) {
-                        if (node.type === "FunctionDeclaration") {
-                            createHeapObject({ node })
-                            const declaration = newDeclaration(node.id.name, "function", options.parentScopeIndex, { type: "reference", ref: lastRef })
-                            declarations.push(declaration)
-                        }
-
-                        if (node.type === "VariableDeclaration") {
-                            for (const declarator of node.declarations) {
-                                const identifier = getIdentifierFromPattern(declarator.id)
-                                if (!identifier) continue
-
-                                const initialValue = node.kind === "var" ? UNDEFINED : TDZ
-                                const scopeIndex = node.kind === "var" ? options.parentScopeIndex : lastScopeIndex
-                                const declaration = newDeclaration(
-                                    identifier.name,
-                                    node.kind,
-                                    scopeIndex,
-                                    initialValue
-                                )
-                                declarations.push(declaration)
-                            }
-                        }
-                    }
-                }
-                addHoistingStep(astNode, declarations)
-
-                // Phase 2: Execution  
-                const handler = nodeHandlers[astNode.type as keyof typeof nodeHandlers] as NodeHandler<typeof astNode>
+                // Phase 2: execution  
+                const handler = execHandlers[astNode.type] as NodeHandler<typeof astNode>
                 if (handler) {
                     handler(astNode, options)
                 } else {
                     console.warn(`Execution Pass: Unhandled node type - ${astNode.type}`)
                 }
 
-                // Phase 3: Destruction - except for global scope
+                // Phase 3: pop scope - except for global scope
                 if (lastScopeIndex !== 0) {
                     addPopScopeStep(astNode)
                     lastScopeIndex--
@@ -1109,7 +1217,7 @@ export const simulateExecution = (astNode: ESTree.BaseNode | null): ExecStep[] =
                 }
             }
         } else {
-            const handler = nodeHandlers[astNode.type as keyof typeof nodeHandlers] as NodeHandler<typeof astNode>
+            const handler = execHandlers[astNode.type] as NodeHandler<typeof astNode>
             if (handler) {
                 handler(astNode, options)
             } else {
@@ -1118,7 +1226,7 @@ export const simulateExecution = (astNode: ESTree.BaseNode | null): ExecStep[] =
         }
     }
 
-    traverseAST(astNode, { parentScopeIndex: 0 })
+    traverseExec(astNode, { parentScopeIndex: 0 })
 
     console.log("Simulation finished. Steps:", steps.length)
     return steps
