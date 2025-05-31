@@ -1192,7 +1192,6 @@ export const simulateExecution = (astNode: ESTree.Program | null): ExecStep[] =>
 
                 // Phase 1: push scope - hoisting and declarations
                 addPushScopeStep(astNode, options)
-                console.log(3333)
                 traverseHoisting(astNode, options)
                 addHoistingStep(astNode)
 

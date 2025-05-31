@@ -1,14 +1,13 @@
 import { createContext, useState, useEffect, useRef } from "react"
 import { astOf } from "@/utils/ast"
 import { cheatSheetHighlighter } from "@/utils/cheatSheetHighlighter"
-import { ESNode } from "hermes-parser"
 import * as ts from "typescript"
 import { ExecStep } from "@/types/simulation"
 import { simulateExecution } from "@/utils/simulator"
+import * as ESTree from 'estree'
 
 // Represents a single scope's memory (e.g., global, function scope)
 // Values can be primitives or references to other objects/arrays/functions
-
 
 type SimulatorContextType = {
     mode: 'CODE' | 'EXECUTION'
@@ -17,7 +16,8 @@ type SimulatorContextType = {
     currentFile: string
     changeCurrentFile: (filename: string) => void
     updateFileContent: (filename: string, newContent: string) => void
-    astOfCode: ESNode | ts.SourceFile | null
+    astOfCode: ESTree.Program | ts.SourceFile | null
+    astError: string | null
     execSteps: ExecStep[]
     currentExecStep: ExecStep | null
     isPlaying: boolean
@@ -41,7 +41,8 @@ export const SimulatorProvider = ({ children }: { children: React.ReactNode }) =
     const [mode, setMode] = useState<'CODE' | 'EXECUTION'>('CODE')
     const [files, setFiles] = useState<Record<string, string>>({ "main.js": "" })
     const [currentFile, setCurrentFile] = useState("main.js")
-    const [astOfCode, setAstOfCode] = useState<ESNode | ts.SourceFile | null>(astOf(files[currentFile]) || null)
+    const [astOfCode, setAstOfCode] = useState<ESTree.Program | ts.SourceFile | null>(null)
+    const [astError, setAstError] = useState<string | null>(null)
     const [execSteps, setExecSteps] = useState<ExecStep[]>([])
     const [currentExecStep, setCurrentExecStep] = useState<ExecStep | null>(null)
     const [isPlaying, setIsPlaying] = useState(false)
@@ -57,9 +58,10 @@ export const SimulatorProvider = ({ children }: { children: React.ReactNode }) =
     useEffect(() => {
         const savedFilesString = localStorage.getItem('simulatorFiles')
         const savedFiles = JSON.parse(savedFilesString || '{}')
+        const currentFile = Object.keys(savedFiles)[0] || "main.js"
         setFiles(savedFiles)
-        setCurrentFile(Object.keys(savedFiles)[0] || "main.js")
-        setAstOfCode(astOf(savedFiles[currentFile]) || null)
+        setCurrentFile(currentFile)
+        updateFileContent(currentFile, savedFiles[currentFile])
         // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [])
 
@@ -73,14 +75,20 @@ export const SimulatorProvider = ({ children }: { children: React.ReactNode }) =
     const updateFileContent = (filename: string, newContent: string) => {
         const newFiles = { ...files, [filename]: newContent }
         setFiles(newFiles)
-        const ast = astOf(newFiles[filename])
+        try {
+            const ast = astOf(newFiles[filename])
 
-        if (ast) {
-            const steps = simulateExecution(ast as ESNode)
-            console.log(steps)
-            setAstOfCode(ast)
-            setExecSteps(steps)
-            setCurrentExecStep(steps[0] || null)
+            if (ast) {
+                const steps = simulateExecution(ast)
+                console.log(steps)
+                setAstError(null)
+                setAstOfCode(ast)
+                setExecSteps(steps)
+                setCurrentExecStep(steps[0] || null)
+            }
+        } catch (error) {
+            console.log(11111, error)
+            setAstError(error instanceof Error ? error.message : 'Unknown error')
         }
     }
 
@@ -159,6 +167,7 @@ export const SimulatorProvider = ({ children }: { children: React.ReactNode }) =
                 changeCurrentFile,
                 updateFileContent,
                 astOfCode,
+                astError,
                 execSteps,
                 currentExecStep,
                 isPlaying,

@@ -5,22 +5,17 @@ export const astOf = (
     codeStr: string,
     parser: 'hermesParser' | 'typescript' = 'hermesParser'
 ) => {
-    try {
-        if (parser === 'hermesParser') {
-            return hermesParser(codeStr, { tokens: true })
-        }
+    if (parser === 'hermesParser') {
+        return hermesParser(codeStr, { tokens: true })
+    }
 
-        if (parser === 'typescript') {
-            return ts.createSourceFile(
-                'code.ts',
-                codeStr,
-                ts.ScriptTarget.Latest,
-                true,
-                ts.ScriptKind.TS
-            )
-        }
-
-    } catch (error) {
-        console.error("Error parsing code:", error)
+    if (parser === 'typescript') {
+        return ts.createSourceFile(
+            'code.ts',
+            codeStr,
+            ts.ScriptTarget.Latest,
+            true,
+            ts.ScriptKind.TS
+        )
     }
 }

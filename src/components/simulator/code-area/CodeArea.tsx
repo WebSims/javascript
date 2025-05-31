@@ -1,7 +1,6 @@
 /* eslint-disable */
 
-import React, { useEffect, useRef } from "react"
-import * as hermesParser from "hermes-parser"
+import React, { useRef } from "react"
 import * as _ from 'lodash'
 import { useSimulatorStore } from "@/hooks/useSimulatorStore"
 import { useExecStep } from "@/hooks/useExecStep"
@@ -15,8 +14,6 @@ import { useExecStep } from "@/hooks/useExecStep"
 // typescript: no operator as string 👎
 // flow & typescript: no literal type as string 👎
 // hermes: no parens 👎 (have to use tokens to know about them)
-
-const astOf = codeStr => hermesParser.parse(codeStr, { tokens: true })
 
 const parensSetOf = tokens => {
     const parens = new Set() // Set of starting locations of parenthized expressions
@@ -259,15 +256,9 @@ const Def = ({ defBy, name, setBy, setTo, parens, parent }) => {
 //   <div className="statement">return {<Expression {...expr} />}</div>
 // )
 
-const Expression = ({ fromAstOf, expr, parent, parens }: { fromAstOf?: any, expr: any, parent: any, parens: any }) => {
+const Expression = ({ expr, parent, parens }: { expr: any, parent: any, parens: any }) => {
     const exprRef = useRef<HTMLSpanElement>(null)
     const { isEvaluating, isEvaluated, isErrorThrown } = useExecStep(expr, exprRef)
-
-    if (fromAstOf) {
-        const ast = astOf(fromAstOf)
-        expr = ast.body[0].expression
-        parens = parensSetOf(ast.tokens)
-    }
 
     let component = <>UNKNOWN Expression</>
 
@@ -1007,13 +998,13 @@ const OperatorUpdate = ({ prefix, operator, argument, parent, parens }: {
 }
 
 const CodeArea: React.FC<CodeAreaProps> = ({ parent, parens, debug }) => {
-    const { astOfCode, codeAreaRef } = useSimulatorStore()
+    const { astOfCode, codeAreaRef, astError } = useSimulatorStore()
 
-    if (!astOfCode) {
+    if (!astOfCode || astError) {
         return (
             <div className="relative w-full h-full bg-slate-50 p-4">
                 <pre className="text-red-500 font-mono text-sm">
-                    Code is not valid
+                    {astError || "Code is not valid"}
                 </pre>
             </div>
         )
