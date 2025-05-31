@@ -14,13 +14,12 @@ export type JSValue =
 // Consider adding symbol/bigint if needed by the code you simulate
 
 // ----- Heap Object -----
-export type HeapObjectType = 'object' | 'array' | 'function'
-
 export const HEAP_OBJECT_TYPE = {
     OBJECT: "object",
     ARRAY: "array",
     FUNCTION: "function",
 } as const
+export type HeapObjectType = 'object' | 'array' | 'function'
 
 export interface BaseObject {
     properties: Record<string, JSValue>

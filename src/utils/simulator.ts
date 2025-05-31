@@ -915,6 +915,7 @@ export const simulateExecution = (astNode: ESTree.Program | null): ExecStep[] =>
     }
 
     execHandlers["UpdateExpression"] = (astNode, options) => {
+        console.log(astNode)
         addEvaluatingStep(astNode)
 
         if (astNode.argument.type === "MemberExpression") {
@@ -962,16 +963,28 @@ export const simulateExecution = (astNode: ESTree.Program | null): ExecStep[] =>
             const lookupResult = lookupVariable(identifier.name)
             if (lookupResult) {
                 // TODO: reference have problem.
-                const value = eval(`${lookupResult.variable.value}${astNode.operator[0]}1`)
+                const value = eval(`${lookupResult.variable.value.value}${astNode.operator[0]}1`)
                 const evaluatedValue = { type: "primitive", value } as const
-
                 writeVariable(
                     identifier.name,
                     evaluatedValue,
                     lookupResult.variable.declarationType,
                     options.parentScopeIndex
                 )
-                pushMemval(evaluatedValue)
+
+                if (astNode.operator === '++') {
+                    if (astNode.prefix) {
+                        pushMemval(evaluatedValue)
+                    } else {
+                        pushMemval({ type: "primitive", value: lookupResult.variable.value.value++ })
+                    }
+                } else if (astNode.operator === '--') {
+                    if (astNode.prefix) {
+                        pushMemval(evaluatedValue)
+                    } else {
+                        pushMemval({ type: "primitive", value: lookupResult.variable.value.value-- })
+                    }
+                }
                 addEvaluatedStep(astNode)
             } else {
                 createErrorObject('ReferenceError', `${identifier.name} is not defined`)

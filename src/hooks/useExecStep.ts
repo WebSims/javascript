@@ -20,7 +20,7 @@ export const useExecStep = (node?: ESNode, ref?: RefObject<HTMLElement | null>) 
                 stepRange[0] === nodeRange[0] &&
                 stepRange[1] === nodeRange[1] &&
                 currentExecStep.node.type === node.type &&
-                currentExecStep.type === EXEC_STEP_TYPE.EXECUTING
+                (currentExecStep.type === EXEC_STEP_TYPE.EXECUTING || currentExecStep.type === EXEC_STEP_TYPE.PUSH_SCOPE || currentExecStep.type === EXEC_STEP_TYPE.HOISTING)
             )
         }
         return false
@@ -32,7 +32,7 @@ export const useExecStep = (node?: ESNode, ref?: RefObject<HTMLElement | null>) 
                 stepRange[0] === nodeRange[0] &&
                 stepRange[1] === nodeRange[1] &&
                 currentExecStep.node.type === node.type &&
-                currentExecStep.type === EXEC_STEP_TYPE.EXECUTED
+                (currentExecStep.type === EXEC_STEP_TYPE.EXECUTED || currentExecStep.type === EXEC_STEP_TYPE.POP_SCOPE)
             )
         }
         return false

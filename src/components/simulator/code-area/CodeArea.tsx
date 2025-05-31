@@ -378,7 +378,7 @@ const Expression = ({ expr, parent, parens }: { expr: any, parent: any, parens: 
 
     if (expr.type === 'UpdateExpression') {
         expr.category = "expression.operator.update"
-        component = <OperatorUpdate prefix={expr.prefix} operator={expr.operator} argument={expr.argument} parens={parens} parent={expr} />
+        component = <UpdateExpression prefix={expr.prefix} operator={expr.operator} argument={expr.argument} parens={parens} parent={expr} />
     }
 
     // console.log('rendering:', { expr, range0: expr.range[0], parenthized: expr.parenthized, parens: [...parens] })
@@ -981,7 +981,7 @@ const BlockStatement = ({ st, parent, parens }: { st: any, parent: any, parens: 
     )
 }
 
-const OperatorUpdate = ({ prefix, operator, argument, parent, parens }: {
+const UpdateExpression = ({ prefix, operator, argument, parent, parens }: {
     prefix: boolean,
     operator: string,
     argument: any,
@@ -991,7 +991,11 @@ const OperatorUpdate = ({ prefix, operator, argument, parent, parens }: {
     return (
         <>
             {prefix && <span className="align-middle font-bold">{operator}</span>}
-            <Expression expr={argument} parens={parens} parent={parent} />
+            {argument.type === 'Identifier' ?
+                <span className="inline-block p-2 text-blue-600">{argument.name}</span>
+                :
+                <Expression expr={argument} parens={parens} parent={parent} />
+            }
             {!prefix && <span className="align-middle font-bold">{operator}</span>}
         </>
     )
