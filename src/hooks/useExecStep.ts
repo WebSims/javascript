@@ -1,6 +1,7 @@
 import { useEffect, useState, RefObject } from 'react'
 import { useSimulatorStore } from './useSimulatorStore'
 import { ESNode } from 'hermes-parser'
+import { BUBBLE_UP_TYPE, EXEC_STEP_TYPE } from '@/types/simulation'
 
 export const useExecStep = (node?: ESNode, ref?: RefObject<HTMLElement | null>) => {
     const { currentExecStep } = useSimulatorStore()
@@ -19,7 +20,7 @@ export const useExecStep = (node?: ESNode, ref?: RefObject<HTMLElement | null>) 
                 stepRange[0] === nodeRange[0] &&
                 stepRange[1] === nodeRange[1] &&
                 currentExecStep.node.type === node.type &&
-                currentExecStep.type === 'EXECUTING'
+                currentExecStep.type === EXEC_STEP_TYPE.EXECUTING
             )
         }
         return false
@@ -31,7 +32,7 @@ export const useExecStep = (node?: ESNode, ref?: RefObject<HTMLElement | null>) 
                 stepRange[0] === nodeRange[0] &&
                 stepRange[1] === nodeRange[1] &&
                 currentExecStep.node.type === node.type &&
-                currentExecStep.type === 'EXECUTED'
+                currentExecStep.type === EXEC_STEP_TYPE.EXECUTED
             )
         }
         return false
@@ -43,7 +44,7 @@ export const useExecStep = (node?: ESNode, ref?: RefObject<HTMLElement | null>) 
                 stepRange[0] === nodeRange[0] &&
                 stepRange[1] === nodeRange[1] &&
                 currentExecStep.node.type === node.type &&
-                currentExecStep.type === 'EVALUATING'
+                (currentExecStep.type === EXEC_STEP_TYPE.EVALUATING || currentExecStep.type === EXEC_STEP_TYPE.FUNCTION_CALL)
             )
         }
         return false
@@ -55,7 +56,7 @@ export const useExecStep = (node?: ESNode, ref?: RefObject<HTMLElement | null>) 
                 stepRange[0] === nodeRange[0] &&
                 stepRange[1] === nodeRange[1] &&
                 currentExecStep.node.type === node.type &&
-                currentExecStep.type === 'EVALUATED'
+                currentExecStep.type === EXEC_STEP_TYPE.EVALUATED
             )
         }
         return false
@@ -67,7 +68,7 @@ export const useExecStep = (node?: ESNode, ref?: RefObject<HTMLElement | null>) 
                 stepRange[0] === nodeRange[0] &&
                 stepRange[1] === nodeRange[1] &&
                 currentExecStep.node.type === node.type &&
-                currentExecStep.bubbleUp === 'THROW'
+                currentExecStep.bubbleUp === BUBBLE_UP_TYPE.THROW
             )
         }
         return false

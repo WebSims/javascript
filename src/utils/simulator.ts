@@ -1,5 +1,5 @@
 import * as ESTree from 'estree'
-import { ExecStep, JSValue, Heap, MemoryChange, HeapObject, HeapRef, Declaration, TDZ, ScopeType, PUSH_SCOPE_KIND, MemVal, MemvalChange, BubbleUp, UNDEFINED, BUBBLE_UP_TYPE, Scope, TraverseASTOptions, HEAP_OBJECT_TYPE, NodeHandlerMap, NodeHandler, DeclarationType, DECLARATION_TYPE, VariableValue } from "../types/simulation"
+import { ExecStep, JSValue, Heap, MemoryChange, HeapObject, HeapRef, Declaration, TDZ, ScopeType, PUSH_SCOPE_KIND, MemVal, MemvalChange, BubbleUp, UNDEFINED, BUBBLE_UP_TYPE, Scope, TraverseASTOptions, HEAP_OBJECT_TYPE, NodeHandlerMap, NodeHandler, DeclarationType, DECLARATION_TYPE, VariableValue, EXEC_STEP_TYPE, ExecStepType } from "../types/simulation"
 import { cloneDeep, forEach } from "lodash" // Import cloneDeep from lodash
 
 export const simulateExecution = (astNode: ESTree.Program | null): ExecStep[] => {
@@ -12,7 +12,7 @@ export const simulateExecution = (astNode: ESTree.Program | null): ExecStep[] =>
         {
             index: 0,
             node: astNode,
-            type: 'INITIAL',
+            type: EXEC_STEP_TYPE.INITIAL,
             memorySnapshot: { scopes: [], heap: {}, memval: [] },
             scopeIndex: 0,
             memoryChange: { type: "none" },
@@ -38,15 +38,17 @@ export const simulateExecution = (astNode: ESTree.Program | null): ExecStep[] =>
     }
 
     // --- Step Helpers ---
-    const addStep = (stepData: Omit<ExecStep, "index" | "scopeIndex" | "memorySnapshot" | "memoryChange" | "memvalChanges">) => {
+    const addStep = (astNode: ESTree.BaseNode, type: ExecStepType, bubbleUp?: BubbleUp) => {
         const snapshot = createMemorySnapshot()
         const step = {
-            ...stepData,
             index: stepCounter++,
+            node: astNode,
+            type,
             scopeIndex: lastScopeIndex,
             memorySnapshot: snapshot,
             memoryChange: stepMemoryChange,
             memvalChanges: stepMemvalChanges,
+            bubbleUp,
         }
         steps.push(step)
 
@@ -60,70 +62,42 @@ export const simulateExecution = (astNode: ESTree.Program | null): ExecStep[] =>
         const scope = newScope(type)
         stepMemoryChange = { type: "push_scope", kind, scope }
 
-        addStep({
-            node: astNode,
-            type: 'PUSH_SCOPE',
-        })
+        addStep(astNode, EXEC_STEP_TYPE.PUSH_SCOPE)
     }
 
     const addHoistingStep = (astNode: ESTree.BaseNode) => {
         stepMemoryChange = { type: "declaration", declarations }
-        addStep({
-            node: astNode,
-            type: 'HOISTING',
-        })
+        addStep(astNode, EXEC_STEP_TYPE.HOISTING)
         declarations = []
     }
 
     const addExecutingStep = (astNode: ESTree.BaseNode) => {
-        addStep({
-            node: astNode,
-            type: 'EXECUTING',
-        })
+        addStep(astNode, EXEC_STEP_TYPE.EXECUTING)
     }
 
     const addExecutedStep = (
         astNode: ESTree.BaseNode,
         bubbleUp?: BubbleUp
     ) => {
-        addStep({
-            node: astNode,
-            type: 'EXECUTED',
-            bubbleUp
-        })
+        addStep(astNode, EXEC_STEP_TYPE.EXECUTED, bubbleUp)
     }
 
     const addEvaluatingStep = (astNode: ESTree.BaseNode) => {
-        addStep({
-            node: astNode,
-            type: 'EVALUATING',
-        })
+        addStep(astNode, EXEC_STEP_TYPE.EVALUATING)
     }
 
     const addEvaluatedStep = (astNode: ESTree.BaseNode, bubbleUp?: BubbleUp) => {
-        addStep({
-            node: astNode,
-            type: 'EVALUATED',
-            bubbleUp
-        })
+        addStep(astNode, EXEC_STEP_TYPE.EVALUATED, bubbleUp)
     }
 
     const addThrownStep = (astNode: ESTree.BaseNode) => {
-        addStep({
-            node: astNode,
-            type: 'EXECUTED',
-            bubbleUp: BUBBLE_UP_TYPE.THROW
-        })
+        addStep(astNode, EXEC_STEP_TYPE.EXECUTED, BUBBLE_UP_TYPE.THROW)
         throw BUBBLE_UP_TYPE.THROW
     }
 
     const addPopScopeStep = (astNode: ESTree.BaseNode, bubbleUp?: BubbleUp) => {
         scopes.splice(lastScopeIndex, 1)
-        addStep({
-            node: astNode,
-            type: 'POP_SCOPE',
-            bubbleUp,
-        })
+        addStep(astNode, EXEC_STEP_TYPE.POP_SCOPE, bubbleUp)
     }
 
     // --- Memory Manipulation Helpers (Simplified placeholders) ---
@@ -366,6 +340,8 @@ export const simulateExecution = (astNode: ESTree.Program | null): ExecStep[] =>
     }
 
     execHandlers["CallExpression"] = (astNode, options) => {
+        addEvaluatingStep(astNode)
+
         traverseExec(astNode.callee, options)
 
         for (const arg of astNode.arguments) {
@@ -382,7 +358,7 @@ export const simulateExecution = (astNode: ESTree.Program | null): ExecStep[] =>
                 pushMemval({ type: 'primitive', value: args.length })
                 pushMemval(fnRef)
 
-                addEvaluatingStep(astNode)
+                addStep(astNode, EXEC_STEP_TYPE.FUNCTION_CALL)
 
                 popMemval()
 

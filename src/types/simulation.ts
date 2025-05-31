@@ -14,13 +14,13 @@ export type JSValue =
 // Consider adding symbol/bigint if needed by the code you simulate
 
 // ----- Heap Object -----
-export type HeapObjectType = 'OBJECT' | 'ARRAY' | 'FUNCTION'
+export type HeapObjectType = 'object' | 'array' | 'function'
 
 export const HEAP_OBJECT_TYPE = {
-    OBJECT: "OBJECT",
-    ARRAY: "ARRAY",
-    FUNCTION: "FUNCTION",
-} as const satisfies Record<HeapObjectType, HeapObjectType>
+    OBJECT: "object",
+    ARRAY: "array",
+    FUNCTION: "function",
+} as const
 
 export interface BaseObject {
     properties: Record<string, JSValue>
@@ -137,7 +137,7 @@ export type MemoryChange =
     }
 
 // ----- Memval -----
-export type MemVal = JSValue
+export type Memval = JSValue
 // kind: "operand" | "evaluated" | "thrown" | "returned"
 
 export type MemvalChange = {
@@ -146,27 +146,38 @@ export type MemvalChange = {
 }
 
 // ----- Bubble Up -----
-export type BubbleUp = 'RETURN' | 'THROW' | 'BREAK' | 'CONTINUE'
-
 export const BUBBLE_UP_TYPE = {
-    RETURN: 'RETURN',
-    THROW: 'THROW',
-    BREAK: 'BREAK',
-    CONTINUE: 'CONTINUE',
-} as const satisfies Record<BubbleUp, BubbleUp>
+    RETURN: 'return',
+    THROW: 'throw',
+    BREAK: 'break',
+    CONTINUE: 'continue',
+} as const
+export type BubbleUp = 'return' | 'throw' | 'break' | 'continue'
 
 // ----- Execution Step -----
+export const EXEC_STEP_TYPE = {
+    INITIAL: 'initial',
+    PUSH_SCOPE: 'push_scope',
+    POP_SCOPE: 'pop_scope',
+    FUNCTION_CALL: 'function_call',
+    HOISTING: 'hoisting',
+    EXECUTING: 'executing',
+    EXECUTED: 'executed',
+    EVALUATING: 'evaluating',
+    EVALUATED: 'evaluated',
+} as const
+export type ExecStepType = 'initial' | 'push_scope' | 'pop_scope' | 'function_call' | 'hoisting' | 'executing' | 'executed' | 'evaluating' | 'evaluated'
 
 // Represents a single step in the code execution simulation
 export type ExecStep = {
     index: number // Sequential step index
     node: ESTree.BaseNode // The primary AST node associated with this step
+    type: ExecStepType
     scopeIndex: number // Index into memorySnapshot.scopes for the *active* scope
-    type: 'INITIAL' | 'PUSH_SCOPE' | 'POP_SCOPE' | 'HOISTING' | 'EXECUTING' | 'EXECUTED' | 'EVALUATING' | 'EVALUATED'
     memorySnapshot: { // Snapshot of the entire memory state *after* this step's change
         scopes: Scope[] // The call stack (array of Scope objects)
         heap: Heap // The heap storing shared objects/arrays/functions
-        memval: MemvalNew[] // TODO: MemValNew
+        memval: Memval[] // TODO: MemValNew
     }
     memoryChange: MemoryChange // Description of the memory effect of this step
     memvalChanges: MemvalChange[] // The memvals that were added or removed in this step
