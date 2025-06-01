@@ -5,6 +5,8 @@ import { cn } from '@/lib/utils'
 import { useSimulatorStore } from '@/hooks/useSimulatorStore'
 
 const SCROLL_SENSITIVITY_FACTOR = 0.15 // Determines how fast scrolling accelerates with mouse distance
+const LONG_PRESS_DURATION = 2000 // 2 seconds for long press activation
+const LONG_PRESS_MOVE_THRESHOLD = 10 // Pixels: allowed movement before cancelling long press timer
 
 interface StepSliderProps {
     steps: ExecStep[]
@@ -22,6 +24,9 @@ const StepSlider = ({ steps, onChange }: StepSliderProps) => {
     const activeMouseUpHandler = useRef<((event: MouseEvent) => void) | null>(null)
     const activeTouchMoveHandler = useRef<((event: TouchEvent) => void) | null>(null)
     const activeTouchEndHandler = useRef<((event: TouchEvent) => void) | null>(null)
+    const longPressTimerRef = useRef<NodeJS.Timeout | null>(null)
+    const isLongPressActiveRef = useRef(false)
+    const initialTouchClientXRef = useRef(0)
 
     const getStepContent = (step: ExecStep) => {
         switch (step.type) {
@@ -240,22 +245,52 @@ const StepSlider = ({ steps, onChange }: StepSliderProps) => {
             return
         }
 
-        e.preventDefault() // Prevent default touch actions like scrolling page from starting here
+        // e.preventDefault() // Do not preventDefault on touchstart initially, allow native scroll if not a long press
         isDraggingRef.current = true
-        // document.body.style.userSelect = 'none'; // Optional: container already has user-select: none
+        isLongPressActiveRef.current = false // Reset for each new touch sequence
+        initialTouchClientXRef.current = e.touches[0].clientX
 
-        handleStepInteraction(e.touches[0].clientX) // Initial interaction
+        if (longPressTimerRef.current) {
+            clearTimeout(longPressTimerRef.current)
+            longPressTimerRef.current = null
+        }
+
+        longPressTimerRef.current = setTimeout(() => {
+            isLongPressActiveRef.current = true
+            longPressTimerRef.current = null // Timer has fired
+            // Perform the initial step interaction based on where the long press was initiated
+            if (containerRef.current && sliderRef.current && steps.length > 0) {
+                // To prevent default browser actions like text selection or context menu on long press, we can preventDefault here
+                e.preventDefault() // Prevent default actions now that long press is confirmed
+                handleStepInteraction(initialTouchClientXRef.current)
+            }
+        }, LONG_PRESS_DURATION)
 
         const handleTouchMoveLocal = (moveEvent: TouchEvent) => {
             if (!isDraggingRef.current || !containerRef.current || moveEvent.touches.length === 0) return
 
-            moveEvent.preventDefault() // Crucial: Prevent page scrolling while dragging the slider
+            const touchX = moveEvent.touches[0].clientX
+
+            // If long press timer is active and finger moves beyond threshold, cancel long press timer (it's a scroll)
+            if (longPressTimerRef.current) {
+                const deltaX = Math.abs(touchX - initialTouchClientXRef.current)
+                if (deltaX > LONG_PRESS_MOVE_THRESHOLD) {
+                    clearTimeout(longPressTimerRef.current)
+                    longPressTimerRef.current = null
+                }
+            }
+
+            // Only prevent default scrolling if long press is active OR if the timer was cancelled by movement (meaning it's a deliberate scroll action)
+            // Or, more simply, if we are dragging and it's not a pending long press (or long press active)
+            if (isLongPressActiveRef.current || !longPressTimerRef.current) {
+                moveEvent.preventDefault() // Prevent page scroll if long press active or if it's a confirmed scroll gesture
+            }
 
             const container = containerRef.current
             const containerRect = container.getBoundingClientRect()
-            const touchX = moveEvent.touches[0].clientX
             let scrollDelta = 0
 
+            // Edge scrolling logic (always active during drag)
             if (touchX < containerRect.left) {
                 const distance = containerRect.left - touchX
                 scrollDelta = -distance * SCROLL_SENSITIVITY_FACTOR
@@ -267,17 +302,25 @@ const StepSlider = ({ steps, onChange }: StepSliderProps) => {
             if (scrollDelta !== 0) {
                 container.scrollLeft += scrollDelta
             }
-            handleStepInteraction(touchX) // Update step based on current touch position
+
+            // If long press is active, then also handle step interaction
+            if (isLongPressActiveRef.current) {
+                handleStepInteraction(touchX)
+            }
         }
 
-        const handleTouchEndLocal = (upEvent: TouchEvent) => {
+        const handleTouchEndLocal = () => { // Removed upEvent
+            if (longPressTimerRef.current) {
+                clearTimeout(longPressTimerRef.current)
+                longPressTimerRef.current = null
+            }
             isDraggingRef.current = false
-            // document.body.style.userSelect = ''; // Reset if it was set globally
+            isLongPressActiveRef.current = false
 
             if (activeTouchMoveHandler.current) {
                 window.removeEventListener('touchmove', activeTouchMoveHandler.current)
             }
-            if (activeTouchEndHandler.current) { // activeTouchEndHandler.current points to this handleTouchEndLocal
+            if (activeTouchEndHandler.current) {
                 window.removeEventListener('touchend', activeTouchEndHandler.current)
                 window.removeEventListener('touchcancel', activeTouchEndHandler.current)
             }
@@ -287,11 +330,12 @@ const StepSlider = ({ steps, onChange }: StepSliderProps) => {
 
         activeTouchMoveHandler.current = handleTouchMoveLocal
         activeTouchEndHandler.current = handleTouchEndLocal
-        window.addEventListener('touchmove', activeTouchMoveHandler.current, { passive: false }) // passive: false is important for preventDefault
+        // Add with passive: false for move only if we intend to preventDefault conditionally
+        window.addEventListener('touchmove', activeTouchMoveHandler.current, { passive: false })
         window.addEventListener('touchend', activeTouchEndHandler.current)
-        window.addEventListener('touchcancel', activeTouchEndHandler.current) // Handle interruptions like system dialogs
+        window.addEventListener('touchcancel', activeTouchEndHandler.current)
 
-    }, [handleStepInteraction, steps, containerRef, sliderRef, SCROLL_SENSITIVITY_FACTOR])
+    }, [handleStepInteraction, steps, containerRef, sliderRef, SCROLL_SENSITIVITY_FACTOR, LONG_PRESS_DURATION, LONG_PRESS_MOVE_THRESHOLD])
 
     useEffect(() => {
         // Capture the current handlers for the cleanup function.
@@ -342,7 +386,7 @@ const StepSlider = ({ steps, onChange }: StepSliderProps) => {
     return (
         <div
             ref={containerRef}
-            className='h-12 w-full relative flex items-end overflow-x-auto'
+            className='h-12 w-full relative flex items-end overflow-x-auto px-2'
             style={{
                 scrollbarWidth: 'thin',
                 userSelect: 'none'
