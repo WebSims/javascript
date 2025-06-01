@@ -1,11 +1,12 @@
 import React from 'react'
 import { PlayIcon, PauseIcon, SkipBackIcon, SkipForwardIcon } from 'lucide-react'
-import { Slider } from "@/components/ui/slider"
 import { useSimulatorStore } from '@/hooks/useSimulatorStore'
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip'
+import StepSlider from './StepSlider'
 
 const ExecutionBar = () => {
     const {
+        execSteps,
         isPlaying,
         togglePlaying,
         currentExecStep,
@@ -26,8 +27,12 @@ const ExecutionBar = () => {
         togglePlaying()
     }
 
+    const handleStepChange = (index: number) => {
+        changeStep(index)
+    }
+
     return (
-        <div className="lg:h-12 w-full bg-white border-b border-slate-200 flex flex-col lg:flex-row lg:items-center gap-1 lg:gap-6 py-1 lg:px-3">
+        <div className="lg:h-12 w-full bg-white border-b border-slate-200 flex flex-col lg:flex-row lg:items-center gap-1 lg:gap-4 lg:px-3 overflow-hidden">
             <div className="flex items-center gap-1 lg:gap-3">
                 <TooltipProvider>
                     <Tooltip>
@@ -87,20 +92,11 @@ const ExecutionBar = () => {
                 </TooltipProvider>
             </div>
 
-            <div className="w-full lg:flex-1 flex items-center gap-2 lg:gap-4 px-3 lg:px-0 pb-1 lg:pb-0">
-                <Slider
-                    value={[currentExecStep?.index ?? 0]}
-                    min={0}
-                    max={totalSteps - 1}
-                    step={1}
-                    onValueChange={(value) => changeStep(value[0])}
-                    className="flex-1"
-                />
-                <div className="text-sm text-gray-600 text-right">
-                    <span className="font-medium">{(currentExecStep?.index ?? 0)}</span>
-                    <span className="text-gray-400"> / {totalSteps - 1}</span>
-                </div>
-            </div>
+            <StepSlider
+                steps={execSteps}
+                currentStepIndex={currentExecStep?.index ?? 0}
+                onChange={handleStepChange}
+            />
         </div>
     )
 }
