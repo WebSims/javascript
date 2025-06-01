@@ -27,6 +27,13 @@ const StepSlider = ({ steps, onChange }: StepSliderProps) => {
             case EXEC_STEP_TYPE.INITIAL:
                 return ''
             case EXEC_STEP_TYPE.PUSH_SCOPE:
+                if (step.memoryChange.type === 'push_scope') {
+                    if (step.memoryChange.kind === "program") {
+                        return ''
+                    } else {
+                        return '{'
+                    }
+                }
                 return '{'
             case EXEC_STEP_TYPE.HOISTING:
                 return 'H'
@@ -54,10 +61,18 @@ const StepSlider = ({ steps, onChange }: StepSliderProps) => {
             case EXEC_STEP_TYPE.HOISTING:
                 return 'bg-orange-200'
             case EXEC_STEP_TYPE.EXECUTING:
+            case EXEC_STEP_TYPE.EXECUTED:
                 return 'bg-yellow-200'
             case EXEC_STEP_TYPE.PUSH_SCOPE:
             case EXEC_STEP_TYPE.POP_SCOPE:
-                return 'bg-blue-100'
+                if (step.memoryChange.type === 'push_scope' || step.memoryChange.type === 'pop_scope') {
+                    if (step.memoryChange.kind === "function") {
+                        return 'bg-blue-100'
+                    } else {
+                        return 'bg-gray-100'
+                    }
+                }
+                return 'bg-gray-100'
             case EXEC_STEP_TYPE.EVALUATING:
             case EXEC_STEP_TYPE.EVALUATED:
                 return 'bg-green-100'

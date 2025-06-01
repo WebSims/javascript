@@ -1,5 +1,31 @@
 import * as ESTree from 'estree'
-import { ExecStep, JSValue, Heap, MemoryChange, HeapObject, HeapRef, Declaration, TDZ, ScopeType, PUSH_SCOPE_KIND, MemVal, MemvalChange, BubbleUp, UNDEFINED, BUBBLE_UP_TYPE, Scope, TraverseASTOptions, HEAP_OBJECT_TYPE, NodeHandlerMap, NodeHandler, DeclarationType, DECLARATION_TYPE, VariableValue, EXEC_STEP_TYPE, ExecStepType } from "../types/simulation"
+import {
+    UNDEFINED,
+    TDZ,
+    BUBBLE_UP_TYPE,
+    SCOPE_KIND,
+    DECLARATION_TYPE,
+    HEAP_OBJECT_TYPE,
+    ExecStep,
+    JSValue,
+    Heap,
+    MemoryChange,
+    HeapObject,
+    HeapRef,
+    Declaration,
+    ScopeType,
+    MemvalChange,
+    BubbleUp,
+    Scope,
+    TraverseASTOptions,
+    NodeHandlerMap,
+    NodeHandler,
+    DeclarationType,
+    VariableValue,
+    EXEC_STEP_TYPE,
+    ExecStepType,
+    ScopeKind,
+} from "../types/simulation"
 import { cloneDeep, forEach } from "lodash" // Import cloneDeep from lodash
 
 export const simulateExecution = (astNode: ESTree.Program | null): ExecStep[] => {
@@ -56,9 +82,8 @@ export const simulateExecution = (astNode: ESTree.Program | null): ExecStep[] =>
         stepMemvalChanges = []
     }
 
-    const addPushScopeStep = (astNode: ESTree.BaseNode, options: TraverseASTOptions) => {
-        const type = astNode.type === "Program" ? "global" : options.callee ? "function" : "block"
-        const kind = PUSH_SCOPE_KIND[type as keyof typeof PUSH_SCOPE_KIND]
+    const addPushScopeStep = (astNode: ESTree.BaseNode, kind: ScopeKind) => {
+        const type = kind === SCOPE_KIND.PROGRAM ? "global" : kind === SCOPE_KIND.FUNCTION ? "function" : "block"
         const scope = newScope(type)
         stepMemoryChange = { type: "push_scope", kind, scope }
 
@@ -95,8 +120,10 @@ export const simulateExecution = (astNode: ESTree.Program | null): ExecStep[] =>
         throw BUBBLE_UP_TYPE.THROW
     }
 
-    const addPopScopeStep = (astNode: ESTree.BaseNode, bubbleUp?: BubbleUp) => {
+    const addPopScopeStep = (astNode: ESTree.BaseNode, kind: ScopeKind, bubbleUp?: BubbleUp) => {
+        console.log(kind)
         scopes.splice(lastScopeIndex, 1)
+        stepMemoryChange = { type: "pop_scope", kind, scopeIndex: lastScopeIndex }
         addStep(astNode, EXEC_STEP_TYPE.POP_SCOPE, bubbleUp)
     }
 
@@ -1165,12 +1192,25 @@ export const simulateExecution = (astNode: ESTree.Program | null): ExecStep[] =>
         }
     }
 
+    const getScopeKind = (astNode: ESTree.BaseNode, options: TraverseASTOptions) => {
+        if (astNode.type === "Program") {
+            return SCOPE_KIND.PROGRAM
+        } else if (options.callee) {
+            return SCOPE_KIND.FUNCTION
+        } else if (options.catch) {
+            return SCOPE_KIND.CATCH
+        } else {
+            return SCOPE_KIND.BLOCK
+        }
+    }
+
     // --- Simulation Execution --- 
     function traverseExec(
         astNode: ESTree.Node,
         options: TraverseASTOptions
     ) {
         if (isBlock(astNode) || options.callee) {
+            const scopeKind = getScopeKind(astNode, options)
             try {
                 options.strict = isStrict(astNode, options)
 
@@ -1180,7 +1220,7 @@ export const simulateExecution = (astNode: ESTree.Program | null): ExecStep[] =>
                 }
 
                 // Phase 1: push scope - hoisting and declarations
-                addPushScopeStep(astNode, options)
+                addPushScopeStep(astNode, scopeKind)
                 traverseHoisting(astNode, options)
                 addHoistingStep(astNode)
 
@@ -1194,12 +1234,12 @@ export const simulateExecution = (astNode: ESTree.Program | null): ExecStep[] =>
 
                 // Phase 3: pop scope - except for global scope
                 if (lastScopeIndex !== 0) {
-                    addPopScopeStep(astNode)
+                    addPopScopeStep(astNode, scopeKind)
                     lastScopeIndex--
                 }
             } catch (bubbleUp) {
                 if (lastScopeIndex !== 0) {
-                    addPopScopeStep(astNode, bubbleUp as BubbleUp)
+                    addPopScopeStep(astNode, scopeKind, bubbleUp as BubbleUp)
                     lastScopeIndex--
                     throw bubbleUp
                 }

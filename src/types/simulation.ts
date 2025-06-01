@@ -70,22 +70,17 @@ export type Scope = {
     // Add other scope-specific info if needed (e.g., is it a block scope?)
 }
 
-type PushScopeKind = "program" | "function" | "try" | "catch" | "finally" | "conditional" | "loop" | "block"
-export const PUSH_SCOPE_KIND = {
-    Program: "program",
-    BlockStatement: "block",
-    FunctionDeclaration: "function",
-    FunctionExpression: "function",
-    ArrowFunctionExpression: "function",
-    TryStatement: "try",
-    CatchClause: "catch",
-    FinallyClause: "finally",
-    SwitchStatement: "conditional",
-    IfStatement: "conditional",
-    ForStatement: "loop",
-    WhileStatement: "loop",
-    DoWhileStatement: "loop",
-} as const satisfies Record<string, PushScopeKind>
+export const SCOPE_KIND = {
+    PROGRAM: "program",
+    FUNCTION: "function",
+    BLOCK: "block",
+    TRY: "try",
+    CATCH: "catch",
+    FINALLY: "finally",
+    CONDITIONAL: "conditional",
+    LOOP: "loop",
+} as const
+export type ScopeKind = "program" | "function" | "try" | "catch" | "finally" | "conditional" | "loop" | "block"
 
 export type Declaration = {
     declarationType: DeclarationType,
@@ -126,12 +121,12 @@ export type MemoryChange =
     }
     | {
         type: "push_scope"
-        kind: PushScopeKind
+        kind: ScopeKind
         scope: Scope
-        functionRef?: HeapRef // Reference to the function HeapObject that was called
     }
     | {
         type: "pop_scope"
+        kind: ScopeKind
         scopeIndex: number // Index in the memorySnapshot.scopes array
     }
 
@@ -165,7 +160,16 @@ export const EXEC_STEP_TYPE = {
     EVALUATING: 'evaluating',
     EVALUATED: 'evaluated',
 } as const
-export type ExecStepType = 'initial' | 'push_scope' | 'pop_scope' | 'function_call' | 'hoisting' | 'executing' | 'executed' | 'evaluating' | 'evaluated'
+export type ExecStepType =
+    | 'initial'
+    | 'push_scope'
+    | 'pop_scope'
+    | 'function_call'
+    | 'hoisting'
+    | 'executing'
+    | 'executed'
+    | 'evaluating'
+    | 'evaluated'
 
 // Represents a single step in the code execution simulation
 export type ExecStep = {
