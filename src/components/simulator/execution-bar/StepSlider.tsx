@@ -4,6 +4,7 @@ import { EXEC_STEP_TYPE, ExecStep } from '@/types/simulation'
 import { cn } from '@/lib/utils'
 import { useSimulatorStore } from '@/hooks/useSimulatorStore'
 
+// const STEP_WIDTH = 20 // Assumed step width in pixels (from min-w-5 = 1.25rem) // REMOVED
 const SCROLL_SENSITIVITY_FACTOR = 0.15 // Determines how fast scrolling accelerates with mouse distance
 
 interface StepSliderProps {
@@ -20,8 +21,6 @@ const StepSlider = ({ steps, onChange }: StepSliderProps) => {
     const isDraggingRef = useRef(false)
     const activeMouseMoveHandler = useRef<((event: MouseEvent) => void) | null>(null)
     const activeMouseUpHandler = useRef<((event: MouseEvent) => void) | null>(null)
-    const activeTouchMoveHandler = useRef<((event: TouchEvent) => void) | null>(null)
-    const activeTouchEndHandler = useRef<((event: TouchEvent) => void) | null>(null)
 
     const getStepContent = (step: ExecStep) => {
         switch (step.type) {
@@ -235,97 +234,20 @@ const StepSlider = ({ steps, onChange }: StepSliderProps) => {
 
     }, [handleStepInteraction, steps, containerRef, sliderRef])
 
-    const handleTouchStartDraggable = useCallback((e: React.TouchEvent<HTMLDivElement>) => {
-        if (e.touches.length !== 1 || !sliderRef.current || !containerRef.current || !steps || steps.length === 0) {
-            return
-        }
-
-        e.preventDefault() // Prevent default touch actions like scrolling page from starting here
-        isDraggingRef.current = true
-        // document.body.style.userSelect = 'none'; // Optional: container already has user-select: none
-
-        handleStepInteraction(e.touches[0].clientX) // Initial interaction
-
-        const handleTouchMoveLocal = (moveEvent: TouchEvent) => {
-            if (!isDraggingRef.current || !containerRef.current || moveEvent.touches.length === 0) return
-
-            moveEvent.preventDefault() // Crucial: Prevent page scrolling while dragging the slider
-
-            const container = containerRef.current
-            const containerRect = container.getBoundingClientRect()
-            const touchX = moveEvent.touches[0].clientX
-            let scrollDelta = 0
-
-            if (touchX < containerRect.left) {
-                const distance = containerRect.left - touchX
-                scrollDelta = -distance * SCROLL_SENSITIVITY_FACTOR
-            } else if (touchX > containerRect.right) {
-                const distance = touchX - containerRect.right
-                scrollDelta = distance * SCROLL_SENSITIVITY_FACTOR
-            }
-
-            if (scrollDelta !== 0) {
-                container.scrollLeft += scrollDelta
-            }
-            handleStepInteraction(touchX) // Update step based on current touch position
-        }
-
-        const handleTouchEndLocal = (upEvent: TouchEvent) => {
-            isDraggingRef.current = false
-            // document.body.style.userSelect = ''; // Reset if it was set globally
-
-            if (activeTouchMoveHandler.current) {
-                window.removeEventListener('touchmove', activeTouchMoveHandler.current)
-            }
-            if (activeTouchEndHandler.current) { // activeTouchEndHandler.current points to this handleTouchEndLocal
-                window.removeEventListener('touchend', activeTouchEndHandler.current)
-                window.removeEventListener('touchcancel', activeTouchEndHandler.current)
-            }
-            activeTouchMoveHandler.current = null
-            activeTouchEndHandler.current = null
-        }
-
-        activeTouchMoveHandler.current = handleTouchMoveLocal
-        activeTouchEndHandler.current = handleTouchEndLocal
-        window.addEventListener('touchmove', activeTouchMoveHandler.current, { passive: false }) // passive: false is important for preventDefault
-        window.addEventListener('touchend', activeTouchEndHandler.current)
-        window.addEventListener('touchcancel', activeTouchEndHandler.current) // Handle interruptions like system dialogs
-
-    }, [handleStepInteraction, steps, containerRef, sliderRef, SCROLL_SENSITIVITY_FACTOR])
-
     useEffect(() => {
-        // Capture the current handlers for the cleanup function.
-        // This ensures the cleanup function uses the handlers from the effect's render cycle.
-        const capturedMouseMoveHandler = activeMouseMoveHandler.current
-        const capturedMouseUpHandler = activeMouseUpHandler.current
-        const capturedTouchMoveHandler = activeTouchMoveHandler.current
-        const capturedTouchEndHandler = activeTouchEndHandler.current
-
         return () => {
-            // Cleanup mouse listeners
-            if (capturedMouseMoveHandler) {
-                window.removeEventListener('mousemove', capturedMouseMoveHandler)
-            }
-            if (capturedMouseUpHandler) {
-                window.removeEventListener('mouseup', capturedMouseUpHandler)
-            }
-            // Cleanup touch listeners
-            if (capturedTouchMoveHandler) {
-                window.removeEventListener('touchmove', capturedTouchMoveHandler)
-            }
-            if (capturedTouchEndHandler) {
-                window.removeEventListener('touchend', capturedTouchEndHandler)
-                window.removeEventListener('touchcancel', capturedTouchEndHandler)
-            }
-
-            // If a drag was in progress when the component unmounted, reset body styles and dragging state.
             if (isDraggingRef.current) {
-                document.body.style.cursor = '' // Reset mouse cursor
-                // document.body.style.userSelect = ''; // Reset if globally set for touch
+                if (activeMouseMoveHandler.current) {
+                    window.removeEventListener('mousemove', activeMouseMoveHandler.current)
+                }
+                if (activeMouseUpHandler.current) {
+                    window.removeEventListener('mouseup', activeMouseUpHandler.current)
+                }
+                document.body.style.cursor = ''
                 isDraggingRef.current = false
             }
         }
-    }, []) // Removed dependencies as we are capturing current refs, this effect runs once on mount and cleans up on unmount
+    }, [])
 
     const currentStepArrayIndex = currentExecStep ? steps.findIndex(s => s.index === currentExecStep.index) : -1
     let chevronDisplayLeftPosition = 0
@@ -352,7 +274,6 @@ const StepSlider = ({ steps, onChange }: StepSliderProps) => {
                 ref={sliderRef}
                 className='w-full flex'
                 onMouseDown={handleMouseDownDraggable}
-                onTouchStart={handleTouchStartDraggable}
             >
                 {steps.map((step) => {
                     return (
