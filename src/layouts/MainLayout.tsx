@@ -23,7 +23,7 @@ const MainLayout: React.FC<MainLayoutProps> = ({ children }) => {
                     </Button>
                 </div>
 
-                <div className='flex w-full items-center gap-2  overflow-hidden'>
+                <div className='flex w-full items-center gap-2 overflow-hidden'>
                     <div className='font-bold lg:text-lg'>
                         WebSims.org/js
                     </div>

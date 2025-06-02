@@ -13,7 +13,6 @@ const ExecutionBar = () => {
         stepForward,
         stepBackward,
         changeStep,
-        totalSteps
     } = useSimulatorStore()
 
     const handleKeyDown = (e: React.KeyboardEvent, action: () => void) => {
@@ -32,8 +31,8 @@ const ExecutionBar = () => {
     }
 
     return (
-        <div className="lg:h-12 w-full border-b lg:border-b-0 flex flex-col lg:flex-row lg:items-center lg:px-3 overflow-hidden">
-            <div className="flex items-center gap-1 lg:gap-3">
+        <div className="w-full flex flex-col lg:flex-row lg:items-center lg:px-3 overflow-hidden border-t lg:border-t-0">
+            <div className="flex items-center gap-1 lg:gap-3 justify-end">
                 <TooltipProvider>
                     <Tooltip>
                         <TooltipTrigger asChild>
@@ -92,11 +91,13 @@ const ExecutionBar = () => {
                 </TooltipProvider>
             </div>
 
-            <StepSlider
-                steps={execSteps}
-                currentStepIndex={currentExecStep?.index ?? 0}
-                onChange={handleStepChange}
-            />
+            <div className='h-14 lg:h-12 w-full overflow-hidden pb-1'>
+                <StepSlider
+                    steps={execSteps}
+                    currentStepIndex={currentExecStep?.index ?? 0}
+                    onChange={handleStepChange}
+                />
+            </div>
         </div>
     )
 }

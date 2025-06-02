@@ -41,7 +41,6 @@ const ExecutionMode: React.FC = () => {
 
     return (
         <div className='flex flex-col h-full'>
-            <ExecutionBar />
             <ResizablePanelGroup direction="vertical">
                 <ResizablePanel>
                     <CodeArea />
@@ -62,6 +61,7 @@ const ExecutionMode: React.FC = () => {
                     </Tabs>
                 </ResizablePanel>
             </ResizablePanelGroup>
+            <ExecutionBar />
         </div>
     )
 }
