@@ -9,7 +9,7 @@ interface StepSliderProps {
     onChange: (index: number) => void
 }
 
-const STEP_ITEM_WIDTH = 44 // 40px min-width + 4px margins (2px each side)
+const STEP_ITEM_WIDTH = 40 // 36px min-width + 4px margins (2px each side)
 
 const STEP_CONTENT_MAP: Record<ExecStepType, string | ((step: ExecStep) => string)> = {
     [EXEC_STEP_TYPE.INITIAL]: '',
@@ -231,7 +231,7 @@ const StepSlider = ({ steps, currentStepIndex, onChange }: StepSliderProps) => {
     return (
         <div
             ref={containerRef}
-            className='h-12 w-full relative flex items-end overflow-hidden'
+            className='h-12 w-full relative flex items-end overflow-hidden pb-1'
             onWheel={handleWheel}
             style={{
                 scrollbarWidth: 'thin',
@@ -241,19 +241,19 @@ const StepSlider = ({ steps, currentStepIndex, onChange }: StepSliderProps) => {
             <div
                 ref={sliderRef}
                 className={cn(
-                    'w-full flex overflow-x-auto scrollbar-hide',
+                    'w-full flex overflow-x-auto',
                     isDragging ? 'cursor-grabbing' : 'cursor-grab'
                 )}
-                onMouseDown={handleMouseDown}
-                onTouchStart={handleTouchStart}
-                onMouseLeave={handleMouseLeave}
                 style={{
                     scrollBehavior: isDragging ? 'auto' : 'smooth',
                     msOverflowStyle: 'none',
                     scrollbarWidth: 'none'
                 }}
+                onMouseDown={handleMouseDown}
+                onTouchStart={handleTouchStart}
+                onMouseLeave={handleMouseLeave}
             >
-                <div className="flex-shrink-0" style={{ width: '50%' }} />
+                <div className="w-1/2 flex-shrink-0" />
                 {steps.map((step, index) => {
                     const isHighlighted = index === currentStepIndex
                     return (
@@ -269,11 +269,11 @@ const StepSlider = ({ steps, currentStepIndex, onChange }: StepSliderProps) => {
                                 }
                             }}
                             className={cn(
-                                'min-w-[40px] flex-shrink-0 flex items-center justify-center border-t border-b transition-all duration-300 cursor-pointer mx-0.5 hover:opacity-100',
+                                'min-w-9 h-full flex items-center justify-center border-t border-b transition-all duration-300 cursor-pointer mx-0.5 hover:opacity-100',
                                 getStepColor(step),
                                 {
-                                    'border-2 border-blue-600 h-full z-10': isHighlighted,
-                                    'border-gray-300 h-10 opacity-70': !isHighlighted,
+                                    'border-2 border-blue-600': isHighlighted,
+                                    'h-8 border-gray-300 opacity-70': !isHighlighted,
                                 }
                             )}
                         >
