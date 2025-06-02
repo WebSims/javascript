@@ -1,11 +1,7 @@
-import React, { useRef, useEffect, useCallback } from 'react'
+import React, { useRef, useEffect, useState, useCallback } from 'react'
 import { ChevronDownIcon } from 'lucide-react'
-import { EXEC_STEP_TYPE, ExecStep } from '@/types/simulation'
+import { EXEC_STEP_TYPE, ExecStep, ExecStepType } from '@/types/simulation'
 import { cn } from '@/lib/utils'
-import { useSimulatorStore } from '@/hooks/useSimulatorStore'
-
-// const STEP_WIDTH = 20 // Assumed step width in pixels (from min-w-5 = 1.25rem) // REMOVED
-const SCROLL_SENSITIVITY_FACTOR = 0.15 // Determines how fast scrolling accelerates with mouse distance
 
 interface StepSliderProps {
     steps: ExecStep[]
@@ -13,273 +9,188 @@ interface StepSliderProps {
     onChange: (index: number) => void
 }
 
-const StepSlider = ({ steps, onChange }: StepSliderProps) => {
-    const { currentExecStep } = useSimulatorStore()
+const STEP_ITEM_WIDTH = 44 // 40px min-width + 4px margins (2px each side)
 
+const STEP_CONTENT_MAP: Record<ExecStepType, string | ((step: ExecStep) => string)> = {
+    [EXEC_STEP_TYPE.INITIAL]: '',
+    [EXEC_STEP_TYPE.PUSH_SCOPE]: (step: ExecStep) => {
+        if (step.memoryChange?.type === 'push_scope' && step.memoryChange.kind === 'program') {
+            return ''
+        }
+        return '{'
+    },
+    [EXEC_STEP_TYPE.HOISTING]: 'H',
+    [EXEC_STEP_TYPE.POP_SCOPE]: '}',
+    [EXEC_STEP_TYPE.EXECUTING]: 'S',
+    [EXEC_STEP_TYPE.EXECUTED]: ';',
+    [EXEC_STEP_TYPE.EVALUATING]: '(',
+    [EXEC_STEP_TYPE.EVALUATED]: ')',
+    [EXEC_STEP_TYPE.FUNCTION_CALL]: 'F',
+}
+
+const STEP_COLOR_MAP: Record<ExecStepType, string | ((step: ExecStep) => string)> = {
+    [EXEC_STEP_TYPE.INITIAL]: 'bg-white',
+    [EXEC_STEP_TYPE.HOISTING]: 'bg-orange-200',
+    [EXEC_STEP_TYPE.EXECUTING]: 'bg-yellow-200',
+    [EXEC_STEP_TYPE.EXECUTED]: 'bg-yellow-200',
+    [EXEC_STEP_TYPE.PUSH_SCOPE]: (step: ExecStep) => {
+        if (step.memoryChange?.type === 'push_scope' && step.memoryChange.kind === 'function') {
+            return 'bg-blue-100'
+        }
+        return 'bg-gray-100'
+    },
+    [EXEC_STEP_TYPE.POP_SCOPE]: (step: ExecStep) => {
+        if (step.memoryChange?.type === 'pop_scope' && step.memoryChange.kind === 'function') {
+            return 'bg-blue-100'
+        }
+        return 'bg-gray-100'
+    },
+    [EXEC_STEP_TYPE.EVALUATING]: 'bg-green-100',
+    [EXEC_STEP_TYPE.EVALUATED]: 'bg-green-100',
+    [EXEC_STEP_TYPE.FUNCTION_CALL]: 'bg-purple-100',
+}
+
+const StepSlider = ({ steps, currentStepIndex, onChange }: StepSliderProps) => {
     const containerRef = useRef<HTMLDivElement>(null)
     const sliderRef = useRef<HTMLDivElement>(null)
-    const isDraggingRef = useRef(false)
-    const activeMouseMoveHandler = useRef<((event: MouseEvent) => void) | null>(null)
-    const activeMouseUpHandler = useRef<((event: MouseEvent) => void) | null>(null)
+    const [isDragging, setIsDragging] = useState(false)
+    const [startX, setStartX] = useState(0)
+    const [scrollLeft, setScrollLeft] = useState(0)
+    const [isWheelScrolling, setIsWheelScrolling] = useState(false)
 
-    const getStepContent = (step: ExecStep) => {
-        switch (step.type) {
-            case EXEC_STEP_TYPE.INITIAL:
-                return ''
-            case EXEC_STEP_TYPE.PUSH_SCOPE:
-                if (step.memoryChange.type === 'push_scope') {
-                    if (step.memoryChange.kind === "program") {
-                        return ''
-                    } else {
-                        return '{'
-                    }
-                }
-                return '{'
-            case EXEC_STEP_TYPE.HOISTING:
-                return 'H'
-            case EXEC_STEP_TYPE.POP_SCOPE:
-                return '}'
-            case EXEC_STEP_TYPE.EXECUTING:
-                return 'S'
-            case EXEC_STEP_TYPE.EXECUTED:
-                return ';'
-            case EXEC_STEP_TYPE.EVALUATING:
-                return '('
-            case EXEC_STEP_TYPE.EVALUATED:
-                return ')'
-            case EXEC_STEP_TYPE.FUNCTION_CALL:
-                return 'F'
-            default:
-                return '?'
-        }
-    }
+    const calculateCenterStep = useCallback(() => {
+        if (!sliderRef.current) return currentStepIndex
 
-    const getStepColor = (step: ExecStep) => {
-        switch (step.type) {
-            case EXEC_STEP_TYPE.INITIAL:
-                return 'bg-white'
-            case EXEC_STEP_TYPE.HOISTING:
-                return 'bg-orange-200'
-            case EXEC_STEP_TYPE.EXECUTING:
-            case EXEC_STEP_TYPE.EXECUTED:
-                return 'bg-yellow-200'
-            case EXEC_STEP_TYPE.PUSH_SCOPE:
-            case EXEC_STEP_TYPE.POP_SCOPE:
-                if (step.memoryChange.type === 'push_scope' || step.memoryChange.type === 'pop_scope') {
-                    if (step.memoryChange.kind === "function") {
-                        return 'bg-blue-100'
-                    } else {
-                        return 'bg-gray-100'
-                    }
-                }
-                return 'bg-gray-100'
-            case EXEC_STEP_TYPE.EVALUATING:
-            case EXEC_STEP_TYPE.EVALUATED:
-                return 'bg-green-100'
-            default:
-                return 'bg-gray-100'
-        }
-    }
+        const currentScroll = sliderRef.current.scrollLeft
+        const itemWidth = STEP_ITEM_WIDTH
+
+        const itemIndex = Math.floor(currentScroll / itemWidth)
+
+        return Math.max(0, Math.min(steps.length - 1, itemIndex))
+    }, [currentStepIndex, steps.length])
 
     useEffect(() => {
-        const container = containerRef.current
-        if (!container) return
+        if (!sliderRef.current || isDragging || isWheelScrolling) return
 
-        const onWheel = (e: WheelEvent) => {
-            e.preventDefault()
-            container.scrollLeft += e.deltaY;
-        };
+        const slider = sliderRef.current
+        const itemWidth = STEP_ITEM_WIDTH
 
-        container.addEventListener('wheel', onWheel);
-        return () => container.removeEventListener('wheel', onWheel);
-    }, [])
+        const targetScrollLeft = (currentStepIndex * itemWidth) + (itemWidth / 2)
 
-    useEffect(() => {
-        const container = containerRef.current
-        let highlightedStepElement: HTMLElement | null = null
-        if (currentExecStep && sliderRef.current && steps.length > 0) {
-            const currentIdx = steps.findIndex(s => s.index === currentExecStep.index)
-            if (currentIdx !== -1 && sliderRef.current.children[currentIdx]) {
-                highlightedStepElement = sliderRef.current.children[currentIdx] as HTMLElement
-            }
-        }
+        slider.scrollTo({
+            left: targetScrollLeft,
+            behavior: 'smooth'
+        })
+    }, [currentStepIndex, steps.length, isDragging, isWheelScrolling])
 
-        if (container && highlightedStepElement) {
-            const containerRect = container.getBoundingClientRect()
-            const stepRect = highlightedStepElement.getBoundingClientRect()
-
-            const isFullyVisible =
-                stepRect.left >= containerRect.left &&
-                stepRect.right <= containerRect.right
-
-            if (!isFullyVisible) {
-                if (isDraggingRef.current) {
-                    const SCROLL_NUDGE_PX = 20 // Fixed nudge amount for smoother scrolling during drag
-                    if (stepRect.left < containerRect.left) {
-                        container.scrollLeft -= SCROLL_NUDGE_PX
-                    } else if (stepRect.right > containerRect.right) {
-                        container.scrollLeft += SCROLL_NUDGE_PX
-                    }
-                } else {
-                    highlightedStepElement.scrollIntoView({ behavior: 'smooth', inline: 'center', block: 'nearest' })
-                }
-            }
-        }
-    }, [currentExecStep, steps, containerRef, sliderRef, isDraggingRef])
-
-    const handleStepInteraction = useCallback((clientX: number) => {
-        if (!sliderRef.current || !containerRef.current || !steps || steps.length === 0) {
-            return
-        }
-
-        const containerRect = containerRef.current.getBoundingClientRect()
-        const clickXRelativeToContainer = clientX - containerRect.left
-        const clickXOnSliderContent = containerRef.current.scrollLeft + clickXRelativeToContainer
-
-        const stepElements = Array.from(sliderRef.current.children) as HTMLElement[]
-        if (stepElements.length === 0) return
-
-        let targetArrayIndex = -1
-
-        // Try to find a direct hit
-        for (let i = 0; i < stepElements.length; i++) {
-            const stepElement = stepElements[i]
-            const stepStart = stepElement.offsetLeft
-            const stepEnd = stepStart + stepElement.offsetWidth
-            if (clickXOnSliderContent >= stepStart && clickXOnSliderContent < stepEnd) {
-                targetArrayIndex = i
-                break
-            }
-        }
-
-        // Handle cases where click is outside any specific step's bounds
-        if (targetArrayIndex === -1) {
-            if (clickXOnSliderContent < stepElements[0].offsetLeft && stepElements.length > 0) {
-                targetArrayIndex = 0
-            } else if (stepElements.length > 0 && clickXOnSliderContent >= stepElements[stepElements.length - 1].offsetLeft + stepElements[stepElements.length - 1].offsetWidth) {
-                targetArrayIndex = stepElements.length - 1
-            } else if (stepElements.length > 0) {
-                // Fallback: find the closest element by midpoint if click is in a gap or unhandled region
-                let closestIndex = 0
-                let minDistance = Infinity
-                for (let i = 0; i < stepElements.length; i++) {
-                    const el = stepElements[i]
-                    const midPoint = el.offsetLeft + el.offsetWidth / 2
-                    const distance = Math.abs(clickXOnSliderContent - midPoint)
-                    if (distance < minDistance) {
-                        minDistance = distance
-                        closestIndex = i
-                    }
-                }
-                targetArrayIndex = closestIndex
-            } else {
-                // Should not happen if steps.length > 0 and stepElements.length > 0 checks passed
-                return
-            }
-        }
-
-        // Ensure targetArrayIndex is valid for the 'steps' array
-        targetArrayIndex = Math.max(0, Math.min(targetArrayIndex, steps.length - 1))
-
-
-        if (steps[targetArrayIndex]) { // Check if steps[targetArrayIndex] exists
-            const targetStep = steps[targetArrayIndex]
-            if (targetStep && targetStep.index !== currentExecStep?.index) {
-                onChange(targetStep.index)
-            }
-        }
-    }, [steps, currentExecStep, onChange, containerRef, sliderRef])
-
-    const handleMouseDownDraggable = useCallback((e: React.MouseEvent<HTMLDivElement>) => {
-        if (e.button !== 0 || !sliderRef.current || !containerRef.current || !steps || steps.length === 0) {
-            return
-        }
+    const handleDocumentMouseMove = useCallback((e: MouseEvent) => {
+        if (!isDragging || !sliderRef.current) return
 
         e.preventDefault()
-        isDraggingRef.current = true
-        document.body.style.cursor = 'grabbing'
+        const sliderRect = sliderRef.current.getBoundingClientRect()
+        const x = e.clientX - sliderRect.left
+        const walk = (x - startX) * 1.5
+        sliderRef.current.scrollLeft = scrollLeft - walk
 
-        handleStepInteraction(e.clientX)
-
-        const mouseDownButton = e.button
-
-        const handleMouseMove = (moveEvent: MouseEvent) => {
-            if (!isDraggingRef.current || !containerRef.current) return
-
-            const container = containerRef.current
-            const containerRect = container.getBoundingClientRect()
-            const mouseX = moveEvent.clientX
-
-            let scrollDelta = 0
-
-            if (mouseX < containerRect.left) {
-                const distance = containerRect.left - mouseX
-                scrollDelta = -distance * SCROLL_SENSITIVITY_FACTOR
-            } else if (mouseX > containerRect.right) {
-                const distance = mouseX - containerRect.right
-                scrollDelta = distance * SCROLL_SENSITIVITY_FACTOR
-            }
-
-            if (scrollDelta !== 0) {
-                container.scrollLeft += scrollDelta
-            }
-
-            handleStepInteraction(moveEvent.clientX)
+        const newCenterStep = calculateCenterStep()
+        if (newCenterStep !== currentStepIndex) {
+            onChange(newCenterStep)
         }
+    }, [isDragging, startX, scrollLeft, currentStepIndex, onChange, calculateCenterStep])
 
-        const handleMouseUp = (upEvent: MouseEvent) => {
-            if (upEvent.button !== mouseDownButton) return
+    const handleDocumentMouseUp = useCallback(() => {
+        if (!isDragging) return
 
-            isDraggingRef.current = false
-            document.body.style.cursor = ''
-            if (activeMouseMoveHandler.current) {
-                window.removeEventListener('mousemove', activeMouseMoveHandler.current)
-            }
-            if (activeMouseUpHandler.current) {
-                window.removeEventListener('mouseup', activeMouseUpHandler.current)
-            }
-            activeMouseMoveHandler.current = null
-            activeMouseUpHandler.current = null
+        setIsDragging(false)
+
+        const finalCenterStep = calculateCenterStep()
+        if (finalCenterStep !== currentStepIndex) {
+            onChange(finalCenterStep)
         }
-
-        activeMouseMoveHandler.current = handleMouseMove
-        activeMouseUpHandler.current = handleMouseUp
-        window.addEventListener('mousemove', activeMouseMoveHandler.current)
-        window.addEventListener('mouseup', activeMouseUpHandler.current)
-
-    }, [handleStepInteraction, steps, containerRef, sliderRef])
+    }, [isDragging, currentStepIndex, onChange, calculateCenterStep])
 
     useEffect(() => {
+        if (isDragging) {
+            document.addEventListener('mousemove', handleDocumentMouseMove)
+            document.addEventListener('mouseup', handleDocumentMouseUp)
+            document.body.style.userSelect = 'none'
+        } else {
+            document.removeEventListener('mousemove', handleDocumentMouseMove)
+            document.removeEventListener('mouseup', handleDocumentMouseUp)
+            document.body.style.userSelect = ''
+        }
+
         return () => {
-            if (isDraggingRef.current) {
-                if (activeMouseMoveHandler.current) {
-                    window.removeEventListener('mousemove', activeMouseMoveHandler.current)
-                }
-                if (activeMouseUpHandler.current) {
-                    window.removeEventListener('mouseup', activeMouseUpHandler.current)
-                }
-                document.body.style.cursor = ''
-                isDraggingRef.current = false
-            }
+            document.removeEventListener('mousemove', handleDocumentMouseMove)
+            document.removeEventListener('mouseup', handleDocumentMouseUp)
+            document.body.style.userSelect = ''
         }
-    }, [])
+    }, [isDragging, handleDocumentMouseMove, handleDocumentMouseUp])
 
-    const currentStepArrayIndex = currentExecStep ? steps.findIndex(s => s.index === currentExecStep.index) : -1
-    let chevronDisplayLeftPosition = 0
+    const handleMouseDown = (e: React.MouseEvent) => {
+        if (!sliderRef.current) return
 
-    if (currentStepArrayIndex !== -1 && sliderRef.current && sliderRef.current.children[currentStepArrayIndex]) {
-        const currentStepElement = sliderRef.current.children[currentStepArrayIndex] as HTMLElement
-        if (currentStepElement) { // Double check element exists
-            const chevronIconWidth = 20 // ChevronDownIcon is w-5, which is 1.25rem or 20px
-            chevronDisplayLeftPosition = currentStepElement.offsetLeft + (currentStepElement.offsetWidth / 2) - (chevronIconWidth / 2)
-            chevronDisplayLeftPosition = Math.max(0, chevronDisplayLeftPosition) // Ensure it's not negative
+        setIsDragging(true)
+        const sliderRect = sliderRef.current.getBoundingClientRect()
+        setStartX(e.clientX - sliderRect.left)
+        setScrollLeft(sliderRef.current.scrollLeft)
+        e.preventDefault()
+    }
+
+    const handleMouseLeave = () => {
+        // No action
+    }
+
+    const handleStepClick = (index: number) => {
+        onChange(index)
+    }
+
+    const handleWheel = (e: React.WheelEvent) => {
+        e.preventDefault()
+
+        if (!sliderRef.current) return
+
+        const slider = sliderRef.current
+        const itemWidth = STEP_ITEM_WIDTH
+
+        const delta = e.deltaY > 0 ? 1 : -1
+        const newIndex = Math.max(0, Math.min(steps.length - 1, currentStepIndex + delta))
+
+        if (newIndex !== currentStepIndex) {
+            setIsWheelScrolling(true)
+            const targetScrollLeft = (newIndex * itemWidth) + (itemWidth / 2)
+            slider.scrollTo({
+                left: targetScrollLeft,
+                behavior: 'auto'
+            })
+            onChange(newIndex)
+            setTimeout(() => {
+                setIsWheelScrolling(false)
+            }, 100)
         }
+    }
+
+    const getStepContent = (step: ExecStep): string => {
+        const contentOrFn = STEP_CONTENT_MAP[step.type]
+        if (typeof contentOrFn === 'function') {
+            return contentOrFn(step)
+        }
+        return contentOrFn ?? '?'
+    }
+
+    const getStepColor = (step: ExecStep): string => {
+        const colorOrFn = STEP_COLOR_MAP[step.type]
+        if (typeof colorOrFn === 'function') {
+            return colorOrFn(step)
+        }
+        return colorOrFn ?? 'bg-gray-100'
     }
 
     return (
         <div
             ref={containerRef}
-            className='h-12 w-full relative flex items-end overflow-x-auto'
+            className='h-12 w-full relative flex items-end overflow-hidden'
+            onWheel={handleWheel}
             style={{
                 scrollbarWidth: 'thin',
                 userSelect: 'none'
@@ -287,38 +198,63 @@ const StepSlider = ({ steps, onChange }: StepSliderProps) => {
         >
             <div
                 ref={sliderRef}
-                className='w-full flex'
-                onMouseDown={handleMouseDownDraggable}
+                className={cn(
+                    'w-full flex overflow-x-auto scrollbar-hide',
+                    isDragging ? 'cursor-grabbing' : 'cursor-grab'
+                )}
+                onMouseDown={handleMouseDown}
+                onMouseLeave={handleMouseLeave}
+                style={{
+                    scrollBehavior: isDragging ? 'auto' : 'smooth',
+                    msOverflowStyle: 'none',
+                    scrollbarWidth: 'none'
+                }}
             >
-                {steps.map((step) => {
+                <div className="flex-shrink-0" style={{ width: '50%' }} />
+                {steps.map((step, index) => {
+                    const isHighlighted = index === currentStepIndex
                     return (
                         <div
                             key={step.index}
-                            data-highlighted={step.index === currentExecStep?.index}
-                            className={
-                                cn(
-                                    'min-w-5 flex-1 flex items-center justify-center border-t border-b border-gray-300',
-                                    step.index === currentExecStep?.index ? 'border-2 border-blue-500' : '',
-                                    getStepColor(step),
-                                )
-                            }
+                            role="button"
+                            tabIndex={0}
+                            aria-label={`Step ${index + 1}: ${step.type}`}
+                            onClick={() => handleStepClick(index)}
+                            onKeyDown={(e: React.KeyboardEvent) => {
+                                if (e.key === 'Enter' || e.key === ' ') {
+                                    handleStepClick(index)
+                                }
+                            }}
+                            className={cn(
+                                'min-w-[40px] flex-shrink-0 flex items-center justify-center border-t border-b transition-all duration-300 cursor-pointer mx-0.5 hover:opacity-100',
+                                getStepColor(step),
+                                {
+                                    'border-2 border-blue-600 h-full z-10': isHighlighted,
+                                    'border-gray-300 h-10 opacity-70': !isHighlighted,
+                                }
+                            )}
                         >
-                            <span className="font-semibold">{getStepContent(step)}</span>
+                            <span className={cn(
+                                "font-semibold transition-all",
+                                isHighlighted ? 'text-lg' : 'text-sm'
+                            )}>
+                                {getStepContent(step)}
+                            </span>
                         </div>
                     )
                 })}
+                <div className="flex-shrink-0" style={{ width: '50%' }} />
             </div>
-
             <div
-                className='absolute h-full -top-1 z-20'
-                style={{
-                    left: chevronDisplayLeftPosition
-                }}
+                className='absolute h-full -top-1 left-1/2 z-20 pointer-events-none'
+                style={{ transform: 'translateX(-50%)' }}
             >
-                <ChevronDownIcon className='w-5 h-5' />
+                <ChevronDownIcon className='w-5 h-5 text-blue-500' />
             </div>
+            <div className="absolute left-0 top-0 bottom-0 w-16 bg-gradient-to-r from-white to-transparent pointer-events-none z-10" />
+            <div className="absolute right-0 top-0 bottom-0 w-16 bg-gradient-to-l from-white to-transparent pointer-events-none z-10" />
         </div>
     )
 }
 
-export default StepSlider 
+export default StepSlider
