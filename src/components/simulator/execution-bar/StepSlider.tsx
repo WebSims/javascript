@@ -109,23 +109,55 @@ const StepSlider = ({ steps, currentStepIndex, onChange }: StepSliderProps) => {
         }
     }, [isDragging, currentStepIndex, onChange, calculateCenterStep])
 
+    const handleDocumentTouchMove = useCallback((e: TouchEvent) => {
+        if (!isDragging || !sliderRef.current) return
+
+        e.preventDefault()
+        const sliderRect = sliderRef.current.getBoundingClientRect()
+        const x = e.touches[0].clientX - sliderRect.left
+        const walk = (x - startX) * 1.5
+        sliderRef.current.scrollLeft = scrollLeft - walk
+
+        const newCenterStep = calculateCenterStep()
+        if (newCenterStep !== currentStepIndex) {
+            onChange(newCenterStep)
+        }
+    }, [isDragging, startX, scrollLeft, currentStepIndex, onChange, calculateCenterStep])
+
+    const handleDocumentTouchEnd = useCallback(() => {
+        if (!isDragging) return
+
+        setIsDragging(false)
+
+        const finalCenterStep = calculateCenterStep()
+        if (finalCenterStep !== currentStepIndex) {
+            onChange(finalCenterStep)
+        }
+    }, [isDragging, currentStepIndex, onChange, calculateCenterStep])
+
     useEffect(() => {
         if (isDragging) {
             document.addEventListener('mousemove', handleDocumentMouseMove)
             document.addEventListener('mouseup', handleDocumentMouseUp)
+            document.addEventListener('touchmove', handleDocumentTouchMove, { passive: false })
+            document.addEventListener('touchend', handleDocumentTouchEnd)
             document.body.style.userSelect = 'none'
         } else {
             document.removeEventListener('mousemove', handleDocumentMouseMove)
             document.removeEventListener('mouseup', handleDocumentMouseUp)
+            document.removeEventListener('touchmove', handleDocumentTouchMove)
+            document.removeEventListener('touchend', handleDocumentTouchEnd)
             document.body.style.userSelect = ''
         }
 
         return () => {
             document.removeEventListener('mousemove', handleDocumentMouseMove)
             document.removeEventListener('mouseup', handleDocumentMouseUp)
+            document.removeEventListener('touchmove', handleDocumentTouchMove)
+            document.removeEventListener('touchend', handleDocumentTouchEnd)
             document.body.style.userSelect = ''
         }
-    }, [isDragging, handleDocumentMouseMove, handleDocumentMouseUp])
+    }, [isDragging, handleDocumentMouseMove, handleDocumentMouseUp, handleDocumentTouchMove, handleDocumentTouchEnd])
 
     const handleMouseDown = (e: React.MouseEvent) => {
         if (!sliderRef.current) return
@@ -133,6 +165,16 @@ const StepSlider = ({ steps, currentStepIndex, onChange }: StepSliderProps) => {
         setIsDragging(true)
         const sliderRect = sliderRef.current.getBoundingClientRect()
         setStartX(e.clientX - sliderRect.left)
+        setScrollLeft(sliderRef.current.scrollLeft)
+        e.preventDefault()
+    }
+
+    const handleTouchStart = (e: React.TouchEvent) => {
+        if (!sliderRef.current) return
+
+        setIsDragging(true)
+        const sliderRect = sliderRef.current.getBoundingClientRect()
+        setStartX(e.touches[0].clientX - sliderRect.left)
         setScrollLeft(sliderRef.current.scrollLeft)
         e.preventDefault()
     }
@@ -203,6 +245,7 @@ const StepSlider = ({ steps, currentStepIndex, onChange }: StepSliderProps) => {
                     isDragging ? 'cursor-grabbing' : 'cursor-grab'
                 )}
                 onMouseDown={handleMouseDown}
+                onTouchStart={handleTouchStart}
                 onMouseLeave={handleMouseLeave}
                 style={{
                     scrollBehavior: isDragging ? 'auto' : 'smooth',
