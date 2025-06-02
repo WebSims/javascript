@@ -204,3 +204,8 @@ export type NodeHandler<T extends ESTree.Node> = (node: T, options: TraverseASTO
 export type NodeHandlerMap = {
     [K in ESTree.Node['type']]?: NodeHandler<Extract<ESTree.Node, { type: K }>>
 }
+
+// Custom AST Node type that includes the category property
+export interface CustomNode extends ESTree.BaseNode {
+    category?: string
+}

@@ -7,7 +7,7 @@ interface DeviceDetection {
     isDesktop: boolean
 }
 
-const useDeviceDetection = (breakpoint: number = MOBILE_BREAKPOINT): DeviceDetection => {
+const useResponsive = (breakpoint: number = MOBILE_BREAKPOINT): DeviceDetection => {
     const [isMobile, setIsMobile] = useState(false)
 
     useEffect(() => {
@@ -30,4 +30,4 @@ const useDeviceDetection = (breakpoint: number = MOBILE_BREAKPOINT): DeviceDetec
     return { isMobile, isDesktop: !isMobile }
 }
 
-export { useDeviceDetection }
+export { useResponsive }

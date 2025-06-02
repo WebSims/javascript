@@ -1,17 +1,17 @@
 import { Button } from '@/components/ui/button'
 import React from 'react'
 
-import { useDeviceDetection } from '@/hooks/useDeviceDetection'
+import { useResponsive } from '@/hooks/useResponsive'
 import { useSimulatorStore } from '@/hooks/useSimulatorStore'
 import { MenuIcon, ChevronDownIcon, PlayIcon, CodeIcon } from 'lucide-react'
-import ExecutionBar from '@/components/simulator/execution-bar/ExecutionBar'
+import PlayerBar from '@/components/simulator/player/PlayerBar'
 
 interface MainLayoutProps {
     children: React.ReactNode
 }
 
 const MainLayout: React.FC<MainLayoutProps> = ({ children }) => {
-    const { isDesktop } = useDeviceDetection()
+    const { isDesktop } = useResponsive()
     const { mode, toggleMode } = useSimulatorStore()
 
     return (
@@ -34,7 +34,7 @@ const MainLayout: React.FC<MainLayoutProps> = ({ children }) => {
                                 <ChevronDownIcon className='w-4 h-4' />
                             </Button>
                         </nav>
-                    ) : <ExecutionBar />)}
+                    ) : <PlayerBar />)}
                 </div>
 
                 <div className='flex items-center gap-2'>

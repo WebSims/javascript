@@ -48,7 +48,7 @@ type ElkGraph = ElkNode & {
 }
 
 const MemoryModelVisualizer = () => {
-    const { currentExecStep } = useSimulatorStore()
+    const { currentStep } = useSimulatorStore()
     const svgRef = useRef<SVGSVGElement>(null)
     const zoomGroupRef = useRef<SVGGElement | null>(null)
 
@@ -58,7 +58,7 @@ const MemoryModelVisualizer = () => {
         const heapData: HeapObjectData[] = []
 
         // Categorize scopes with meaningful names and colors
-        currentExecStep?.memorySnapshot.scopes.forEach((scope, index) => {
+        currentStep?.memorySnapshot.scopes.forEach((scope, index) => {
             const scopeId = `scope-${index}`
             let scopeName = "Unknown Scope"
             let scopeColor = "#e2e8f0"
@@ -126,7 +126,7 @@ const MemoryModelVisualizer = () => {
         })
 
         // Process heap objects
-        Object.entries(currentExecStep?.memorySnapshot.heap ?? {}).forEach(([ref, obj]) => {
+        Object.entries(currentStep?.memorySnapshot.heap ?? {}).forEach(([ref, obj]) => {
             const objId = `obj-${ref}`
             let objType = "OBJECT"
             let objColor = "#fefcbf"
@@ -209,7 +209,7 @@ const MemoryModelVisualizer = () => {
     }
 
     useEffect(() => {
-        if (!currentExecStep) return
+        if (!currentStep) return
         if (!svgRef.current) return
 
         // Clear any existing SVG content
@@ -1035,13 +1035,13 @@ const MemoryModelVisualizer = () => {
             .catch((error) => {
                 console.error("ELK layout error:", error)
             })
-    }, [currentExecStep])
+    }, [currentStep])
 
     return (
         <div className="relative h-full">
             <svg ref={svgRef} className="w-full h-full"></svg>
             <div className="absolute bottom-0 left-0 font-mono text-gray-600">
-                MEMVAL: {JSON.stringify(currentExecStep?.memorySnapshot?.memval.map(val => val.type === "reference" ? `ref: ${val.ref}` : String(val.value)))}
+                MEMVAL: {JSON.stringify(currentStep?.memorySnapshot?.memval.map(val => val.type === "reference" ? `ref: ${val.ref}` : String(val.value)))}
             </div>
         </div>
     )

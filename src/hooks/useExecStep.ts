@@ -4,14 +4,14 @@ import { ESNode } from 'hermes-parser'
 import { BUBBLE_UP_TYPE, EXEC_STEP_TYPE } from '@/types/simulation'
 
 export const useExecStep = (node?: ESNode, ref?: RefObject<HTMLElement | null>) => {
-    const { currentExecStep } = useSimulatorStore()
+    const { currentStep } = useSimulatorStore()
     const [isExecuting, setIsExecuting] = useState(false)
     const [isExecuted, setIsExecuted] = useState(false)
     const [isEvaluating, setIsEvaluating] = useState(false)
     const [isEvaluated, setIsEvaluated] = useState(false)
     const [isErrorThrown, setIsErrorThrown] = useState(false)
 
-    const stepRange = currentExecStep?.node?.range
+    const stepRange = currentStep?.node?.range
     const nodeRange = node?.range
 
     const checkExecuting = (node: ESNode): boolean => {
@@ -19,8 +19,8 @@ export const useExecStep = (node?: ESNode, ref?: RefObject<HTMLElement | null>) 
             return (
                 stepRange[0] === nodeRange[0] &&
                 stepRange[1] === nodeRange[1] &&
-                currentExecStep.node.type === node.type &&
-                (currentExecStep.type === EXEC_STEP_TYPE.EXECUTING || currentExecStep.type === EXEC_STEP_TYPE.PUSH_SCOPE || currentExecStep.type === EXEC_STEP_TYPE.HOISTING)
+                currentStep.node.type === node.type &&
+                (currentStep.type === EXEC_STEP_TYPE.EXECUTING || currentStep.type === EXEC_STEP_TYPE.PUSH_SCOPE || currentStep.type === EXEC_STEP_TYPE.HOISTING)
             )
         }
         return false
@@ -31,8 +31,8 @@ export const useExecStep = (node?: ESNode, ref?: RefObject<HTMLElement | null>) 
             return (
                 stepRange[0] === nodeRange[0] &&
                 stepRange[1] === nodeRange[1] &&
-                currentExecStep.node.type === node.type &&
-                (currentExecStep.type === EXEC_STEP_TYPE.EXECUTED || currentExecStep.type === EXEC_STEP_TYPE.POP_SCOPE)
+                currentStep.node.type === node.type &&
+                (currentStep.type === EXEC_STEP_TYPE.EXECUTED || currentStep.type === EXEC_STEP_TYPE.POP_SCOPE)
             )
         }
         return false
@@ -43,8 +43,8 @@ export const useExecStep = (node?: ESNode, ref?: RefObject<HTMLElement | null>) 
             return (
                 stepRange[0] === nodeRange[0] &&
                 stepRange[1] === nodeRange[1] &&
-                currentExecStep.node.type === node.type &&
-                (currentExecStep.type === EXEC_STEP_TYPE.EVALUATING || currentExecStep.type === EXEC_STEP_TYPE.FUNCTION_CALL)
+                currentStep.node.type === node.type &&
+                (currentStep.type === EXEC_STEP_TYPE.EVALUATING || currentStep.type === EXEC_STEP_TYPE.FUNCTION_CALL)
             )
         }
         return false
@@ -55,8 +55,8 @@ export const useExecStep = (node?: ESNode, ref?: RefObject<HTMLElement | null>) 
             return (
                 stepRange[0] === nodeRange[0] &&
                 stepRange[1] === nodeRange[1] &&
-                currentExecStep.node.type === node.type &&
-                currentExecStep.type === EXEC_STEP_TYPE.EVALUATED
+                currentStep.node.type === node.type &&
+                currentStep.type === EXEC_STEP_TYPE.EVALUATED
             )
         }
         return false
@@ -67,8 +67,8 @@ export const useExecStep = (node?: ESNode, ref?: RefObject<HTMLElement | null>) 
             return (
                 stepRange[0] === nodeRange[0] &&
                 stepRange[1] === nodeRange[1] &&
-                currentExecStep.node.type === node.type &&
-                currentExecStep.bubbleUp === BUBBLE_UP_TYPE.THROW
+                currentStep.node.type === node.type &&
+                currentStep.bubbleUp === BUBBLE_UP_TYPE.THROW
             )
         }
         return false
@@ -83,7 +83,7 @@ export const useExecStep = (node?: ESNode, ref?: RefObject<HTMLElement | null>) 
             setIsErrorThrown(checkErrorThrown(node))
         }
         // eslint-disable-next-line react-hooks/exhaustive-deps
-    }, [currentExecStep, node])
+    }, [currentStep, node])
 
     useEffect(() => {
         if ((isExecuting || isExecuted || isEvaluating || isEvaluated) && ref?.current) {
@@ -92,7 +92,7 @@ export const useExecStep = (node?: ESNode, ref?: RefObject<HTMLElement | null>) 
     }, [isExecuting, isExecuted, isEvaluating, isEvaluated, ref])
 
     return {
-        currentExecStep,
+        currentStep,
         isExecuting,
         isExecuted,
         isEvaluating,

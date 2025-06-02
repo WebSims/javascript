@@ -18,8 +18,8 @@ type SimulatorContextType = {
     updateFileContent: (filename: string, newContent: string) => void
     astOfCode: ESTree.Program | ts.SourceFile | null
     astError: string | null
-    execSteps: ExecStep[]
-    currentExecStep: ExecStep | null
+    steps: ExecStep[]
+    currentStep: ExecStep | null
     isPlaying: boolean
     togglePlaying: (state?: boolean) => void
     stepForward: () => void
@@ -43,8 +43,8 @@ export const SimulatorProvider = ({ children }: { children: React.ReactNode }) =
     const [currentFile, setCurrentFile] = useState("main.js")
     const [astOfCode, setAstOfCode] = useState<ESTree.Program | ts.SourceFile | null>(null)
     const [astError, setAstError] = useState<string | null>(null)
-    const [execSteps, setExecSteps] = useState<ExecStep[]>([])
-    const [currentExecStep, setCurrentExecStep] = useState<ExecStep | null>(null)
+    const [steps, setSteps] = useState<ExecStep[]>([])
+    const [currentStep, setCurrentExecStep] = useState<ExecStep | null>(null)
     const [isPlaying, setIsPlaying] = useState(false)
     const [speed, setSpeed] = useState(2)
     const [highlightedId, setHighlightedId] = useState<string | null>(null)
@@ -70,7 +70,7 @@ export const SimulatorProvider = ({ children }: { children: React.ReactNode }) =
         return cleanup
     }, [astOfCode])
 
-    const totalSteps = execSteps.length
+    const totalSteps = steps.length
 
     const updateFileContent = (filename: string, newContent: string) => {
         const newFiles = { ...files, [filename]: newContent }
@@ -83,7 +83,7 @@ export const SimulatorProvider = ({ children }: { children: React.ReactNode }) =
                 console.log(steps)
                 setAstError(null)
                 setAstOfCode(ast)
-                setExecSteps(steps)
+                setSteps(steps)
                 setCurrentExecStep(steps[0] || null)
             }
         } catch (error) {
@@ -105,31 +105,31 @@ export const SimulatorProvider = ({ children }: { children: React.ReactNode }) =
     }
 
     const stepForward = () => {
-        const currentIndex = currentExecStep?.index ?? -1
+        const currentIndex = currentStep?.index ?? -1
         if (currentIndex < totalSteps - 1) {
             const nextIndex = currentIndex + 1
-            setCurrentExecStep(execSteps[nextIndex])
+            setCurrentExecStep(steps[nextIndex])
         } else {
             setIsPlaying(false)
         }
     }
 
     const stepBackward = () => {
-        const currentIndex = currentExecStep?.index ?? 0
+        const currentIndex = currentStep?.index ?? 0
         if (currentIndex > 0) {
             const prevIndex = currentIndex - 1
-            setCurrentExecStep(execSteps[prevIndex])
+            setCurrentExecStep(steps[prevIndex])
         }
     }
 
     const changeStep = (index: number) => {
         if (index >= 0 && index < totalSteps) {
-            setCurrentExecStep(execSteps[index])
+            setCurrentExecStep(steps[index])
         }
     }
 
     const resetSimulation = () => {
-        setCurrentExecStep(execSteps[0] ?? null)
+        setCurrentExecStep(steps[0] ?? null)
         togglePlaying(false)
     }
 
@@ -147,7 +147,7 @@ export const SimulatorProvider = ({ children }: { children: React.ReactNode }) =
         return () => {
             if (interval) clearInterval(interval)
         }
-    }, [isPlaying, speed, currentExecStep, totalSteps])
+    }, [isPlaying, speed, currentStep, totalSteps])
 
     const changeHighlightedId = (id: string) => {
         setHighlightedId(id)
@@ -168,8 +168,8 @@ export const SimulatorProvider = ({ children }: { children: React.ReactNode }) =
                 updateFileContent,
                 astOfCode,
                 astError,
-                execSteps,
-                currentExecStep,
+                steps,
+                currentStep,
                 isPlaying,
                 togglePlaying,
                 stepForward,

@@ -7,7 +7,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 
 import CHEAT_SHEET_DATA from '@/components/simulator/cheat-sheet/CheatSheetData.json'
 import CheatSheetBox from '@/components/simulator/cheat-sheet/components/CheatSheetBox'
-import { useDeviceDetection } from '@/hooks/useDeviceDetection'
+import { useResponsive } from '@/hooks/useResponsive'
 import CheatSheet from '@/components/simulator/cheat-sheet/CheatSheet'
 
 type CheatSheetDataType = Record<string, string>
@@ -18,7 +18,7 @@ interface CheatSheetAccordionProps {
 }
 
 const CheatSheetAccordion: React.FC<CheatSheetAccordionProps> = ({ open = true, onOpenChange }) => {
-    const { isDesktop } = useDeviceDetection()
+    const { isDesktop } = useResponsive()
     const { cheatSheetRef, highlightedId, changeHighlightedId } = useSimulatorStore()
     const [isOpen, setIsOpen] = useState<boolean>(open)
 

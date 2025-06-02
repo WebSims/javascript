@@ -50,7 +50,7 @@ const colorPalletes = [
 
 const colorPallete = colorPalletes[2]
 
-const decorations = {
+export const decorations = {
     statement: {
         classN: "bg-slate-50 rounded-md p-2 [&:has(div:hover)]:bg-slate-50 hover:bg-blue-50 transition-colors duration-150",
         expression: { tooltip: "Expression Evaluation Statement", cheatSheetId: "st-exp", classN: "text-slate-700" },

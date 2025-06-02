@@ -9,12 +9,12 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 
 import CodeArea from '@/components/simulator/code-area/CodeArea'
 import CheatSheetAccordion from './CheatSheetAccordion'
-import { useDeviceDetection } from '@/hooks/useDeviceDetection'
+import { useResponsive } from '@/hooks/useResponsive'
 import { useSimulatorStore } from '@/hooks/useSimulatorStore'
 import CodeEditor from '@/components/code-editor/CodeEditor'
 
 const CodeMode: React.FC = () => {
-  const { isDesktop } = useDeviceDetection()
+  const { isDesktop } = useResponsive()
   const { updateFileContent, currentFile, files } = useSimulatorStore()
   const fileContent = files[currentFile]
 

@@ -4,15 +4,12 @@ import { useSimulatorStore } from '@/hooks/useSimulatorStore'
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip'
 import StepSlider from './StepSlider'
 
-const ExecutionBar = () => {
+const PlayerBar = () => {
     const {
-        execSteps,
         isPlaying,
         togglePlaying,
-        currentExecStep,
         stepForward,
         stepBackward,
-        changeStep,
     } = useSimulatorStore()
 
     const handleKeyDown = (e: React.KeyboardEvent, action: () => void) => {
@@ -26,12 +23,8 @@ const ExecutionBar = () => {
         togglePlaying()
     }
 
-    const handleStepChange = (index: number) => {
-        changeStep(index)
-    }
-
     return (
-        <div className="w-full flex flex-col lg:flex-row lg:items-center lg:px-3 overflow-hidden border-t lg:border-t-0">
+        <div className="w-full flex flex-col lg:flex-row lg:items-center lg:px-3 overflow-hidden border-t lg:border-t-0 pb-1 lg:pb-0">
             <div className="flex items-center gap-1 lg:gap-3 justify-end">
                 <TooltipProvider>
                     <Tooltip>
@@ -91,15 +84,11 @@ const ExecutionBar = () => {
                 </TooltipProvider>
             </div>
 
-            <div className='h-14 lg:h-12 w-full overflow-hidden pb-1'>
-                <StepSlider
-                    steps={execSteps}
-                    currentStepIndex={currentExecStep?.index ?? 0}
-                    onChange={handleStepChange}
-                />
+            <div className='h-14 lg:h-12 w-full overflow-hidden'>
+                <StepSlider />
             </div>
         </div>
     )
 }
 
-export default ExecutionBar
+export default PlayerBar
