@@ -231,7 +231,7 @@ const StepSlider = ({ steps, currentStepIndex, onChange }: StepSliderProps) => {
     return (
         <div
             ref={containerRef}
-            className='h-14 lg:h-12 w-full relative flex items-end overflow-hidden pb-1'
+            className='h-14 lg:h-full w-full relative flex items-end overflow-hidden pb-1'
             onWheel={handleWheel}
             style={{
                 scrollbarWidth: 'thin',
