@@ -42,19 +42,19 @@ const ExecutionMode: React.FC = () => {
     }
 
     return (
-        <div className='flex flex-col h-full'>
+        <div className='h-full flex flex-col'>
             <ResizablePanelGroup direction="vertical">
                 <ResizablePanel>
                     <CodeArea />
                 </ResizablePanel>
                 <ResizableHandle withHandle className="bg-slate-100 hover:bg-slate-200 transition-colors" />
                 <ResizablePanel className='p-1'>
-                    <Tabs defaultValue="MEMORY">
+                    <Tabs defaultValue="MEMORY" className='h-full'>
                         <TabsList>
                             <TabsTrigger value="MEMORY">Memory</TabsTrigger>
                             <TabsTrigger value="CONSOLE">Console</TabsTrigger>
                         </TabsList>
-                        <TabsContent value="MEMORY">
+                        <TabsContent value="MEMORY" className='h-[calc(100%-36px)]'>
                             <MemoryModelVisualizer />
                         </TabsContent>
                         <TabsContent value="CONSOLE">

@@ -15,7 +15,7 @@ const MainLayout: React.FC<MainLayoutProps> = ({ children }) => {
     const { mode, toggleMode } = useSimulatorStore()
 
     return (
-        <div className='h-screen'>
+        <div className='h-lvh'>
             <header className='h-14 bg-background flex justify-between items-center gap-2 px-3 border-b border-slate-200'>
                 <div className='lg:hidden'>
                     <Button variant='ghost' size='icon' aria-label="Open menu">
@@ -58,7 +58,7 @@ const MainLayout: React.FC<MainLayoutProps> = ({ children }) => {
                     </div>
                 </div>
             </header>
-            <div className='h-[calc(100vh-56px)]'>
+            <div className='h-[calc(100dvh-56px)]'>
                 {children}
             </div>
         </div>
