@@ -51,9 +51,9 @@ const MainLayout: React.FC<MainLayoutProps> = ({ children }) => {
                             {mode === 'EXECUTION' ? (
                                 <CodeIcon className="w-4 h-4 mr-1" />
                             ) : (
-                                <PlayIcon className="w-4 h-4 mr-1" />
+                                <PlayIcon className="w-4 h-4 mr-1" fill="currentColor" />
                             )}
-                            {mode === 'EXECUTION' ? 'Code' : 'RUN'}
+                            {mode === 'EXECUTION' ? 'Code' : <span className="font-bold">RUN</span>}
                         </Button>
                     </div>
                 </div>
