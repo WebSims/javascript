@@ -477,51 +477,43 @@ export const simulateExecution = (astNode: ESTree.Program | null): ExecStep[] =>
     execHandlers["LogicalExpression"] = (astNode, options) => {
         addEvaluatingStep(astNode)
 
-        let rightValue: JSValue
+        traverseExec(astNode.left, options)
+        const evaluatedLeft = readMemval()
+        const coercionLeft = toBoolean(readMemval())
+        let evaluatedValue: JSValue
 
-        if (astNode.operator === "&&") {
-            traverseExec(astNode.left, options)
-
-            const leftResult = readMemval()
-            if (leftResult.type === "primitive" && leftResult.value === true) {
-                traverseExec(astNode.right, options)
-                rightValue = popMemval()
-            } else {
-                rightValue = { type: "primitive", value: false }
+        switch (astNode.operator) {
+            case "&&": {
+                if (coercionLeft) {
+                    traverseExec(astNode.right, options)
+                    evaluatedValue = popMemval()
+                    popMemval()
+                } else {
+                    evaluatedValue = popMemval()
+                }
+                break
             }
-        } else if (astNode.operator === "||") {
-            traverseExec(astNode.left, options)
-
-            const leftResult = readMemval()
-            if (leftResult.type === "primitive" && leftResult.value === true) {
-                rightValue = { type: "primitive", value: true }
-            } else {
-                traverseExec(astNode.right, options)
-                rightValue = popMemval()
+            case "||": {
+                if (coercionLeft) {
+                    evaluatedValue = popMemval()
+                } else {
+                    traverseExec(astNode.right, options)
+                    evaluatedValue = popMemval()
+                    popMemval()
+                }
+                break
             }
-        } else {
-            traverseExec(astNode.left, options)
-            traverseExec(astNode.right, options)
-            rightValue = popMemval()
+            case "??": {
+                if (evaluatedLeft.type === "primitive" && (evaluatedLeft.value === null || evaluatedLeft.value === undefined)) {
+                    traverseExec(astNode.right, options)
+                    evaluatedValue = popMemval()
+                    popMemval()
+                } else {
+                    evaluatedValue = popMemval()
+                }
+                break
+            }
         }
-        const leftValue = popMemval()
-
-        // TODO: reference have problem for example:
-        // ([] >= {}); => should be false but return true
-        // Solution 1: use heap value instead of reference and create it and competive without using eval
-        const rightRaw = rightValue.type === "reference"
-            ? `heap[${rightValue.ref}]`
-            : JSON.stringify(rightValue.value)
-
-        const leftRaw = leftValue.type === "reference"
-            ? `heap[${leftValue.ref}]`
-            : JSON.stringify(leftValue.value)
-
-        const value = eval(`${leftRaw}${astNode.operator}${rightRaw}`)
-        const evaluatedValue = {
-            type: "primitive",
-            value
-        } as const
 
         pushMemval(evaluatedValue)
         addEvaluatedStep(astNode)
