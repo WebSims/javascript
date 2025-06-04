@@ -25,6 +25,7 @@ import {
     EXEC_STEP_TYPE,
     ExecStepType,
     ScopeKind,
+    Memval,
 } from "../types/simulation"
 import { cloneDeep, forEach } from "lodash" // Import cloneDeep from lodash
 
@@ -47,7 +48,7 @@ export const simulateExecution = (astNode: ESTree.Program | null): ExecStep[] =>
     ]
     const scopes: Scope[] = []
     const heap: Heap = {}
-    const memval: MemVal[] = []
+    const memval: Memval[] = []
 
     let lastScopeIndex = -1
     let lastRef: HeapRef = -1
@@ -254,20 +255,20 @@ export const simulateExecution = (astNode: ESTree.Program | null): ExecStep[] =>
     }
 
     // --- MemVal Helpers ---
-    const pushMemval = (value: MemVal) => {
+    const pushMemval = (value: Memval) => {
         memval.push(value)
         stepMemvalChanges.push({ type: "push", value })
     }
 
-    const popMemval = (): MemVal => {
+    const popMemval = (): Memval => {
         const value = memval.pop()
         if (value) {
             stepMemvalChanges.push({ type: "pop", value })
         }
-        return value as MemVal
+        return value as Memval
     }
 
-    const readMemval = (shift?: number): MemVal => {
+    const readMemval = (shift?: number): Memval => {
         return shift ? memval[memval.length - 1 - shift] : memval[memval.length - 1]
     }
 
