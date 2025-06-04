@@ -28,6 +28,7 @@ import {
     Memval,
 } from "../types/simulation"
 import { cloneDeep, forEach } from "lodash" // Import cloneDeep from lodash
+import { toBoolean } from './coercion'
 
 export const simulateExecution = (astNode: ESTree.Program | null): ExecStep[] => {
     if (!astNode) {
@@ -767,7 +768,8 @@ export const simulateExecution = (astNode: ESTree.Program | null): ExecStep[] =>
         traverseExec(astNode.test, options)
 
         const evaluatedTest = popMemval()
-        if (evaluatedTest.value) {
+        const coercionValue = toBoolean(evaluatedTest)
+        if (coercionValue) {
             traverseExec(astNode.consequent, options)
         } else {
             traverseExec(astNode.alternate, options)
