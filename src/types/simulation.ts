@@ -7,9 +7,10 @@ export const UNDEFINED = { type: "primitive", value: undefined } as const
 // Represents a unique reference to an object/array/function in the heap
 export type HeapRef = number
 
+export type PrimitiveValue = ESTree.Literal["value"]
 // Represents any value in the JavaScript simulation
 export type JSValue =
-    | { type: "primitive"; value: ESTree.Literal["value"] }
+    | { type: "primitive"; value: PrimitiveValue }
     | { type: "reference"; ref: HeapRef }
 // Consider adding symbol/bigint if needed by the code you simulate
 
@@ -209,3 +210,12 @@ export type NodeHandlerMap = {
 export interface CustomNode extends ESTree.BaseNode {
     category?: string
 }
+
+export const COERCION_TYPE = {
+    TO_BOOLEAN: 'to_boolean',
+    TO_NUMBER: 'to_number',
+    TO_STRING: 'to_string',
+    TO_PRIMITIVE: 'to_primitive',
+    TO_OBJECT: 'to_object',
+} as const
+export type CoercionType = 'to_boolean' | 'to_number' | 'to_string' | 'to_primitive' | 'to_object'
