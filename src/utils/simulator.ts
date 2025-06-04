@@ -874,10 +874,9 @@ export const simulateExecution = (astNode: ESTree.Program | null): ExecStep[] =>
         addExecutingStep(astNode)
 
         traverseExec(astNode.test, options)
-
         const evaluatedTest = popMemval()
-
-        if (evaluatedTest.value) {
+        const coercionValue = toBoolean(evaluatedTest)
+        if (coercionValue) {
             traverseExec(astNode.consequent, options)
         } if (astNode.alternate) {
             traverseExec(astNode.alternate, options)
