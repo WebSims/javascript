@@ -473,12 +473,12 @@ export const simulateExecution = (astNode: ESTree.Program | null): ExecStep[] =>
 
         traverseExec(astNode.left, options)
         const evaluatedLeft = readMemval()
-        const coercionLeft = toBoolean(readMemval())
+        const leftBool = toBoolean(readMemval())
         let evaluatedValue: JSValue
 
         switch (astNode.operator) {
             case "&&": {
-                if (coercionLeft) {
+                if (leftBool) {
                     traverseExec(astNode.right, options)
                     evaluatedValue = popMemval()
                     popMemval()
@@ -488,7 +488,7 @@ export const simulateExecution = (astNode: ESTree.Program | null): ExecStep[] =>
                 break
             }
             case "||": {
-                if (coercionLeft) {
+                if (leftBool) {
                     evaluatedValue = popMemval()
                 } else {
                     traverseExec(astNode.right, options)
@@ -754,8 +754,8 @@ export const simulateExecution = (astNode: ESTree.Program | null): ExecStep[] =>
         traverseExec(astNode.test, options)
 
         const evaluatedTest = popMemval()
-        const coercionValue = toBoolean(evaluatedTest)
-        if (coercionValue) {
+        const testBool = toBoolean(evaluatedTest)
+        if (testBool) {
             traverseExec(astNode.consequent, options)
         } else {
             traverseExec(astNode.alternate, options)
