@@ -220,3 +220,16 @@ export const COERCION_TYPE = {
     TO_OBJECT: 'to_object',
 } as const
 export type CoercionType = 'to_boolean' | 'to_number' | 'to_string' | 'to_primitive' | 'to_object'
+
+export const BINARY_OPERATORS = [
+    '==', '!=', '===', '!==', '<', '<=', '>', '>=', '<<', '>>', '>>>', '+', '-', '*', '/', '%', '**', '|', '^', '&', 'in', 'instanceof'
+] as const
+export type BinaryOperator = typeof BINARY_OPERATORS[number]
+
+export type CoercionInfo = {
+    type: CoercionType,
+    from: JSValue,
+    to: JSValue,
+    operation: string,
+    operator: BinaryOperator
+}

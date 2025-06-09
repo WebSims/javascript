@@ -26,9 +26,10 @@ import {
     ExecStepType,
     ScopeKind,
     Memval,
+    NAN,
 } from "../types/simulation"
 import { cloneDeep, forEach } from "lodash" // Import cloneDeep from lodash
-import { toBoolean } from './coercion'
+import { coerceBinaryOperator, toBoolean } from './coercion'
 
 export const simulateExecution = (astNode: ESTree.Program | null): ExecStep[] => {
     if (!astNode) {
@@ -453,28 +454,19 @@ export const simulateExecution = (astNode: ESTree.Program | null): ExecStep[] =>
         traverseExec(astNode.left, options)
         traverseExec(astNode.right, options)
 
-        const rightValue = popMemval()
-        const leftValue = popMemval()
+        const evaluatedRight = popMemval()
+        const evaluatedLeft = popMemval()
 
-        // TODO: reference have problem for example:
-        // ([] >= {}); => should be false but return true
-        // Solution 1: use heap value instead of reference and create it and competive without using eval
-        const rightRaw = rightValue.type === "reference"
-            ? `heap[${rightValue.ref}]`
-            : JSON.stringify(rightValue.value)
+        try {
+            const evaluatedValue = coerceBinaryOperator(astNode.operator, evaluatedLeft, evaluatedRight, heap)
+            console.log(evaluatedValue)
+            pushMemval(evaluatedValue)
+            addEvaluatedStep(astNode)
 
-        const leftRaw = leftValue.type === "reference"
-            ? `heap[${leftValue.ref}]`
-            : JSON.stringify(leftValue.value)
-
-        const value = eval(`${leftRaw}${astNode.operator}${rightRaw}`)
-        const evaluatedValue = {
-            type: "primitive",
-            value
-        } as const
-
-        pushMemval(evaluatedValue)
-        addEvaluatedStep(astNode)
+        } catch (error: unknown) {
+            createErrorObject('TypeError', error instanceof Error ? error.message : 'Unknown error')
+            addThrownStep(astNode)
+        }
     }
 
     execHandlers["LogicalExpression"] = (astNode, options) => {
