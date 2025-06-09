@@ -1,4 +1,5 @@
-import { JSValue, UNDEFINED, CoercionInfo, CoercionType, COERCION_TYPE, HeapObject, HEAP_OBJECT_TYPE, PrimitiveValue } from "../types/simulation"
+import * as ESTree from "estree"
+import { JSValue, HeapObject, HEAP_OBJECT_TYPE, PrimitiveValue } from "../types/simulation"
 
 /**
  * JavaScript Type Coercion Utilities
@@ -165,7 +166,7 @@ const abstractEquality = (left: JSValue, right: JSValue, heap: Record<number, He
 }
 
 export const coerceBinaryOperator = (
-    operator: string,
+    operator: ESTree.BinaryOperator,
     left: JSValue,
     right: JSValue,
     heap: Record<number, HeapObject>
@@ -192,6 +193,7 @@ export const coerceBinaryOperator = (
             const result = abstractEquality(left, right, heap)
             return { type: "primitive", value: !result }
         }
+
         // Relational operators
         case "<":
         case "<=":
@@ -199,17 +201,17 @@ export const coerceBinaryOperator = (
         case ">=": {
             const leftPrimitive = toPrimitive(left, heap)
             const rightPrimitive = toPrimitive(right, heap)
-
             if (typeof leftPrimitive === "string" && typeof rightPrimitive === "string") {
                 const result = eval(`"${leftPrimitive}" ${operator} "${rightPrimitive}"`)
                 return { type: "primitive", value: result }
             } else {
-                const leftNum = toNumber(left, heap)
-                const rightNum = toNumber(right, heap)
+                const leftNum = typeof leftPrimitive === "number" ? leftPrimitive : toNumber(left, heap)
+                const rightNum = typeof rightPrimitive === "number" ? rightPrimitive : toNumber(right, heap)
                 const result = eval(`${leftNum} ${operator} ${rightNum}`)
                 return { type: "primitive", value: result }
             }
         }
+
         // Arithmetic operators
         case "+": {
             const leftPrimitive = toPrimitive(left, heap)
@@ -238,6 +240,7 @@ export const coerceBinaryOperator = (
             const result = eval(`${leftNum} ${operator} ${rightNum}`)
             return { type: "primitive", value: result }
         }
+
         // Bitwise operators
         case "<<":
         case ">>": {
@@ -260,6 +263,7 @@ export const coerceBinaryOperator = (
             const result = eval(`${leftInt} ${operator} ${rightInt}`)
             return { type: "primitive", value: result }
         }
+
         // Special operators
         case "in": {
             const prop = toString(left, heap)

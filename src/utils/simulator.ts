@@ -459,7 +459,6 @@ export const simulateExecution = (astNode: ESTree.Program | null): ExecStep[] =>
 
         try {
             const evaluatedValue = coerceBinaryOperator(astNode.operator, evaluatedLeft, evaluatedRight, heap)
-            console.log(evaluatedValue)
             pushMemval(evaluatedValue)
             addEvaluatedStep(astNode)
 
