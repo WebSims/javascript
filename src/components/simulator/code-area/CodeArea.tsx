@@ -369,10 +369,10 @@ const Expression = ({ expr, parent, parens }: { expr: any, parent: any, parens: 
         const { left, right } = expr
         if (left.type === "Identifier") {
             expr.category = "expression.write.var"
-            component = <WriteVar name={left.name} setBy="=" setTo={right} parent={expr} parens={parens} />
+            component = <WriteVar name={left.name} setBy={expr.operator} setTo={right} parent={expr} parens={parens} />
         } else {
             expr.category = "expression.write.prop"
-            component = <WriteProp of={left} setBy="=" setTo={right} parent={expr} parens={parens} />
+            component = <WriteProp of={left} setBy={expr.operator} setTo={right} parent={expr} parens={parens} />
         }
     }
 

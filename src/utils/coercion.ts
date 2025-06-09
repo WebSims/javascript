@@ -290,3 +290,43 @@ export const coerceBinaryOperator = (
             throw new Error(`Unsupported binary operator: ${operator}`)
     }
 }
+
+export const coerceAssignmentOperator = (
+    operator: ESTree.AssignmentOperator,
+    left: JSValue,
+    right: JSValue,
+    heap: Record<number, HeapObject>
+): JSValue => {
+    // Remove the '=' from compound assignment operators
+    const binaryOp = operator.slice(0, -1) as ESTree.BinaryOperator
+
+    switch (operator) {
+        case "=":
+            return right // No coercion for simple assignment
+        case "||=": {
+            const leftBool = toBoolean(left)
+            if (leftBool) {
+                return left
+            } else {
+                return right
+            }
+        }
+        case "&&=": {
+            const leftBool = toBoolean(left)
+            if (leftBool) {
+                return right
+            } else {
+                return left
+            }
+        }
+        case "??=": {
+            if (left.type === "primitive" && (left.value === null || left.value === undefined)) {
+                return right
+            } else {
+                return left
+            }
+        }
+        default:
+            return coerceBinaryOperator(binaryOp, left, right, heap)
+    }
+}

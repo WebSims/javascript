@@ -29,7 +29,7 @@ import {
     NAN,
 } from "../types/simulation"
 import { cloneDeep, forEach } from "lodash" // Import cloneDeep from lodash
-import { coerceBinaryOperator, toBoolean } from './coercion'
+import { coerceAssignmentOperator, coerceBinaryOperator, toBoolean } from './coercion'
 
 export const simulateExecution = (astNode: ESTree.Program | null): ExecStep[] => {
     if (!astNode) {
@@ -459,6 +459,7 @@ export const simulateExecution = (astNode: ESTree.Program | null): ExecStep[] =>
 
         try {
             const evaluatedValue = coerceBinaryOperator(astNode.operator, evaluatedLeft, evaluatedRight, heap)
+            console.log(evaluatedValue)
             pushMemval(evaluatedValue)
             addEvaluatedStep(astNode)
 
@@ -477,16 +478,6 @@ export const simulateExecution = (astNode: ESTree.Program | null): ExecStep[] =>
         let evaluatedValue: JSValue
 
         switch (astNode.operator) {
-            case "&&": {
-                if (leftBool) {
-                    traverseExec(astNode.right, options)
-                    evaluatedValue = popMemval()
-                    popMemval()
-                } else {
-                    evaluatedValue = popMemval()
-                }
-                break
-            }
             case "||": {
                 if (leftBool) {
                     evaluatedValue = popMemval()
@@ -494,6 +485,16 @@ export const simulateExecution = (astNode: ESTree.Program | null): ExecStep[] =>
                     traverseExec(astNode.right, options)
                     evaluatedValue = popMemval()
                     popMemval()
+                }
+                break
+            }
+            case "&&": {
+                if (leftBool) {
+                    traverseExec(astNode.right, options)
+                    evaluatedValue = popMemval()
+                    popMemval()
+                } else {
+                    evaluatedValue = popMemval()
                 }
                 break
             }
@@ -725,11 +726,7 @@ export const simulateExecution = (astNode: ESTree.Program | null): ExecStep[] =>
 
                         const evaluatedRight = popMemval()
                         const evaluatedLeft = lookupResult.variable.value
-                        // TODO: reference have problem.
-                        const leftRaw = JSON.stringify(evaluatedLeft.value)
-                        const rightRaw = JSON.stringify(evaluatedRight.value)
-                        const value = eval(`${leftRaw}${astNode.operator.replace("=", "")}${rightRaw}`)
-                        const evaluatedValue = { type: "primitive", value } as const
+                        const evaluatedValue = coerceAssignmentOperator(astNode.operator, evaluatedLeft, evaluatedRight, heap)
 
                         writeVariable(
                             identifier.name,
