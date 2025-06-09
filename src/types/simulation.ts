@@ -3,6 +3,7 @@ import * as ESTree from "estree"
 // ----- Memory Model -----
 export const TDZ = { type: "primitive", value: "not_initialized" } as const
 export const UNDEFINED = { type: "primitive", value: undefined } as const
+export const NAN = { type: "primitive", value: NaN } as const
 
 // Represents a unique reference to an object/array/function in the heap
 export type HeapRef = number

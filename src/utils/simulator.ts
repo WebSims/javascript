@@ -426,6 +426,9 @@ export const simulateExecution = (astNode: ESTree.Program | null): ExecStep[] =>
         if (astNode.name === 'undefined') {
             pushMemval(UNDEFINED)
             addEvaluatedStep(astNode)
+        } else if (astNode.name === 'NaN') {
+            pushMemval(NAN)
+            addEvaluatedStep(astNode)
         } else {
             const lookupResult = lookupVariable(astNode.name)
             if (lookupResult) {
