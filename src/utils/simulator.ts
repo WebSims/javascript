@@ -1,7 +1,7 @@
 import * as ESTree from 'estree'
 import {
-    UNDEFINED,
-    TDZ,
+    JS_VALUE_UNDEFINED,
+    JS_VALUE_TDZ,
     BUBBLE_UP_TYPE,
     SCOPE_KIND,
     DECLARATION_TYPE,
@@ -26,8 +26,8 @@ import {
     ExecStepType,
     ScopeKind,
     Memval,
-    NAN,
-} from "../types/simulation"
+    JS_VALUE_NAN,
+} from "../types/simulator"
 import { cloneDeep, forEach } from "lodash" // Import cloneDeep from lodash
 import { coerceAssignmentOperator, coerceBinaryOperator, toBoolean } from './coercion'
 
@@ -249,10 +249,10 @@ export const simulateExecution = (astNode: ESTree.Program | null): ExecStep[] =>
             if (isNumber) {
                 return heapObj.elements[parseInt(property)]
             } else {
-                return heapObj.properties[property] || UNDEFINED
+                return heapObj.properties[property] || JS_VALUE_UNDEFINED
             }
         } else {
-            return heapObj.properties[property] || UNDEFINED
+            return heapObj.properties[property] || JS_VALUE_UNDEFINED
         }
     }
 
@@ -354,7 +354,7 @@ export const simulateExecution = (astNode: ESTree.Program | null): ExecStep[] =>
         for (const declarator of astNode.declarations) {
             addExecutingStep(astNode)
 
-            let evaluatedValue: JSValue = UNDEFINED
+            let evaluatedValue: JSValue = JS_VALUE_UNDEFINED
             if (declarator.init) {
                 traverseExec(declarator.init, options)
                 evaluatedValue = popMemval()
@@ -398,7 +398,7 @@ export const simulateExecution = (astNode: ESTree.Program | null): ExecStep[] =>
                         { ...options, callee: object.node }
                     )
                     if (object.node.body.type === "BlockStatement") {
-                        pushMemval(UNDEFINED)
+                        pushMemval(JS_VALUE_UNDEFINED)
                     }
                     addEvaluatedStep(astNode)
                 } catch (bubbleUp) {
@@ -425,16 +425,16 @@ export const simulateExecution = (astNode: ESTree.Program | null): ExecStep[] =>
         addEvaluatingStep(astNode)
 
         if (astNode.name === 'undefined') {
-            pushMemval(UNDEFINED)
+            pushMemval(JS_VALUE_UNDEFINED)
             addEvaluatedStep(astNode)
         } else if (astNode.name === 'NaN') {
-            pushMemval(NAN)
+            pushMemval(JS_VALUE_NAN)
             addEvaluatedStep(astNode)
         } else {
             const lookupResult = lookupVariable(astNode.name)
             if (lookupResult) {
                 const evaluatedValue = lookupResult.variable.value
-                if (evaluatedValue === TDZ) {
+                if (evaluatedValue === JS_VALUE_TDZ) {
                     createErrorObject('ReferenceError', `Cannot access '${astNode.name}' before initialization`)
                     addThrownStep(astNode)
                 } else {
@@ -519,7 +519,7 @@ export const simulateExecution = (astNode: ESTree.Program | null): ExecStep[] =>
         if (astNode.argument) {
             traverseExec(astNode.argument, options)
         } else {
-            pushMemval(UNDEFINED)
+            pushMemval(JS_VALUE_UNDEFINED)
         }
         addExecutedStep(astNode, BUBBLE_UP_TYPE.RETURN)
         throw BUBBLE_UP_TYPE.RETURN
@@ -616,7 +616,7 @@ export const simulateExecution = (astNode: ESTree.Program | null): ExecStep[] =>
                     }
                 }
 
-                if (readMemval(1) === UNDEFINED) {
+                if (readMemval(1) === JS_VALUE_UNDEFINED) {
                     const evaluatedProperty = popMemval()
                     popMemval()
                     createErrorObject('TypeError', `Cannot set properties of undefined (setting '${evaluatedProperty.value}')`)
@@ -645,7 +645,7 @@ export const simulateExecution = (astNode: ESTree.Program | null): ExecStep[] =>
 
                     const lookupResult = lookupVariable(identifier.name)
                     if (lookupResult) {
-                        if (lookupResult.variable.value === TDZ) {
+                        if (lookupResult.variable.value === JS_VALUE_TDZ) {
                             createErrorObject('ReferenceError', `Cannot access '${identifier.name}' before initialization`)
                             addThrownStep(astNode)
                         } else {
@@ -684,7 +684,7 @@ export const simulateExecution = (astNode: ESTree.Program | null): ExecStep[] =>
                     }
                 }
 
-                if (readMemval(1) === UNDEFINED) {
+                if (readMemval(1) === JS_VALUE_UNDEFINED) {
                     const evaluatedProperty = popMemval()
                     popMemval()
                     createErrorObject('TypeError', `Cannot read properties of undefined (reading '${evaluatedProperty.value}')`)
@@ -697,7 +697,7 @@ export const simulateExecution = (astNode: ESTree.Program | null): ExecStep[] =>
                 const evaluatedProperty = popMemval()
                 const evaluatedObject = popMemval()
 
-                let evaluatedLeft: JSValue = UNDEFINED
+                let evaluatedLeft: JSValue = JS_VALUE_UNDEFINED
                 if (evaluatedObject.type === "reference" && evaluatedProperty.type === "primitive") {
                     evaluatedLeft = readProperty(evaluatedObject.ref, String(evaluatedProperty.value))
                 }
@@ -769,7 +769,7 @@ export const simulateExecution = (astNode: ESTree.Program | null): ExecStep[] =>
             if (element) {
                 traverseExec(element, options)
             } else {
-                pushMemval(UNDEFINED)
+                pushMemval(JS_VALUE_UNDEFINED)
             }
         }
 
@@ -808,7 +808,7 @@ export const simulateExecution = (astNode: ESTree.Program | null): ExecStep[] =>
 
         traverseExec(astNode.object, options)
 
-        let evaluatedValue: JSValue = UNDEFINED
+        let evaluatedValue: JSValue = JS_VALUE_UNDEFINED
 
         const evaluatedObject = readMemval()
         if (evaluatedObject.type === "reference") {
@@ -826,13 +826,13 @@ export const simulateExecution = (astNode: ESTree.Program | null): ExecStep[] =>
                 traverseExec(astNode.property, options)
                 const evaluatedProperty = popMemval()
 
-                if (evaluatedObject === UNDEFINED) {
+                if (evaluatedObject === JS_VALUE_UNDEFINED) {
                     popMemval()
                     createErrorObject('TypeError', `Cannot read properties of undefined (reading ${evaluatedProperty.value})`)
                     addThrownStep(astNode)
                 }
             } else {
-                if (evaluatedObject === UNDEFINED) {
+                if (evaluatedObject === JS_VALUE_UNDEFINED) {
                     popMemval()
                     createErrorObject('TypeError', `Cannot read properties of undefined (reading ${astNode.property.name})`)
                     addThrownStep(astNode)
@@ -943,7 +943,7 @@ export const simulateExecution = (astNode: ESTree.Program | null): ExecStep[] =>
                 }
             }
 
-            if (readMemval(1) === UNDEFINED) {
+            if (readMemval(1) === JS_VALUE_UNDEFINED) {
                 const evaluatedProperty = popMemval()
                 popMemval()
                 createErrorObject('TypeError', `Cannot read properties of undefined (reading '${evaluatedProperty.value}')`)
@@ -953,7 +953,7 @@ export const simulateExecution = (astNode: ESTree.Program | null): ExecStep[] =>
             const evaluatedProperty = popMemval()
             const evaluatedObject = popMemval()
 
-            let currentValue: JSValue = UNDEFINED
+            let currentValue: JSValue = JS_VALUE_UNDEFINED
             if (evaluatedObject.type === "reference" && evaluatedProperty.type === "primitive") {
                 currentValue = readProperty(evaluatedObject.ref, String(evaluatedProperty.value))
             }
@@ -1082,7 +1082,7 @@ export const simulateExecution = (astNode: ESTree.Program | null): ExecStep[] =>
                     options.parentScopeIndex
                 )
             } else {
-                const initialValue = UNDEFINED
+                const initialValue = JS_VALUE_UNDEFINED
                 newDeclaration(
                     astNode.id.name,
                     initialValue,
@@ -1097,7 +1097,7 @@ export const simulateExecution = (astNode: ESTree.Program | null): ExecStep[] =>
             const identifier = getIdentifierFromPattern(declarator.id)
             if (identifier) {
                 const declarationType = astNode.kind === DECLARATION_TYPE.CONST ? DECLARATION_TYPE.CONST : astNode.kind === DECLARATION_TYPE.LET ? DECLARATION_TYPE.LET : DECLARATION_TYPE.VAR
-                const initialValue = astNode.kind === DECLARATION_TYPE.VAR ? UNDEFINED : TDZ
+                const initialValue = astNode.kind === DECLARATION_TYPE.VAR ? JS_VALUE_UNDEFINED : JS_VALUE_TDZ
                 const scopeIndex = astNode.kind === DECLARATION_TYPE.VAR ? options.parentScopeIndex : lastScopeIndex
                 const lookupResult = lookupVariable(identifier.name)
                 if (lookupResult) {
@@ -1158,8 +1158,8 @@ export const simulateExecution = (astNode: ESTree.Program | null): ExecStep[] =>
             }
 
             for (const param of params) {
-                let paramValue = args.pop() || UNDEFINED
-                if (param.type === "AssignmentPattern" && paramValue === UNDEFINED) {
+                let paramValue = args.pop() || JS_VALUE_UNDEFINED
+                if (param.type === "AssignmentPattern" && paramValue === JS_VALUE_UNDEFINED) {
                     traverseExec(param.right, options)
                     paramValue = popMemval()
                 }

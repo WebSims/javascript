@@ -1,4 +1,4 @@
-import { DECLARATION_TYPE, NodeHandlerMap, TDZ, UNDEFINED } from "@/types/simulation";
+import { DECLARATION_TYPE, NodeHandlerMap, JS_VALUE_TDZ, JS_VALUE_UNDEFINED } from "@/types/simulator";
 
 export const hoistingHandlers = {} as NodeHandlerMap
 
@@ -56,7 +56,7 @@ hoistingHandlers["FunctionDeclaration"] = function (astNode, options) {
                 options.parentScopeIndex
             )
         } else {
-            const initialValue = UNDEFINED
+            const initialValue = JS_VALUE_UNDEFINED
             this.newDeclaration(
                 astNode.id.name,
                 initialValue,
@@ -72,7 +72,7 @@ hoistingHandlers["VariableDeclaration"] = function (astNode, options) {
         const identifier = this.getIdentifierFromPattern(declarator.id)
         if (identifier) {
             const declarationType = astNode.kind === DECLARATION_TYPE.CONST ? DECLARATION_TYPE.CONST : astNode.kind === DECLARATION_TYPE.LET ? DECLARATION_TYPE.LET : DECLARATION_TYPE.VAR
-            const initialValue = astNode.kind === DECLARATION_TYPE.VAR ? UNDEFINED : TDZ
+            const initialValue = astNode.kind === DECLARATION_TYPE.VAR ? JS_VALUE_UNDEFINED : JS_VALUE_TDZ
             const scopeIndex = astNode.kind === DECLARATION_TYPE.VAR ? options.parentScopeIndex : this.getLastScopeIndex()
             const lookupResult = this.lookupVariable(identifier.name)
             if (lookupResult) {

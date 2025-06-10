@@ -1,7 +1,7 @@
 import { useEffect, useState, RefObject } from 'react'
 import { useSimulatorStore } from './useSimulatorStore'
 import { ESNode } from 'hermes-parser'
-import { BUBBLE_UP_TYPE, EXEC_STEP_TYPE } from '@/types/simulation'
+import { BUBBLE_UP_TYPE, EXEC_STEP_TYPE } from '@/types/simulator'
 
 export const useExecStep = (node?: ESNode, ref?: RefObject<HTMLElement | null>) => {
     const { currentStep } = useSimulatorStore()

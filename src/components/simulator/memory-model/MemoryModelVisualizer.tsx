@@ -2,7 +2,7 @@ import { useEffect, useRef } from "react"
 import * as d3 from "d3"
 import ELK from "elkjs/lib/elk.bundled.js"
 import type { ElkNode as ElkLayoutNode, ElkEdge as ElkLayoutEdge } from "elkjs/lib/elk-api"
-import { JSValue, HEAP_OBJECT_TYPE } from "@/types/simulation"
+import { JSValue, HEAP_OBJECT_TYPE } from "@/types/simulator"
 import { useSimulatorStore } from "@/hooks/useSimulatorStore"
 
 type HeapObjectData = {

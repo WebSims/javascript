@@ -1,5 +1,5 @@
 import * as ESTree from "estree"
-import { JSValue, HEAP_OBJECT_TYPE, PrimitiveValue, CoerceHandlerMap, HeapObject } from "../types/simulation"
+import { JSValue, HEAP_OBJECT_TYPE, PrimitiveValue, CoerceHandlerMap, JSValuePrimitive } from "../types/simulator"
 
 /**
  * JavaScript Type Coercion Utilities
@@ -12,7 +12,7 @@ import { JSValue, HEAP_OBJECT_TYPE, PrimitiveValue, CoerceHandlerMap, HeapObject
 
 export const coerceHandlers = {} as CoerceHandlerMap
 
-coerceHandlers['toBoolean'] = function (jsValue: JSValue): boolean {
+coerceHandlers['toBoolean'] = function (jsValue: JSValue, recordCoercion: boolean = true): boolean {
     if (jsValue.type === "primitive" && typeof jsValue.value === "boolean")
         return jsValue.value
 
@@ -23,12 +23,14 @@ coerceHandlers['toBoolean'] = function (jsValue: JSValue): boolean {
         booleanResult = true // Objects are always truthy
     }
 
-    // const coercion = {
-    //     type: COERCION_TYPE.TO_BOOLEAN,
-    //     from: value,
-    //     to: result,
-    //     operation: "to_boolean"
-    // }
+    if (recordCoercion) {
+        // const coercion = {
+        //     type: COERCION_TYPE.TO_BOOLEAN,
+        //     from: value,
+        //     to: result,
+        //     operation: "to_boolean"
+        // }
+    }
 
     return booleanResult
 }
@@ -132,7 +134,7 @@ coerceHandlers['binaryOperator'] = function (
     operator: ESTree.BinaryOperator,
     left: JSValue,
     right: JSValue,
-): { type: "primitive"; value: PrimitiveValue } {
+): JSValuePrimitive {
 
     const abstractEquality = (left: JSValue, right: JSValue): boolean => {
         if (left.type === "reference" && right.type === "reference") {
@@ -289,42 +291,62 @@ coerceHandlers['binaryOperator'] = function (
     }
 }
 
+coerceHandlers['logicalOperator'] = function (
+    operator: ESTree.LogicalOperator,
+    left: JSValue,
+    getRightValue: () => JSValue,
+): JSValue {
+    switch (operator) {
+        case "||": {
+            const leftBool = this.toBoolean(left, false)
+            if (leftBool) {
+                return left
+            } else {
+                return getRightValue()
+            }
+        }
+        case "&&": {
+            const leftBool = this.toBoolean(left, false)
+            if (leftBool) {
+                return getRightValue()
+            } else {
+                return left
+            }
+        }
+        case "??": {
+            if (left.type === "primitive" && (left.value === null || left.value === undefined)) {
+                return getRightValue()
+            } else {
+                return left
+            }
+        }
+    }
+}
+
 coerceHandlers['assignmentOperator'] = function (
     operator: ESTree.AssignmentOperator,
     left: JSValue,
-    right: JSValue,
+    getRightValue: () => JSValue,
 ): JSValue {
     // Remove the '=' from compound assignment operators
     const binaryOp = operator.slice(0, -1) as ESTree.BinaryOperator
 
     switch (operator) {
         case "=":
-            return right // No coercion for simple assignment
+            return getRightValue() // No coercion for simple assignment
         case "||=": {
-            const leftBool = this.toBoolean(left)
-            if (leftBool) {
-                return left
-            } else {
-                return right
-            }
+            return this.logicalOperatorHandler("||", left, getRightValue)
         }
         case "&&=": {
-            const leftBool = this.toBoolean(left)
-            if (leftBool) {
-                return right
-            } else {
-                return left
-            }
+            return this.logicalOperatorHandler("&&", left, getRightValue)
         }
         case "??=": {
-            if (left.type === "primitive" && (left.value === null || left.value === undefined)) {
-                return right
-            } else {
-                return left
-            }
+            return this.logicalOperatorHandler("??", left, getRightValue)
         }
-        default:
-            return this.binaryOperatorHandler(binaryOp, left, right)
+        default: {
+            const rightValue = getRightValue()
+            return this.binaryOperatorHandler(binaryOp, left, rightValue)
+        }
     }
 }
 

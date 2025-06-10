@@ -1,6 +1,6 @@
 import React, { useRef, useEffect, useState, useCallback } from 'react'
 import { ChevronDownIcon } from 'lucide-react'
-import { CustomNode, EXEC_STEP_TYPE, ExecStep, ExecStepType } from '@/types/simulation'
+import { CustomNode, EXEC_STEP_TYPE, ExecStep, ExecStepType } from '@/types/simulator'
 import { cn } from '@/lib/utils'
 import { useSimulatorStore } from '@/hooks/useSimulatorStore'
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip'

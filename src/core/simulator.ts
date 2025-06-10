@@ -1,6 +1,6 @@
 import * as ESTree from 'estree'
 import {
-    UNDEFINED,
+    JS_VALUE_UNDEFINED,
     BUBBLE_UP_TYPE,
     SCOPE_KIND,
     DECLARATION_TYPE,
@@ -25,13 +25,12 @@ import {
     Memval,
     HeapRef,
     PrimitiveValue,
-    BinaryOperator,
-} from "../types/simulation"
+    JSValuePrimitive,
+} from "../types/simulator"
 import { cloneDeep } from "lodash" // Import cloneDeep from lodash
 import { execHandlers } from './execution'
 import { hoistingHandlers } from './hoisting'
 import { coerceHandlers } from './coercion'
-import { AssignmentOperator } from 'estree'
 
 class Simulator {
     private ast: ESTree.Program
@@ -250,10 +249,10 @@ class Simulator {
             if (isNumber) {
                 return heapObj.elements[parseInt(property)]
             } else {
-                return heapObj.properties[property] || UNDEFINED
+                return heapObj.properties[property] || JS_VALUE_UNDEFINED
             }
         } else {
-            return heapObj.properties[property] || UNDEFINED
+            return heapObj.properties[property] || JS_VALUE_UNDEFINED
         }
     }
 
@@ -293,8 +292,8 @@ class Simulator {
                 delete options.catch
             }
             for (const param of params) {
-                let paramValue = args.pop() || UNDEFINED
-                if (param.type === "AssignmentPattern" && paramValue === UNDEFINED) {
+                let paramValue = args.pop() || JS_VALUE_UNDEFINED
+                if (param.type === "AssignmentPattern" && paramValue === JS_VALUE_UNDEFINED) {
                     this.traverseExec(param.right, options)
                     paramValue = this.popMemval()
                 }
@@ -395,8 +394,8 @@ class Simulator {
     }
 
     /* Coercion */
-    toBoolean(jsValue: JSValue): boolean {
-        return coerceHandlers.toBoolean.call(this, jsValue)
+    toBoolean(jsValue: JSValue, recordCoercion: boolean = true): boolean {
+        return coerceHandlers.toBoolean.call(this, jsValue, recordCoercion)
     }
     toNumber(jsValue: JSValue): number {
         return coerceHandlers.toNumber.call(this, jsValue)
@@ -413,11 +412,14 @@ class Simulator {
     toPrimitive(jsValue: JSValue): PrimitiveValue {
         return coerceHandlers.toPrimitive.call(this, jsValue)
     }
-    binaryOperatorHandler(operator: BinaryOperator, left: JSValue, right: JSValue): { type: "primitive"; value: PrimitiveValue } {
+    binaryOperatorHandler(operator: ESTree.BinaryOperator, left: JSValue, right: JSValue): JSValuePrimitive {
         return coerceHandlers.binaryOperator.call(this, operator, left, right)
     }
-    assignmentOperatorHandler(operator: AssignmentOperator, left: JSValue, right: JSValue): JSValue {
-        return coerceHandlers.assignmentOperator.call(this, operator, left, right)
+    logicalOperatorHandler(operator: ESTree.LogicalOperator, left: JSValue, getRightValue: () => JSValue): JSValue {
+        return coerceHandlers.logicalOperator.call(this, operator, left, getRightValue)
+    }
+    assignmentOperatorHandler(operator: ESTree.AssignmentOperator, left: JSValue, getRightValue: () => JSValue): JSValue {
+        return coerceHandlers.assignmentOperator.call(this, operator, left, getRightValue)
     }
     updateOperatorHandler(operator: ESTree.UpdateOperator, operand: JSValue, isPrefix: boolean): { newValue: JSValue, returnValue: JSValue } {
         return coerceHandlers.updateOperator.call(this, operator, operand, isPrefix)

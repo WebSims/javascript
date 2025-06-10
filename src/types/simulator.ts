@@ -1,23 +1,21 @@
 import Simulator from "@/core/simulator"
 import * as ESTree from "estree"
-import { AssignmentOperator } from "estree"
 
 // ----- Memory Model -----
-export const TDZ = { type: "primitive", value: "not_initialized" } as const
-export const UNDEFINED = { type: "primitive", value: undefined } as const
-export const NAN = { type: "primitive", value: NaN } as const
-
-// Represents a unique reference to an object/array/function in the heap
-export type HeapRef = number
+export const JS_VALUE_TDZ = { type: "primitive", value: "not_initialized" } as const
+export const JS_VALUE_UNDEFINED = { type: "primitive", value: undefined } as const
+export const JS_VALUE_NAN = { type: "primitive", value: NaN } as const
 
 export type PrimitiveValue = ESTree.Literal["value"]
-// Represents any value in the JavaScript simulation
-export type JSValue =
-    | { type: "primitive"; value: PrimitiveValue }
-    | { type: "reference"; ref: HeapRef }
+export type HeapRef = number
+
+export type JSValuePrimitive = { type: "primitive"; value: PrimitiveValue }
+export type JSValueReference = { type: "reference"; ref: HeapRef }
+export type JSValue = JSValuePrimitive | JSValueReference
 // Consider adding symbol/bigint if needed by the code you simulate
 
 // ----- Heap Object -----
+
 export const HEAP_OBJECT_TYPE = {
     OBJECT: "object",
     ARRAY: "array",
@@ -215,14 +213,15 @@ export interface CustomNode extends ESTree.BaseNode {
 }
 
 export type CoerceHandlerMap = {
-    'toBoolean': (this: Simulator, jsValue: JSValue) => boolean,
+    'toBoolean': (this: Simulator, jsValue: JSValue, recordCoercion: boolean) => boolean,
     'toString': (this: Simulator, jsValue: JSValue) => string,
     'toNumber': (this: Simulator, jsValue: JSValue) => number,
     'toInt32': (this: Simulator, jsValue: JSValue) => number,
     'toUint32': (this: Simulator, jsValue: JSValue) => number,
     'toPrimitive': (this: Simulator, jsValue: JSValue) => PrimitiveValue,
-    'binaryOperator': (this: Simulator, operator: BinaryOperator, left: JSValue, right: JSValue) => { type: "primitive"; value: PrimitiveValue },
-    'assignmentOperator': (this: Simulator, operator: AssignmentOperator, left: JSValue, right: JSValue) => JSValue,
+    'binaryOperator': (this: Simulator, operator: ESTree.BinaryOperator, left: JSValue, right: JSValue) => JSValuePrimitive,
+    'logicalOperator': (this: Simulator, operator: ESTree.LogicalOperator, left: JSValue, getRightValue: () => JSValue) => JSValue,
+    'assignmentOperator': (this: Simulator, operator: ESTree.AssignmentOperator, left: JSValue, getRightValue: () => JSValue) => JSValue,
     'updateOperator': (this: Simulator, operator: ESTree.UpdateOperator, operand: JSValue, isPrefix: boolean) => { newValue: JSValue, returnValue: JSValue },
 }
 
@@ -235,15 +234,10 @@ export const COERCION_TYPE = {
 } as const
 export type CoercionType = 'to_boolean' | 'to_number' | 'to_string' | 'to_primitive' | 'to_object'
 
-export const BINARY_OPERATORS = [
-    '==', '!=', '===', '!==', '<', '<=', '>', '>=', '<<', '>>', '>>>', '+', '-', '*', '/', '%', '**', '|', '^', '&', 'in', 'instanceof'
-] as const
-export type BinaryOperator = typeof BINARY_OPERATORS[number]
-
 export type CoercionInfo = {
     type: CoercionType,
     from: JSValue,
     to: JSValue,
     operation: string,
-    operator: BinaryOperator
+    operator: ESTree.BinaryOperator | ESTree.AssignmentOperator | ESTree.UpdateOperator
 }

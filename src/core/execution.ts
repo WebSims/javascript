@@ -1,4 +1,4 @@
-import { BUBBLE_UP_TYPE, DECLARATION_TYPE, EXEC_STEP_TYPE, HEAP_OBJECT_TYPE, JSValue, NAN, NodeHandlerMap, TDZ, UNDEFINED } from "@/types/simulation"
+import { BUBBLE_UP_TYPE, DECLARATION_TYPE, EXEC_STEP_TYPE, HEAP_OBJECT_TYPE, JSValue, JS_VALUE_NAN, NodeHandlerMap, JS_VALUE_TDZ, JS_VALUE_UNDEFINED } from "@/types/simulator"
 import { forEach } from "lodash"
 
 export const execHandlers = {} as NodeHandlerMap
@@ -35,7 +35,7 @@ execHandlers["VariableDeclaration"] = function (astNode, options) {
     for (const declarator of astNode.declarations) {
         this.addExecutingStep(astNode)
 
-        let evaluatedValue: JSValue = UNDEFINED
+        let evaluatedValue: JSValue = JS_VALUE_UNDEFINED
         if (declarator.init) {
             this.traverseExec(declarator.init, options)
             evaluatedValue = this.popMemval()
@@ -79,7 +79,7 @@ execHandlers["CallExpression"] = function (astNode, options) {
                     { ...options, callee: object.node }
                 )
                 if (object.node.body.type === "BlockStatement") {
-                    this.pushMemval(UNDEFINED)
+                    this.pushMemval(JS_VALUE_UNDEFINED)
                 }
                 this.addEvaluatedStep(astNode)
             } catch (bubbleUp) {
@@ -106,16 +106,16 @@ execHandlers["Identifier"] = function (astNode) {
     this.addEvaluatingStep(astNode)
 
     if (astNode.name === 'undefined') {
-        this.pushMemval(UNDEFINED)
+        this.pushMemval(JS_VALUE_UNDEFINED)
         this.addEvaluatedStep(astNode)
     } else if (astNode.name === 'NaN') {
-        this.pushMemval(NAN)
+        this.pushMemval(JS_VALUE_NAN)
         this.addEvaluatedStep(astNode)
     } else {
         const lookupResult = this.lookupVariable(astNode.name)
         if (lookupResult) {
             const evaluatedValue = lookupResult.variable.value
-            if (evaluatedValue === TDZ) {
+            if (evaluatedValue === JS_VALUE_TDZ) {
                 this.createErrorObject('ReferenceError', `Cannot access '${astNode.name}' before initialization`)
                 this.addThrownStep(astNode)
             } else {
@@ -156,43 +156,16 @@ execHandlers["LogicalExpression"] = function (astNode, options) {
 
     this.traverseExec(astNode.left, options)
     const evaluatedLeft = this.readMemval()
-    const leftBool = this.toBoolean(this.readMemval())
-    let evaluatedValue: JSValue
-
-    switch (astNode.operator) {
-        case "||": {
-            if (leftBool) {
-                evaluatedValue = this.popMemval()
-            } else {
-                this.traverseExec(astNode.right, options)
-                evaluatedValue = this.popMemval()
-                this.popMemval()
-            }
-            break
+    const result = this.logicalOperatorHandler(
+        astNode.operator,
+        evaluatedLeft,
+        () => {
+            this.traverseExec(astNode.right, options)
+            return this.popMemval()
         }
-        case "&&": {
-            if (leftBool) {
-                this.traverseExec(astNode.right, options)
-                evaluatedValue = this.popMemval()
-                this.popMemval()
-            } else {
-                evaluatedValue = this.popMemval()
-            }
-            break
-        }
-        case "??": {
-            if (evaluatedLeft.type === "primitive" && (evaluatedLeft.value === null || evaluatedLeft.value === undefined)) {
-                this.traverseExec(astNode.right, options)
-                evaluatedValue = this.popMemval()
-                this.popMemval()
-            } else {
-                evaluatedValue = this.popMemval()
-            }
-            break
-        }
-    }
-
-    this.pushMemval(evaluatedValue)
+    )
+    this.popMemval()
+    this.pushMemval(result)
     this.addEvaluatedStep(astNode)
 }
 
@@ -201,7 +174,7 @@ execHandlers["ReturnStatement"] = function (astNode, options) {
     if (astNode.argument) {
         this.traverseExec(astNode.argument, options)
     } else {
-        this.pushMemval(UNDEFINED)
+        this.pushMemval(JS_VALUE_UNDEFINED)
     }
     this.addExecutedStep(astNode, BUBBLE_UP_TYPE.RETURN)
     throw BUBBLE_UP_TYPE.RETURN
@@ -298,7 +271,7 @@ execHandlers["AssignmentExpression"] = function (astNode, options) {
                 }
             }
 
-            if (this.readMemval(1) === UNDEFINED) {
+            if (this.readMemval(1) === JS_VALUE_UNDEFINED) {
                 const evaluatedProperty = this.popMemval()
                 this.popMemval()
                 const propName = evaluatedProperty.type === 'primitive' ? `'${evaluatedProperty.value}'` : '(unknown property)'
@@ -328,7 +301,7 @@ execHandlers["AssignmentExpression"] = function (astNode, options) {
 
                 const lookupResult = this.lookupVariable(identifier.name)
                 if (lookupResult) {
-                    if (lookupResult.variable.value === TDZ) {
+                    if (lookupResult.variable.value === JS_VALUE_TDZ) {
                         this.createErrorObject('ReferenceError', `Cannot access '${identifier.name}' before initialization`)
                         this.addThrownStep(astNode)
                     } else {
@@ -367,25 +340,32 @@ execHandlers["AssignmentExpression"] = function (astNode, options) {
                 }
             }
 
-            if (this.readMemval(1) === UNDEFINED) {
+            if (this.readMemval(1) === JS_VALUE_UNDEFINED) {
                 const evaluatedProperty = this.popMemval()
                 this.popMemval()
                 this.createErrorObject('TypeError', `Cannot set properties of undefined (setting '${evaluatedProperty.value}')`)
                 this.addThrownStep(astNode)
             }
 
-            this.traverseExec(astNode.right, options)
-
-            const evaluatedRight = this.popMemval()
-            const evaluatedProperty = this.popMemval()
-            const evaluatedObject = this.popMemval()
-
-            let evaluatedLeft: JSValue = UNDEFINED
+            const evaluatedProperty = this.readMemval()
+            const evaluatedObject = this.readMemval(1)
+            let evaluatedLeft: JSValue = JS_VALUE_UNDEFINED
             if (evaluatedObject.type === "reference" && evaluatedProperty.type === "primitive") {
                 evaluatedLeft = this.readProperty(evaluatedObject.ref, String(evaluatedProperty.value))
             }
 
-            const evaluatedValue = this.assignmentOperatorHandler(astNode.operator, evaluatedLeft, evaluatedRight)
+            const evaluatedValue = this.assignmentOperatorHandler(
+                astNode.operator,
+                evaluatedLeft,
+                () => {
+                    this.traverseExec(astNode.right, options)
+                    return this.popMemval()
+                }
+            )
+
+            // remove the evaluatedProperty and evaluatedObject from the memval
+            this.popMemval()
+            this.popMemval()
 
             if (evaluatedObject.type === "reference" && evaluatedProperty.type === "primitive") {
                 const stringProperty = String(evaluatedProperty.value)
@@ -401,11 +381,15 @@ execHandlers["AssignmentExpression"] = function (astNode, options) {
             if (identifier) {
                 const lookupResult = this.lookupVariable(identifier.name)
                 if (lookupResult) {
-                    this.traverseExec(astNode.right, options)
-
-                    const evaluatedRight = this.popMemval()
                     const evaluatedLeft = lookupResult.variable.value
-                    const evaluatedValue = this.assignmentOperatorHandler(astNode.operator, evaluatedLeft, evaluatedRight)
+                    const evaluatedValue = this.assignmentOperatorHandler(
+                        astNode.operator,
+                        evaluatedLeft,
+                        () => {
+                            this.traverseExec(astNode.right, options)
+                            return this.popMemval()
+                        }
+                    )
 
                     this.writeVariable(
                         identifier.name,
@@ -448,7 +432,7 @@ execHandlers["ArrayExpression"] = function (astNode, options) {
         if (element) {
             this.traverseExec(element, options)
         } else {
-            this.pushMemval(UNDEFINED)
+            this.pushMemval(JS_VALUE_UNDEFINED)
         }
     }
 
@@ -488,7 +472,7 @@ execHandlers["MemberExpression"] = function (astNode, options) {
 
     this.traverseExec(astNode.object, options)
 
-    let evaluatedValue: JSValue = UNDEFINED
+    let evaluatedValue: JSValue = JS_VALUE_UNDEFINED
 
     const evaluatedObject = this.readMemval()
     if (evaluatedObject.type === "reference") {
@@ -506,13 +490,13 @@ execHandlers["MemberExpression"] = function (astNode, options) {
             this.traverseExec(astNode.property, options)
             const evaluatedProperty = this.popMemval()
 
-            if (evaluatedObject === UNDEFINED) {
+            if (evaluatedObject === JS_VALUE_UNDEFINED) {
                 this.popMemval()
                 this.createErrorObject('TypeError', `Cannot read properties of undefined (reading ${evaluatedProperty.value})`)
                 this.addThrownStep(astNode)
             }
         } else {
-            if (evaluatedObject === UNDEFINED) {
+            if (evaluatedObject === JS_VALUE_UNDEFINED) {
                 this.popMemval()
                 this.createErrorObject('TypeError', `Cannot read properties of undefined (reading ${astNode.property.name})`)
                 this.addThrownStep(astNode)
@@ -566,7 +550,7 @@ execHandlers["UpdateExpression"] = function (astNode, options) {
             }
         }
 
-        if (this.readMemval(1) === UNDEFINED) {
+        if (this.readMemval(1) === JS_VALUE_UNDEFINED) {
             const evaluatedProperty = this.popMemval()
             this.popMemval()
             this.createErrorObject('TypeError', `Cannot read properties of undefined (reading '${evaluatedProperty.value}')`)
@@ -576,7 +560,7 @@ execHandlers["UpdateExpression"] = function (astNode, options) {
         const evaluatedProperty = this.popMemval()
         const evaluatedObject = this.popMemval()
 
-        let currentValue: JSValue = UNDEFINED
+        let currentValue: JSValue = JS_VALUE_UNDEFINED
         if (evaluatedObject.type === "reference" && evaluatedProperty.type === "primitive") {
             currentValue = this.readProperty(evaluatedObject.ref, String(evaluatedProperty.value))
         }

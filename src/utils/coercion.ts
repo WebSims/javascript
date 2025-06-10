@@ -1,5 +1,5 @@
 import * as ESTree from "estree"
-import { JSValue, HeapObject, HEAP_OBJECT_TYPE, PrimitiveValue } from "../types/simulation"
+import { JSValue, HeapObject, HEAP_OBJECT_TYPE, PrimitiveValue } from "../types/simulator"
 
 /**
  * JavaScript Type Coercion Utilities

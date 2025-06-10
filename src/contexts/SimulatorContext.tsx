@@ -2,7 +2,7 @@ import { createContext, useState, useEffect, useRef } from "react"
 import { astOf } from "@/utils/ast"
 import { cheatSheetHighlighter } from "@/utils/cheatSheetHighlighter"
 import * as ts from "typescript"
-import { ExecStep } from "@/types/simulation"
+import { ExecStep } from "@/types/simulator"
 import * as ESTree from 'estree'
 import Simulator from "@/core/simulator"
 
