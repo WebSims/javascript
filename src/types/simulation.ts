@@ -1,4 +1,6 @@
+import Simulator from "@/core/simulator"
 import * as ESTree from "estree"
+import { AssignmentOperator } from "estree"
 
 // ----- Memory Model -----
 export const TDZ = { type: "primitive", value: "not_initialized" } as const
@@ -201,15 +203,27 @@ export type TraverseASTOptions = {
     isRoot?: boolean
 }
 
-export type NodeHandler<T extends ESTree.Node> = (node: T, options: TraverseASTOptions) => void
+export type NodeHandler<T extends ESTree.Node> = (this: Simulator, node: T, options: TraverseASTOptions) => void
 
 export type NodeHandlerMap = {
-    [K in ESTree.Node['type']]?: NodeHandler<Extract<ESTree.Node, { type: K }>>
+    [K in ESTree.Node['type']]: NodeHandler<Extract<ESTree.Node, { type: K }>>
 }
 
 // Custom AST Node type that includes the category property
 export interface CustomNode extends ESTree.BaseNode {
     category?: string
+}
+
+export type CoerceHandlerMap = {
+    'toBoolean': (this: Simulator, jsValue: JSValue) => boolean,
+    'toString': (this: Simulator, jsValue: JSValue) => string,
+    'toNumber': (this: Simulator, jsValue: JSValue) => number,
+    'toInt32': (this: Simulator, jsValue: JSValue) => number,
+    'toUint32': (this: Simulator, jsValue: JSValue) => number,
+    'toPrimitive': (this: Simulator, jsValue: JSValue) => PrimitiveValue,
+    'binaryOperator': (this: Simulator, operator: BinaryOperator, left: JSValue, right: JSValue) => { type: "primitive"; value: PrimitiveValue },
+    'assignmentOperator': (this: Simulator, operator: AssignmentOperator, left: JSValue, right: JSValue) => JSValue,
+    'updateOperator': (this: Simulator, operator: ESTree.UpdateOperator, operand: JSValue, isPrefix: boolean) => { newValue: JSValue, returnValue: JSValue },
 }
 
 export const COERCION_TYPE = {

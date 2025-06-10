@@ -3,8 +3,8 @@ import { astOf } from "@/utils/ast"
 import { cheatSheetHighlighter } from "@/utils/cheatSheetHighlighter"
 import * as ts from "typescript"
 import { ExecStep } from "@/types/simulation"
-import { simulateExecution } from "@/utils/simulator"
 import * as ESTree from 'estree'
+import Simulator from "@/core/simulator"
 
 // Represents a single scope's memory (e.g., global, function scope)
 // Values can be primitives or references to other objects/arrays/functions
@@ -48,7 +48,7 @@ export const SimulatorProvider = ({ children }: { children: React.ReactNode }) =
     const [isPlaying, setIsPlaying] = useState(false)
     const [speed, setSpeed] = useState(2)
     const [highlightedId, setHighlightedId] = useState<string | null>(null)
-    const [settings, setSettings] = useState<Record<string, boolean>>({
+    const [settings] = useState<Record<string, boolean>>({
         autoSave: true,
     })
 
@@ -79,7 +79,8 @@ export const SimulatorProvider = ({ children }: { children: React.ReactNode }) =
             const ast = astOf(newFiles[filename])
 
             if (ast) {
-                const steps = simulateExecution(ast)
+                const simulator = new Simulator(ast)
+                const steps = simulator.run()
                 console.log(steps)
                 setAstError(null)
                 setAstOfCode(ast)
@@ -87,7 +88,6 @@ export const SimulatorProvider = ({ children }: { children: React.ReactNode }) =
                 setCurrentExecStep(steps[0] || null)
             }
         } catch (error) {
-            console.log(11111, error)
             setAstError(error instanceof Error ? error.message : 'Unknown error')
         }
     }
