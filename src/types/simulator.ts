@@ -198,6 +198,7 @@ export type TraverseASTOptions = {
     strict?: boolean,
     callee?: ESTree.Function
     catch?: ESTree.CatchClause
+    typeof?: boolean
     isRoot?: boolean
 }
 
@@ -223,6 +224,7 @@ export type CoerceHandlerMap = {
     'logicalOperator': (this: Simulator, operator: ESTree.LogicalOperator, left: JSValue, getRightValue: () => JSValue) => JSValue,
     'assignmentOperator': (this: Simulator, operator: ESTree.AssignmentOperator, left: JSValue, getRightValue: () => JSValue) => JSValue,
     'updateOperator': (this: Simulator, operator: ESTree.UpdateOperator, operand: JSValue, isPrefix: boolean) => { newValue: JSValue, returnValue: JSValue },
+    'unaryOperator': (this: Simulator, operator: ESTree.UnaryOperator, operand: JSValue) => JSValue,
 }
 
 export const COERCION_TYPE = {

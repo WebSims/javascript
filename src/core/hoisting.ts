@@ -93,14 +93,12 @@ hoistingHandlers["VariableDeclaration"] = function (astNode, options) {
                     )
                 }
             } else {
-                if (declarationType === DECLARATION_TYPE.VAR) {
-                    this.newDeclaration(
-                        identifier.name,
-                        initialValue,
-                        declarationType,
-                        scopeIndex
-                    )
-                }
+                this.newDeclaration(
+                    identifier.name,
+                    initialValue,
+                    declarationType,
+                    scopeIndex
+                )
             }
         }
     }

@@ -233,6 +233,21 @@ class Simulator {
         this.stepMemoryChange = { type: "write_property", ref, property, value }
     }
 
+    deleteProperty(ref: number, property: string) {
+        const heapObj = this.heap[ref]
+        if (heapObj.type === HEAP_OBJECT_TYPE.ARRAY) {
+            const isNumber = !isNaN(parseInt(property))
+            if (isNumber) {
+                delete heapObj.elements[parseInt(property)]
+            } else {
+                delete heapObj.properties[property]
+            }
+        } else {
+            delete heapObj.properties[property]
+        }
+        this.stepMemoryChange = { type: "delete_property", ref, property }
+    }
+
     lookupVariable(name: string): { variable: VariableValue, scopeIndex: number } | undefined {
         for (let i = this.lastScopeIndex; i >= 0; i--) {
             if (Object.prototype.hasOwnProperty.call(this.scopes[i].variables, name)) {
@@ -423,6 +438,9 @@ class Simulator {
     }
     updateOperatorHandler(operator: ESTree.UpdateOperator, operand: JSValue, isPrefix: boolean): { newValue: JSValue, returnValue: JSValue } {
         return coerceHandlers.updateOperator.call(this, operator, operand, isPrefix)
+    }
+    unaryOperatorHandler(operator: ESTree.UnaryOperator, operand: JSValue): JSValue {
+        return coerceHandlers.unaryOperator.call(this, operator, operand)
     }
 }
 

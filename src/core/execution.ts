@@ -102,7 +102,7 @@ execHandlers["CallExpression"] = function (astNode, options) {
     }
 }
 
-execHandlers["Identifier"] = function (astNode) {
+execHandlers["Identifier"] = function (astNode, options) {
     this.addEvaluatingStep(astNode)
 
     if (astNode.name === 'undefined') {
@@ -123,8 +123,13 @@ execHandlers["Identifier"] = function (astNode) {
                 this.addEvaluatedStep(astNode)
             }
         } else {
-            this.createErrorObject('ReferenceError', `${astNode.name} is not defined`)
-            this.addThrownStep(astNode)
+            if (options.typeof) {
+                this.pushMemval(JS_VALUE_UNDEFINED)
+                this.addEvaluatedStep(astNode)
+            } else {
+                this.createErrorObject('ReferenceError', `${astNode.name} is not defined`)
+                this.addThrownStep(astNode)
+            }
         }
     }
 }
@@ -340,15 +345,16 @@ execHandlers["AssignmentExpression"] = function (astNode, options) {
                 }
             }
 
-            if (this.readMemval(1) === JS_VALUE_UNDEFINED) {
-                const evaluatedProperty = this.popMemval()
+            const evaluatedProperty = this.readMemval()
+            const evaluatedObject = this.readMemval(1)
+
+            if (evaluatedObject === JS_VALUE_UNDEFINED) {
+                this.popMemval()
                 this.popMemval()
                 this.createErrorObject('TypeError', `Cannot set properties of undefined (setting '${evaluatedProperty.value}')`)
                 this.addThrownStep(astNode)
             }
 
-            const evaluatedProperty = this.readMemval()
-            const evaluatedObject = this.readMemval(1)
             let evaluatedLeft: JSValue = JS_VALUE_UNDEFINED
             if (evaluatedObject.type === "reference" && evaluatedProperty.type === "primitive") {
                 evaluatedLeft = this.readProperty(evaluatedObject.ref, String(evaluatedProperty.value))
@@ -597,6 +603,62 @@ execHandlers["UpdateExpression"] = function (astNode, options) {
     }
 }
 
+/* UnaryExpression */
+execHandlers["UnaryExpression"] = function (astNode, options) {
+    this.addEvaluatingStep(astNode)
+
+    if (astNode.operator === 'delete') {
+        if (astNode.argument.type === 'MemberExpression') {
+            const memberExpression = astNode.argument
+            this.traverseExec(memberExpression.object, options)
+            if (memberExpression.computed) {
+                this.traverseExec(memberExpression.property, options)
+            } else {
+                const propertyNode = memberExpression.property
+                if (propertyNode.type === 'Identifier' || propertyNode.type === 'PrivateIdentifier') {
+                    this.pushMemval({ type: "primitive", value: propertyNode.name })
+                }
+            }
+
+            const evaluatedProperty = this.popMemval()
+            const evaluatedObject = this.popMemval()
+
+            if (evaluatedObject === JS_VALUE_UNDEFINED) {
+                this.createErrorObject('TypeError', `Cannot convert undefined or null to object`)
+                this.addThrownStep(astNode)
+            }
+
+            if (evaluatedObject.type === "reference" && evaluatedProperty.type === "primitive") {
+                const stringProperty = String(evaluatedProperty.value)
+                this.deleteProperty(evaluatedObject.ref, stringProperty)
+            }
+            this.pushMemval({ type: "primitive", value: true })
+            this.addEvaluatedStep(astNode)
+        } else {
+            if (astNode.argument.type === 'Identifier') {
+                const lookupResult = this.lookupVariable(astNode.argument.name)
+                if (lookupResult) {
+                    if (lookupResult.variable.declarationType === 'global') {
+                        this.pushMemval({ type: 'primitive', value: true })
+                    } else {
+                        this.pushMemval({ type: 'primitive', value: false })
+                    }
+                }
+            } else {
+                this.traverseExec(astNode.argument, options)
+                this.popMemval()
+                this.pushMemval({ type: "primitive", value: true })
+            }
+        }
+    } else {
+        const isTypeOf = astNode.argument.type === 'Identifier' && astNode.operator === 'typeof'
+        this.traverseExec(astNode.argument, { ...options, typeof: isTypeOf })
+        const evaluatedValue = this.popMemval()
+        const result = this.unaryOperatorHandler(astNode.operator, evaluatedValue)
+        this.pushMemval(result)
+    }
+    this.addEvaluatedStep(astNode)
+}
 
 execHandlers["EmptyStatement"] = function (astNode) {
     this.addExecutingStep(astNode)

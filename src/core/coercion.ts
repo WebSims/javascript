@@ -1,5 +1,5 @@
 import * as ESTree from "estree"
-import { JSValue, HEAP_OBJECT_TYPE, PrimitiveValue, CoerceHandlerMap, JSValuePrimitive } from "../types/simulator"
+import { JSValue, HEAP_OBJECT_TYPE, PrimitiveValue, CoerceHandlerMap, JSValuePrimitive, JS_VALUE_UNDEFINED } from "../types/simulator"
 
 /**
  * JavaScript Type Coercion Utilities
@@ -370,5 +370,48 @@ coerceHandlers['updateOperator'] = function (
         }
         default:
             throw new Error(`Unsupported update operator: ${operator}`)
+    }
+}
+
+coerceHandlers['unaryOperator'] = function (
+    operator: ESTree.UnaryOperator,
+    operand: JSValue,
+): JSValuePrimitive {
+    switch (operator) {
+        case '+': {
+            const operandNum = this.toNumber(operand)
+            return { type: 'primitive', value: +operandNum }
+        }
+        case '-': {
+            const operandNum = this.toNumber(operand)
+            return { type: 'primitive', value: -operandNum }
+        }
+        case '!': {
+            const operandBool = this.toBoolean(operand, false)
+            return { type: 'primitive', value: !operandBool }
+        }
+        case '~': {
+            const operandInt32 = this.toInt32(operand)
+            return { type: 'primitive', value: ~operandInt32 }
+        }
+        case 'void': {
+            return JS_VALUE_UNDEFINED
+        }
+        case 'typeof': {
+            if (operand.type === 'reference') {
+                const heapObj = this.getHeapObject(operand.ref)
+                if (heapObj.type === HEAP_OBJECT_TYPE.FUNCTION) {
+                    return { type: 'primitive', value: HEAP_OBJECT_TYPE.FUNCTION }
+                }
+                return { type: 'primitive', value: HEAP_OBJECT_TYPE.OBJECT }
+            } else {
+                return { type: 'primitive', value: typeof operand.value }
+            }
+        }
+        case 'delete': {
+            return { type: 'primitive', value: true }
+        }
+        default:
+            throw new Error(`Unsupported unary operator: ${operator}`)
     }
 }
