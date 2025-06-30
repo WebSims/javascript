@@ -320,7 +320,6 @@ class Simulator {
         }
 
         const handler = this.hoistingHandlers[astNode.type] as NodeHandler<typeof astNode>
-
         if (handler) {
             handler.call(this, astNode, { ...options, isRoot })
         }
@@ -330,9 +329,13 @@ class Simulator {
         astNode: ESTree.Node,
         options: TraverseASTOptions
     ) {
-        if (this.isBlock(astNode) || options.callee) {
+        if (this.isBlock(astNode) || options.callee || options.for) {
             const scopeKind = this.getScopeKind(astNode, options)
+
             try {
+                const isForInit = options.for
+                delete options.for
+
                 options.strict = this.isStrict(astNode, options)
 
                 this.lastScopeIndex++
@@ -351,7 +354,8 @@ class Simulator {
                     console.warn(`Execution Pass: Unhandled node type - ${astNode.type}`)
                 }
 
-                if (this.lastScopeIndex !== 0) {
+                console.log(isForInit)
+                if (this.lastScopeIndex !== 0 && !isForInit) {
                     this.addPopScopeStep(astNode, scopeKind)
                     this.lastScopeIndex--
                 }
@@ -394,6 +398,7 @@ class Simulator {
         if (astNode.type === "Program") return SCOPE_KIND.PROGRAM
         else if (options.callee) return SCOPE_KIND.FUNCTION
         else if (options.catch) return SCOPE_KIND.CATCH
+        else if (options.for) return SCOPE_KIND.LOOP
         else return SCOPE_KIND.BLOCK
     }
 

@@ -200,6 +200,7 @@ export type TraverseASTOptions = {
     catch?: ESTree.CatchClause
     typeof?: boolean
     isRoot?: boolean
+    for?: ESTree.ForStatement
 }
 
 export type NodeHandler<T extends ESTree.Node> = (this: Simulator, node: T, options: TraverseASTOptions) => void

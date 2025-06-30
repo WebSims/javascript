@@ -1,4 +1,4 @@
-import { BUBBLE_UP_TYPE, DECLARATION_TYPE, EXEC_STEP_TYPE, HEAP_OBJECT_TYPE, JSValue, JS_VALUE_NAN, NodeHandlerMap, JS_VALUE_TDZ, JS_VALUE_UNDEFINED } from "@/types/simulator"
+import { BUBBLE_UP_TYPE, DECLARATION_TYPE, EXEC_STEP_TYPE, HEAP_OBJECT_TYPE, JSValue, JS_VALUE_NAN, NodeHandlerMap, JS_VALUE_TDZ, JS_VALUE_UNDEFINED, JSValuePrimitive } from "@/types/simulator"
 import { forEach } from "lodash"
 
 export const execHandlers = {} as NodeHandlerMap
@@ -662,5 +662,32 @@ execHandlers["UnaryExpression"] = function (astNode, options) {
 
 execHandlers["EmptyStatement"] = function (astNode) {
     this.addExecutingStep(astNode)
+    this.addExecutedStep(astNode)
+}
+
+execHandlers["ForStatement"] = function (astNode, options) {
+    this.addExecutingStep(astNode)
+
+    if (astNode.init && !options.for) {
+        this.traverseExec(astNode.init, { ...options, for: astNode })
+    }
+
+    let evaluatedTest: JSValue = { type: "primitive", value: true }
+    do {
+        if (astNode.test) {
+            this.traverseExec(astNode.test, options)
+            evaluatedTest = this.popMemval()
+        }
+
+        if (evaluatedTest.value) {
+            this.traverseExec(astNode.body, options)
+
+            if (astNode.update) {
+                this.traverseExec(astNode.update, options)
+                this.popMemval()
+            }
+        }
+    } while (evaluatedTest.value)
+
     this.addExecutedStep(astNode)
 }
