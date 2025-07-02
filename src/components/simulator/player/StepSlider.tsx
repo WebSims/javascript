@@ -1,5 +1,4 @@
-import React, { useRef, useEffect, useState, useCallback } from 'react'
-import { ChevronDownIcon } from 'lucide-react'
+import React, { useState, useRef, useCallback, useEffect } from 'react'
 import { CustomNode, EXEC_STEP_TYPE, ExecStep, ExecStepType } from '@/types/simulator'
 import { cn } from '@/lib/utils'
 import { useSimulatorStore } from '@/hooks/useSimulatorStore'
@@ -8,7 +7,7 @@ import get from 'lodash/get'
 import { decorations } from '../code-area/CodeArea'
 import { useResponsive } from '@/hooks/useResponsive'
 
-const STEP_ITEM_WIDTH = 40 // 36px min-width + 4px margins (2px each side)
+const STEP_ITEM_WIDTH = 40;
 
 const STEP_CONFIG: Record<ExecStepType, {
     label: string | ((step: ExecStep) => string)
@@ -86,167 +85,82 @@ const StepSlider: React.FC = () => {
     const currentStepIndex = currentStep?.index ?? 0
 
     const { isDesktop } = useResponsive()
-
     const containerRef = useRef<HTMLDivElement>(null)
-    const sliderRef = useRef<HTMLDivElement>(null)
     const [isDragging, setIsDragging] = useState(false)
-    const [startX, setStartX] = useState(0)
-    const [scrollLeft, setScrollLeft] = useState(0)
-    const [isWheelScrolling, setIsWheelScrolling] = useState(false)
-
-    const calculateCenterStep = useCallback(() => {
-        if (!sliderRef.current) return currentStepIndex
-
-        const currentScroll = sliderRef.current.scrollLeft
-        const itemWidth = STEP_ITEM_WIDTH
-
-        const itemIndex = Math.floor(currentScroll / itemWidth)
-
-        return Math.max(0, Math.min(steps.length - 1, itemIndex))
-    }, [currentStepIndex, steps.length])
-
-    useEffect(() => {
-        if (!sliderRef.current || isDragging || isWheelScrolling) return
-
-        const slider = sliderRef.current
-        const itemWidth = STEP_ITEM_WIDTH
-
-        const targetScrollLeft = (currentStepIndex * itemWidth) + (itemWidth / 2)
-
-        slider.scrollTo({
-            left: targetScrollLeft,
-            behavior: 'smooth'
-        })
-    }, [currentStepIndex, steps.length, isDragging, isWheelScrolling])
-
-    const handleDocumentMouseMove = useCallback((e: MouseEvent) => {
-        if (!isDragging || !sliderRef.current) return
-
-        e.preventDefault()
-        const sliderRect = sliderRef.current.getBoundingClientRect()
-        const x = e.clientX - sliderRect.left
-        const walk = (x - startX) * 1.5
-        sliderRef.current.scrollLeft = scrollLeft - walk
-
-        const newCenterStep = calculateCenterStep()
-        if (newCenterStep !== currentStepIndex) {
-            changeStep(newCenterStep)
-        }
-    }, [isDragging, startX, scrollLeft, currentStepIndex, changeStep, calculateCenterStep])
-
-    const handleDocumentMouseUp = useCallback(() => {
-        if (!isDragging) return
-
-        setIsDragging(false)
-
-        const finalCenterStep = calculateCenterStep()
-        if (finalCenterStep !== currentStepIndex) {
-            changeStep(finalCenterStep)
-        }
-    }, [isDragging, currentStepIndex, changeStep, calculateCenterStep])
-
-    const handleDocumentTouchMove = useCallback((e: TouchEvent) => {
-        if (!isDragging || !sliderRef.current) return
-
-        e.preventDefault()
-        const sliderRect = sliderRef.current.getBoundingClientRect()
-        const x = e.touches[0].clientX - sliderRect.left
-        const walk = (x - startX) * 1.5
-        sliderRef.current.scrollLeft = scrollLeft - walk
-
-        const newCenterStep = calculateCenterStep()
-        if (newCenterStep !== currentStepIndex) {
-            changeStep(newCenterStep)
-        }
-    }, [isDragging, startX, scrollLeft, currentStepIndex, changeStep, calculateCenterStep])
-
-    const handleDocumentTouchEnd = useCallback(() => {
-        if (!isDragging) return
-
-        setIsDragging(false)
-
-        const finalCenterStep = calculateCenterStep()
-        if (finalCenterStep !== currentStepIndex) {
-            changeStep(finalCenterStep)
-        }
-    }, [isDragging, currentStepIndex, changeStep, calculateCenterStep])
-
-    useEffect(() => {
-        if (isDragging) {
-            document.addEventListener('mousemove', handleDocumentMouseMove)
-            document.addEventListener('mouseup', handleDocumentMouseUp)
-            document.addEventListener('touchmove', handleDocumentTouchMove, { passive: false })
-            document.addEventListener('touchend', handleDocumentTouchEnd)
-            document.body.style.userSelect = 'none'
-        } else {
-            document.removeEventListener('mousemove', handleDocumentMouseMove)
-            document.removeEventListener('mouseup', handleDocumentMouseUp)
-            document.removeEventListener('touchmove', handleDocumentTouchMove)
-            document.removeEventListener('touchend', handleDocumentTouchEnd)
-            document.body.style.userSelect = ''
-        }
-
-        return () => {
-            document.removeEventListener('mousemove', handleDocumentMouseMove)
-            document.removeEventListener('mouseup', handleDocumentMouseUp)
-            document.removeEventListener('touchmove', handleDocumentTouchMove)
-            document.removeEventListener('touchend', handleDocumentTouchEnd)
-            document.body.style.userSelect = ''
-        }
-    }, [isDragging, handleDocumentMouseMove, handleDocumentMouseUp, handleDocumentTouchMove, handleDocumentTouchEnd])
-
-    const handleMouseDown = (e: React.MouseEvent) => {
-        if (!sliderRef.current) return
-
-        setIsDragging(true)
-        const sliderRect = sliderRef.current.getBoundingClientRect()
-        setStartX(e.clientX - sliderRect.left)
-        setScrollLeft(sliderRef.current.scrollLeft)
-        e.preventDefault()
-    }
-
-    const handleTouchStart = (e: React.TouchEvent) => {
-        if (!sliderRef.current) return
-
-        setIsDragging(true)
-        const sliderRect = sliderRef.current.getBoundingClientRect()
-        setStartX(e.touches[0].clientX - sliderRect.left)
-        setScrollLeft(sliderRef.current.scrollLeft)
-        e.preventDefault()
-    }
-
-    const handleMouseLeave = () => {
-        // No action
-    }
+    const [knobPosition, setKnobPosition] = useState(0)
+    const [tapeTranslate, setTapeTranslate] = useState(0)
 
     const handleStepClick = (index: number) => {
         changeStep(index)
     }
 
-    const handleWheel = (e: React.WheelEvent) => {
-        e.preventDefault()
+    useEffect(() => {
+        if (!containerRef.current || !steps.length) return;
 
-        if (!sliderRef.current) return
+        const viewportWidth = containerRef.current.offsetWidth;
+        const tapeWidth = steps.length * STEP_ITEM_WIDTH;
 
-        const slider = sliderRef.current
-        const itemWidth = STEP_ITEM_WIDTH
+        const deadZoneStart = viewportWidth * 0.4;
+        const deadZoneEnd = viewportWidth * 0.6;
+        const deadZoneCenter = (deadZoneStart + deadZoneEnd) / 2;
 
-        const delta = e.deltaY > 0 ? 1 : -1
-        const newIndex = Math.max(0, Math.min(steps.length - 1, currentStepIndex + delta))
+        const idealKnobX = currentStepIndex * STEP_ITEM_WIDTH;
+        let newTapeTranslate = tapeTranslate;
 
-        if (newIndex !== currentStepIndex) {
-            setIsWheelScrolling(true)
-            const targetScrollLeft = (newIndex * itemWidth) + (itemWidth / 2)
-            slider.scrollTo({
-                left: targetScrollLeft,
-                behavior: 'auto'
-            })
-            changeStep(newIndex)
-            setTimeout(() => {
-                setIsWheelScrolling(false)
-            }, 100)
+        if (tapeWidth > viewportWidth) {
+            const idealTapeTranslate = deadZoneCenter - idealKnobX;
+            const minTranslate = viewportWidth - tapeWidth;
+            const maxTranslate = 0;
+            newTapeTranslate = Math.max(minTranslate, Math.min(idealTapeTranslate, maxTranslate));
         }
-    }
+
+        const newKnobPosition = idealKnobX + newTapeTranslate;
+
+        setTapeTranslate(newTapeTranslate);
+        setKnobPosition(newKnobPosition);
+
+    }, [currentStepIndex, steps.length]);
+
+    const handleMouseDown = useCallback((e: React.MouseEvent) => {
+        if (!containerRef.current) return;
+        setIsDragging(true);
+        e.preventDefault();
+    }, []);
+
+    const handleMouseUp = useCallback(() => {
+        setIsDragging(false);
+    }, []);
+
+    const handleMouseMove = useCallback((e: MouseEvent) => {
+        if (!isDragging || !containerRef.current) return;
+
+        const rect = containerRef.current.getBoundingClientRect();
+        const mouseX = e.clientX - rect.left;
+
+        const idealStep = (mouseX - tapeTranslate) / STEP_ITEM_WIDTH;
+        const newIndex = Math.round(idealStep);
+        const clampedIndex = Math.max(0, Math.min(steps.length - 1, newIndex));
+
+        if (clampedIndex !== currentStepIndex) {
+            changeStep(clampedIndex);
+        }
+
+    }, [isDragging, tapeTranslate, steps.length, changeStep, currentStepIndex]);
+
+    useEffect(() => {
+        if (isDragging) {
+            window.addEventListener('mousemove', handleMouseMove);
+            window.addEventListener('mouseup', handleMouseUp);
+        } else {
+            window.removeEventListener('mousemove', handleMouseMove);
+            window.removeEventListener('mouseup', handleMouseUp);
+        }
+        return () => {
+            window.removeEventListener('mousemove', handleMouseMove);
+            window.removeEventListener('mouseup', handleMouseUp);
+        }
+    }, [isDragging, handleMouseMove, handleMouseUp]);
+
 
     const getStepContent = (step: ExecStep): string => {
         const config = STEP_CONFIG[step.type]
@@ -269,6 +183,8 @@ const StepSlider: React.FC = () => {
         return STEP_CONFIG[step.type]?.tooltip
     }
 
+    const isHighlighted = (index: number) => index === currentStepIndex
+
     const currentActualStepForTooltip = steps[currentStep?.index ?? 0]
     let astNodeDetailsTooltip = ''
     if (currentActualStepForTooltip && currentActualStepForTooltip.node) {
@@ -285,85 +201,85 @@ const StepSlider: React.FC = () => {
         <TooltipProvider>
             <div
                 ref={containerRef}
-                className='w-full relative flex items-end overflow-hidden pt-4'
-                onWheel={handleWheel}
+                className='w-full relative flex items-end overflow-hidden pt-4 h-16'
                 style={{
-                    scrollbarWidth: 'thin',
                     userSelect: 'none'
                 }}
+                onMouseDown={handleMouseDown}
             >
                 <div
-                    ref={sliderRef}
-                    className={cn(
-                        'w-full flex overflow-x-auto',
-                        isDragging ? 'cursor-grabbing' : 'cursor-grab'
-                    )}
+                    className='absolute top-8 flex items-center'
                     style={{
-                        scrollBehavior: isDragging ? 'auto' : 'smooth',
-                        msOverflowStyle: 'none',
-                        scrollbarWidth: 'none'
+                        transform: `translateX(${tapeTranslate}px)`,
+                        transition: isDragging ? 'none' : 'transform 0.2s ease-out'
                     }}
-                    onMouseDown={handleMouseDown}
-                    onTouchStart={handleTouchStart}
-                    onMouseLeave={handleMouseLeave}
                 >
-                    <div className="w-1/2 flex-shrink-0" />
                     {steps.map((step, index) => {
-                        const isHighlighted = index === currentStepIndex
+                        const highlighted = isHighlighted(index)
                         return (
-                            <Tooltip key={step.index} open={isHighlighted}>
-                                <TooltipTrigger asChild>
-                                    <div
-                                        role="button"
-                                        tabIndex={0}
-                                        aria-label={`Step ${index + 1}: ${STEP_CONFIG[step.type]?.tooltip || step.type}`}
-                                        onClick={() => handleStepClick(index)}
-                                        onKeyDown={(e: React.KeyboardEvent) => {
-                                            if (e.key === 'Enter' || e.key === ' ') {
-                                                handleStepClick(index)
-                                            }
-                                        }}
-                                        className={cn(
-                                            'min-w-9 flex items-center justify-center border-t border-b transition-all duration-300 cursor-pointer mx-0.5 hover:opacity-100',
-                                            getStepColor(step),
-                                            {
-                                                'border-2 border-blue-600': isHighlighted,
-                                                'h-8 border-gray-300 opacity-70': !isHighlighted,
-                                            }
-                                        )}
-                                    >
-                                        <span className={cn(
-                                            "font-semibold transition-all",
-                                            isHighlighted ? 'text-lg' : 'text-sm'
-                                        )}>
-                                            {getStepContent(step)}
-                                        </span>
-                                    </div>
-                                </TooltipTrigger>
-                                <TooltipContent
-                                    side={isDesktop ? 'bottom' : 'top'}
-                                    sideOffset={isDesktop ? 4 : 20}
-                                    align={isDesktop ? 'center' : 'end'}
-                                    className="bg-gray-900 text-white"
-                                >
-                                    <div className="text-center">
-                                        <div className="text-xs opacity-90">
-                                            {getStepTooltip(step)}
-                                            {isHighlighted && astNodeDetailsTooltip}
-                                        </div>
-                                    </div>
-                                </TooltipContent>
-                            </Tooltip>
+                            <div
+                                key={step.index}
+                                role="button"
+                                tabIndex={-1}
+                                aria-label={`Step ${index + 1}: ${getStepTooltip(step)}`}
+                                onClick={() => handleStepClick(index)}
+                                className={cn(
+                                    'min-w-10 flex items-center justify-center border-t border-b transition-all duration-300 cursor-pointer hover:opacity-100',
+                                    getStepColor(step),
+                                    {
+                                        'border-2 border-blue-600': highlighted,
+                                        'h-8 border-gray-300 opacity-70': !highlighted,
+                                    }
+                                )}
+                            >
+                                <span className={cn(
+                                    "font-semibold transition-all",
+                                    highlighted ? 'text-lg' : 'text-sm'
+                                )}>
+                                    {getStepContent(step)}
+                                </span>
+                            </div>
                         )
                     })}
-                    <div className="flex-shrink-0" style={{ width: '50%' }} />
                 </div>
-                <div
-                    className='absolute h-full -top-1 left-1/2 z-20 pointer-events-none'
-                    style={{ transform: 'translateX(-50%)' }}
-                >
-                    <ChevronDownIcon className='w-5 h-5 text-blue-500' />
-                </div>
+
+                <Tooltip open={isDragging || isHighlighted(currentStepIndex)}>
+                    <TooltipTrigger asChild>
+                        <div
+                            className='absolute h-full top-0 z-20 cursor-grab'
+                            style={{
+                                left: `${knobPosition}px`,
+                                transform: 'translateX(-50%)',
+                                transition: isDragging ? 'none' : 'left 0.2s ease-out'
+                            }}
+                        >
+                            <div
+                                className='w-10 h-10 rounded-full flex items-center justify-center
+                                           bg-blue-400/20 backdrop-blur-lg shadow-md
+                                           border border-blue-300/30
+                                           absolute top-1/2 -translate-y-1/2'
+                            >
+                                <span className='text-blue-900 font-bold'>
+                                    {currentStepIndex + 1}
+                                </span>
+                            </div>
+                        </div>
+                    </TooltipTrigger>
+                    <TooltipContent
+                        side={isDesktop ? 'bottom' : 'top'}
+                        sideOffset={isDesktop ? 4 : 20}
+                        align={'center'}
+                        className="bg-gray-900 text-white"
+                    >
+                        <div className="text-center">
+                            <div className="text-xs opacity-90">
+                                {getStepTooltip(currentActualStepForTooltip)}
+                                {astNodeDetailsTooltip}
+                            </div>
+                        </div>
+                    </TooltipContent>
+                </Tooltip>
+
                 <div className="absolute left-0 top-0 bottom-0 w-16 bg-gradient-to-r from-white to-transparent pointer-events-none z-10" />
                 <div className="absolute right-0 top-0 bottom-0 w-16 bg-gradient-to-l from-white to-transparent pointer-events-none z-10" />
             </div>
