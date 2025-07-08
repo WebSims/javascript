@@ -387,10 +387,8 @@ const StepSlider: React.FC = () => {
                     // Glass-like effect for filled portion
                     '[&_[data-orientation=horizontal]_span[data-orientation=horizontal]]:bg-white/20',
                     '[&_[data-orientation=horizontal]_span[data-orientation=horizontal]]:backdrop-blur',
-                    '[&_[data-orientation=horizontal]_span[data-orientation=horizontal]]:border',
                     '[&_[data-orientation=horizontal]_span[data-orientation=horizontal]]:border-white/30',
-                    '[&_[data-orientation=horizontal]_span[data-orientation=horizontal]]:shadow-sm',
-                    // Make track transparent so steps show through
+                    '[&_[data-orientation=horizontal]_span[data-orientation=horizontal]]:-mr-2',
                 )}
                 onMouseEnter={handleThumbMouseEnter}
                 onMouseLeave={handleThumbMouseLeave}
