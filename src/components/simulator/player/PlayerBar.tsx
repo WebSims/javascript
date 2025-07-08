@@ -24,15 +24,15 @@ const PlayerBar = () => {
     }
 
     return (
-        <div className="w-full flex flex-col lg:flex-row lg:items-center lg:px-3 overflow-hidden border-t lg:border-t-0 pb-1 lg:pb-0">
-            <div className="flex items-center gap-1 lg:gap-3 justify-end">
+        <div className="w-full flex flex-col lg:flex-row lg:items-center overflow-hidden border-t border-slate-200 p-1 lg:p-2.5 bg-slate-50">
+            <div className="flex items-center gap-2 justify-start">
                 <TooltipProvider>
                     <Tooltip>
                         <TooltipTrigger asChild>
                             <button
                                 onClick={handleTogglePlaying}
                                 onKeyDown={(e) => handleKeyDown(e, handleTogglePlaying)}
-                                className="p-2 rounded-full hover:bg-gray-100"
+                                className="p-1 lg:p-2 rounded-full hover:bg-gray-100"
                                 aria-label={isPlaying ? "Pause simulation" : "Play simulation"}
                                 tabIndex={0}
                             >
@@ -51,7 +51,7 @@ const PlayerBar = () => {
                             <button
                                 onClick={stepBackward}
                                 onKeyDown={(e) => handleKeyDown(e, stepBackward)}
-                                className="p-2 rounded-full hover:bg-gray-100"
+                                className="p-1 lg:p-2 rounded-full hover:bg-gray-100"
                                 aria-label="Step backward"
                                 tabIndex={0}
                             >
@@ -70,7 +70,7 @@ const PlayerBar = () => {
                             <button
                                 onClick={stepForward}
                                 onKeyDown={(e) => handleKeyDown(e, stepForward)}
-                                className="p-2 rounded-full hover:bg-gray-100"
+                                className="p-1 lg:p-2 rounded-full hover:bg-gray-100"
                                 aria-label="Step forward"
                                 tabIndex={0}
                             >
@@ -84,7 +84,9 @@ const PlayerBar = () => {
                 </TooltipProvider>
             </div>
 
-            <StepSlider />
+            <div className='w-full px-1 lg:px-2'>
+                <StepSlider />
+            </div>
         </div>
     )
 }

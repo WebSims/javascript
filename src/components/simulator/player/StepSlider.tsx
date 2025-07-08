@@ -243,7 +243,7 @@ const StepSlider: React.FC = () => {
                     className="fixed rounded-md bg-gray-900 px-3 py-1.5 text-sm text-white shadow-lg pointer-events-none border border-gray-700"
                     style={{
                         left: mousePosition.x + (containerElement?.getBoundingClientRect().left || 0),
-                        top: (containerElement?.getBoundingClientRect().top || 0) - 50,
+                        top: (containerElement?.getBoundingClientRect().top || 0) - 40,
                         transform: 'translateX(-50%)',
                     }}
                 >

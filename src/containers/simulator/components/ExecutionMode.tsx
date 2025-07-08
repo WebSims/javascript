@@ -37,6 +37,7 @@ const ExecutionMode: React.FC = () => {
                         </ResizablePanelGroup>
                     </ResizablePanel>
                 </ResizablePanelGroup>
+                <PlayerBar />
             </div>
         )
     }

@@ -4,7 +4,6 @@ import React from 'react'
 import { useResponsive } from '@/hooks/useResponsive'
 import { useSimulatorStore } from '@/hooks/useSimulatorStore'
 import { MenuIcon, ChevronDownIcon, PlayIcon, CodeIcon } from 'lucide-react'
-import PlayerBar from '@/components/simulator/player/PlayerBar'
 
 interface MainLayoutProps {
     children: React.ReactNode
@@ -27,14 +26,14 @@ const MainLayout: React.FC<MainLayoutProps> = ({ children }) => {
                     <div className='font-bold lg:text-lg'>
                         WebSims.org/js
                     </div>
-                    {isDesktop && (mode === 'CODE' ? (
+                    {isDesktop && mode === 'CODE' && (
                         <nav className='flex items-center gap-2'>
                             example drop dropdown
                             <Button variant='ghost' size='icon' aria-label="Show examples">
                                 <ChevronDownIcon className='w-4 h-4' />
                             </Button>
                         </nav>
-                    ) : <PlayerBar />)}
+                    )}
                 </div>
 
                 <div className='flex items-center gap-2'>
