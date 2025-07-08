@@ -52,6 +52,7 @@ const StepSlider: React.FC = () => {
     const [containerElement, setContainerElement] = useState<HTMLDivElement | null>(null)
     const [hoveredStepIndex, setHoveredStepIndex] = useState<number | null>(null)
     const [isTooltipOpen, setIsTooltipOpen] = useState(false)
+    const [isThumbHovered, setIsThumbHovered] = useState(false)
     const [mousePosition, setMousePosition] = useState({ x: 0, y: 0 })
 
     const setRefs = useCallback((el: HTMLDivElement | null) => {
@@ -164,6 +165,38 @@ const StepSlider: React.FC = () => {
         }
     }, [isDragging])
 
+    // Handlers for slider thumb hover
+    const handleThumbMouseEnter = useCallback((e: React.MouseEvent) => {
+        setIsThumbHovered(true)
+        setIsTooltipOpen(true)
+
+        // Update mouse position for tooltip
+        if (containerElement) {
+            const rect = containerElement.getBoundingClientRect()
+            setMousePosition({
+                x: getClientX(e) - rect.left,
+                y: getClientY(e) - rect.top
+            })
+        }
+    }, [getClientX, getClientY, containerElement])
+
+    const handleThumbMouseLeave = useCallback(() => {
+        setIsThumbHovered(false)
+        if (!isDragging) {
+            setIsTooltipOpen(false)
+        }
+    }, [isDragging])
+
+    const handleThumbMouseMove = useCallback((e: React.MouseEvent) => {
+        if (isThumbHovered && containerElement) {
+            const rect = containerElement.getBoundingClientRect()
+            setMousePosition({
+                x: getClientX(e) - rect.left,
+                y: getClientY(e) - rect.top
+            })
+        }
+    }, [isThumbHovered, getClientX, getClientY, containerElement])
+
     const handleMouseMove = useCallback((e: MouseEvent) => {
         if (!isDragging) return
 
@@ -232,6 +265,16 @@ const StepSlider: React.FC = () => {
         }
     }, [isDragging, handleMouseMove, handleMouseUp, handleTouchMove, handleTouchEnd])
 
+    // Calculate thumb position for tooltip
+    const getThumbPosition = useCallback(() => {
+        if (!containerElement || !containerSize.width || !currentStep) return { x: 0, y: 0 }
+
+        const progress = steps.length > 1 ? currentStep.index / (steps.length - 1) : 0
+        const thumbX = progress * containerSize.width
+
+        return { x: thumbX, y: 8 } // y: 8 is approximate center of the thumb
+    }, [containerElement, containerSize.width, currentStep, steps.length])
+
     if (!currentStep) return null
 
     return (
@@ -279,16 +322,21 @@ const StepSlider: React.FC = () => {
             )}
 
             {/* Desktop: Tooltip that follows mouse on hover */}
-            {!isMobile && isTooltipOpen && hoveredStepIndex !== null && stepsWithDepth[hoveredStepIndex] && (
+            {!isMobile && isTooltipOpen && (
                 <div
                     className="fixed rounded-md bg-gray-900 px-3 py-1.5 text-sm text-white shadow-lg pointer-events-none border border-gray-700"
                     style={{
-                        left: mousePosition.x + (containerElement?.getBoundingClientRect().left || 0),
+                        left: (isThumbHovered ? getThumbPosition().x : mousePosition.x) + (containerElement?.getBoundingClientRect().left || 0),
                         top: (containerElement?.getBoundingClientRect().top || 0) - 40,
                         transform: 'translateX(-50%)',
                     }}
                 >
-                    {STEP_CONFIG[stepsWithDepth[hoveredStepIndex].type].tooltip}
+                    {isThumbHovered
+                        ? STEP_CONFIG[currentStep.type].tooltip
+                        : hoveredStepIndex !== null && stepsWithDepth[hoveredStepIndex]
+                            ? STEP_CONFIG[stepsWithDepth[hoveredStepIndex].type].tooltip
+                            : STEP_CONFIG[currentStep.type].tooltip
+                    }
                 </div>
             )}
 
@@ -316,6 +364,9 @@ const StepSlider: React.FC = () => {
                     '[&_[data-orientation=horizontal]_span[data-orientation=horizontal]]:shadow-sm',
                     // Make track transparent so steps show through
                 )}
+                onMouseEnter={handleThumbMouseEnter}
+                onMouseLeave={handleThumbMouseLeave}
+                onMouseMove={handleThumbMouseMove}
             />
         </div>
     )
