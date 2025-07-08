@@ -88,7 +88,15 @@ const StepSlider: React.FC = () => {
         return newSteps
     }, [steps])
 
-    const getStepFromMousePosition = useCallback((clientX: number) => {
+    // Unified function to get clientX from either mouse or touch events
+    const getClientX = useCallback((e: React.MouseEvent | React.TouchEvent | MouseEvent | TouchEvent) => {
+        if ('touches' in e) {
+            return e.touches[0]?.clientX || e.changedTouches[0]?.clientX || 0
+        }
+        return e.clientX
+    }, [])
+
+    const getStepFromPosition = useCallback((clientX: number) => {
         if (!containerElement || !containerSize.width) return null
 
         const rect = containerElement.getBoundingClientRect()
@@ -103,16 +111,26 @@ const StepSlider: React.FC = () => {
         e.preventDefault()
         setIsDragging(true)
 
-        const stepIndex = getStepFromMousePosition(e.clientX)
+        const stepIndex = getStepFromPosition(getClientX(e))
         if (stepIndex !== null) {
             changeStep(stepIndex)
         }
-    }, [getStepFromMousePosition, changeStep])
+    }, [getStepFromPosition, getClientX, changeStep])
+
+    const handleTouchStart = useCallback((e: React.TouchEvent) => {
+        e.preventDefault()
+        setIsDragging(true)
+
+        const stepIndex = getStepFromPosition(getClientX(e))
+        if (stepIndex !== null) {
+            changeStep(stepIndex)
+        }
+    }, [getStepFromPosition, getClientX, changeStep])
 
     const handleContainerMouseMove = useCallback((e: React.MouseEvent) => {
         if (isDragging) return
 
-        const stepIndex = getStepFromMousePosition(e.clientX)
+        const stepIndex = getStepFromPosition(getClientX(e))
         if (stepIndex !== null) {
             setHoveredStepIndex(stepIndex)
         }
@@ -121,11 +139,11 @@ const StepSlider: React.FC = () => {
         if (containerElement) {
             const rect = containerElement.getBoundingClientRect()
             setMousePosition({
-                x: e.clientX - rect.left,
+                x: getClientX(e) - rect.left,
                 y: e.clientY - rect.top
             })
         }
-    }, [isDragging, getStepFromMousePosition, containerElement])
+    }, [isDragging, getStepFromPosition, getClientX, containerElement])
 
     const handleContainerMouseEnter = useCallback(() => {
         setIsTooltipOpen(true)
@@ -139,28 +157,46 @@ const StepSlider: React.FC = () => {
     const handleMouseMove = useCallback((e: MouseEvent) => {
         if (!isDragging) return
 
-        const stepIndex = getStepFromMousePosition(e.clientX)
+        const stepIndex = getStepFromPosition(getClientX(e))
         if (stepIndex !== null) {
             changeStep(stepIndex)
         }
-    }, [isDragging, getStepFromMousePosition, changeStep])
+    }, [isDragging, getStepFromPosition, getClientX, changeStep])
+
+    const handleTouchMove = useCallback((e: TouchEvent) => {
+        if (!isDragging) return
+
+        e.preventDefault() // Prevent scrolling while dragging
+        const stepIndex = getStepFromPosition(getClientX(e))
+        if (stepIndex !== null) {
+            changeStep(stepIndex)
+        }
+    }, [isDragging, getStepFromPosition, getClientX, changeStep])
 
     const handleMouseUp = useCallback(() => {
         setIsDragging(false)
     }, [])
 
-    // Add global mouse event listeners when dragging
+    const handleTouchEnd = useCallback(() => {
+        setIsDragging(false)
+    }, [])
+
+    // Add global mouse and touch event listeners when dragging
     React.useEffect(() => {
         if (isDragging) {
             document.addEventListener('mousemove', handleMouseMove)
             document.addEventListener('mouseup', handleMouseUp)
+            document.addEventListener('touchmove', handleTouchMove, { passive: false })
+            document.addEventListener('touchend', handleTouchEnd)
 
             return () => {
                 document.removeEventListener('mousemove', handleMouseMove)
                 document.removeEventListener('mouseup', handleMouseUp)
+                document.removeEventListener('touchmove', handleTouchMove)
+                document.removeEventListener('touchend', handleTouchEnd)
             }
         }
-    }, [isDragging, handleMouseMove, handleMouseUp])
+    }, [isDragging, handleMouseMove, handleMouseUp, handleTouchMove, handleTouchEnd])
 
     if (!currentStep) return null
 
@@ -170,10 +206,11 @@ const StepSlider: React.FC = () => {
                 ref={setRefs}
                 className="absolute flex h-4 w-full items-center overflow-hidden rounded-full"
                 onMouseDown={handleMouseDown}
+                onTouchStart={handleTouchStart}
                 onMouseMove={handleContainerMouseMove}
                 onMouseEnter={handleContainerMouseEnter}
                 onMouseLeave={handleContainerMouseLeave}
-                style={{ cursor: isDragging ? 'grabbing' : 'grab' }}
+                style={{ cursor: isDragging ? 'grabbing' : 'grab', touchAction: 'none' }}
             >
                 {stepsWithDepth.map((step, index) => {
                     const lightness = Math.min(90, 20 + step.depth * 10)
@@ -206,9 +243,8 @@ const StepSlider: React.FC = () => {
                     className="fixed rounded-md bg-gray-900 px-3 py-1.5 text-sm text-white shadow-lg pointer-events-none border border-gray-700"
                     style={{
                         left: mousePosition.x + (containerElement?.getBoundingClientRect().left || 0),
-                        top: (containerElement?.getBoundingClientRect().top || 0) + 30,
+                        top: (containerElement?.getBoundingClientRect().top || 0) - 50,
                         transform: 'translateX(-50%)',
-                        zIndex: 9999,
                     }}
                 >
                     {STEP_CONFIG[stepsWithDepth[hoveredStepIndex].type].tooltip}
