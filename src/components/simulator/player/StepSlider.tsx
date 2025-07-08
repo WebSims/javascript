@@ -2,12 +2,7 @@ import React, { useMemo, useState, useCallback } from 'react'
 import { EXEC_STEP_TYPE, ExecStep } from '@/types/simulator'
 import { cn } from '@/lib/utils'
 import { useSimulatorStore } from '@/hooks/useSimulatorStore'
-import {
-    Tooltip,
-    TooltipContent,
-    TooltipProvider,
-    TooltipTrigger,
-} from '@/components/ui/tooltip'
+
 import { Slider } from '@/components/ui/slider'
 import useElementSize from '@/hooks/useElementSize'
 
@@ -53,6 +48,9 @@ const StepSlider: React.FC = () => {
     const [stepsContainerRef, containerSize] = useElementSize<HTMLDivElement>()
     const [isDragging, setIsDragging] = useState(false)
     const [containerElement, setContainerElement] = useState<HTMLDivElement | null>(null)
+    const [hoveredStepIndex, setHoveredStepIndex] = useState<number | null>(null)
+    const [isTooltipOpen, setIsTooltipOpen] = useState(false)
+    const [mousePosition, setMousePosition] = useState({ x: 0, y: 0 })
 
     const setRefs = useCallback((el: HTMLDivElement | null) => {
         stepsContainerRef(el)
@@ -111,6 +109,33 @@ const StepSlider: React.FC = () => {
         }
     }, [getStepFromMousePosition, changeStep])
 
+    const handleContainerMouseMove = useCallback((e: React.MouseEvent) => {
+        if (isDragging) return
+
+        const stepIndex = getStepFromMousePosition(e.clientX)
+        if (stepIndex !== null) {
+            setHoveredStepIndex(stepIndex)
+        }
+
+        // Update mouse position relative to the container
+        if (containerElement) {
+            const rect = containerElement.getBoundingClientRect()
+            setMousePosition({
+                x: e.clientX - rect.left,
+                y: e.clientY - rect.top
+            })
+        }
+    }, [isDragging, getStepFromMousePosition, containerElement])
+
+    const handleContainerMouseEnter = useCallback(() => {
+        setIsTooltipOpen(true)
+    }, [])
+
+    const handleContainerMouseLeave = useCallback(() => {
+        setIsTooltipOpen(false)
+        setHoveredStepIndex(null)
+    }, [])
+
     const handleMouseMove = useCallback((e: MouseEvent) => {
         if (!isDragging) return
 
@@ -141,44 +166,54 @@ const StepSlider: React.FC = () => {
 
     return (
         <div className="relative flex h-8 w-full items-center">
-            <TooltipProvider delayDuration={0} >
+            <div
+                ref={setRefs}
+                className="absolute flex h-4 w-full items-center overflow-hidden rounded-full"
+                onMouseDown={handleMouseDown}
+                onMouseMove={handleContainerMouseMove}
+                onMouseEnter={handleContainerMouseEnter}
+                onMouseLeave={handleContainerMouseLeave}
+                style={{ cursor: isDragging ? 'grabbing' : 'grab' }}
+            >
+                {stepsWithDepth.map((step, index) => {
+                    const lightness = Math.min(90, 20 + step.depth * 10)
+
+                    let backgroundColor: string
+                    // Use blue color range when inside a function scope
+                    if (step.inFunctionScope) {
+                        backgroundColor = `hsl(220, 70%, ${lightness}%)`
+                    } else {
+                        // Use default grayscale
+                        backgroundColor = `hsl(0, 0%, ${lightness}%)`
+                    }
+
+                    return (
+                        <div
+                            key={index}
+                            className={cn(
+                                'flex h-full w-full cursor-pointer select-none items-center justify-center font-mono text-xs',
+                            )}
+                            style={{ backgroundColor }}
+                            onClick={() => !isDragging && changeStep(index)}
+                        />
+                    )
+                })}
+            </div>
+
+            {/* Custom tooltip that follows mouse */}
+            {isTooltipOpen && hoveredStepIndex !== null && stepsWithDepth[hoveredStepIndex] && (
                 <div
-                    ref={setRefs}
-                    className="absolute flex h-4 w-full items-center overflow-hidden rounded-full"
-                    onMouseDown={handleMouseDown}
-                    style={{ cursor: isDragging ? 'grabbing' : 'grab' }}
+                    className="fixed rounded-md bg-gray-900 px-3 py-1.5 text-sm text-white shadow-lg pointer-events-none border border-gray-700"
+                    style={{
+                        left: mousePosition.x + (containerElement?.getBoundingClientRect().left || 0),
+                        top: (containerElement?.getBoundingClientRect().top || 0) + 30,
+                        transform: 'translateX(-50%)',
+                        zIndex: 9999,
+                    }}
                 >
-                    {stepsWithDepth.map((step, index) => {
-                        const lightness = Math.min(90, 20 + step.depth * 10)
-
-                        let backgroundColor: string
-                        // Use blue color range when inside a function scope
-                        if (step.inFunctionScope) {
-                            backgroundColor = `hsl(220, 70%, ${lightness}%)`
-                        } else {
-                            // Use default grayscale
-                            backgroundColor = `hsl(0, 0%, ${lightness}%)`
-                        }
-
-                        return (
-                            <Tooltip key={index}>
-                                <TooltipTrigger asChild>
-                                    <div
-                                        className={cn(
-                                            'flex h-full w-full cursor-pointer select-none items-center justify-center font-mono text-xs',
-                                        )}
-                                        style={{ backgroundColor }}
-                                        onClick={() => !isDragging && changeStep(index)}
-                                    />
-                                </TooltipTrigger>
-                                <TooltipContent>
-                                    <p>{STEP_CONFIG[step.type].tooltip}</p>
-                                </TooltipContent>
-                            </Tooltip>
-                        )
-                    })}
+                    {STEP_CONFIG[stepsWithDepth[hoveredStepIndex].type].tooltip}
                 </div>
-            </TooltipProvider>
+            )}
 
             <Slider
                 value={[currentStep.index]}
@@ -186,14 +221,23 @@ const StepSlider: React.FC = () => {
                 max={steps.length > 0 ? steps.length - 1 : 0}
                 step={1}
                 className={cn(
-                    'pointer-events-none w-full [&_[role=slider]]:pointer-events-auto',
+                    'pointer-events-none w-full',
                     '[&_[data-orientation=horizontal]]:h-4',
+                    // Enable pointer events and add hover styles for the thumb
+                    '[&_[role=slider]]:pointer-events-auto',
+                    '[&_[role=slider]]:cursor-pointer',
+                    '[&_[role=slider]]:hover:scale-125',
+                    '[&_[role=slider]]:hover:shadow-lg',
+                    '[&_[role=slider]]:transition-all',
+                    '[&_[role=slider]]:duration-150',
+                    '[&_[role=slider]]:ease-in-out',
                     // Glass-like effect for filled portion
                     '[&_[data-orientation=horizontal]_span[data-orientation=horizontal]]:bg-white/20',
                     '[&_[data-orientation=horizontal]_span[data-orientation=horizontal]]:backdrop-blur',
                     '[&_[data-orientation=horizontal]_span[data-orientation=horizontal]]:border',
                     '[&_[data-orientation=horizontal]_span[data-orientation=horizontal]]:border-white/30',
-                    '[&_[data-orientation=horizontal]_span[data-orientation=horizontal]]:shadow-sm'
+                    '[&_[data-orientation=horizontal]_span[data-orientation=horizontal]]:shadow-sm',
+                    // Make track transparent so steps show through
                 )}
             />
         </div>
