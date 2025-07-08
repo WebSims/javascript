@@ -84,9 +84,7 @@ const PlayerBar = () => {
                 </TooltipProvider>
             </div>
 
-            <div className='h-16 lg:h-12 w-full overflow-hidden'>
-                <StepSlider />
-            </div>
+            <StepSlider />
         </div>
     )
 }
