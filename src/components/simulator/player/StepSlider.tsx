@@ -2,6 +2,7 @@ import React, { useMemo, useState, useCallback } from 'react'
 import { EXEC_STEP_TYPE, ExecStep } from '@/types/simulator'
 import { cn } from '@/lib/utils'
 import { useSimulatorStore } from '@/hooks/useSimulatorStore'
+import { useResponsive } from '@/hooks/useResponsive'
 
 import { Slider } from '@/components/ui/slider'
 import useElementSize from '@/hooks/useElementSize'
@@ -45,6 +46,7 @@ const StepSlider: React.FC = () => {
         changeStep,
     } = useSimulatorStore()
 
+    const { isMobile } = useResponsive()
     const [stepsContainerRef, containerSize] = useElementSize<HTMLDivElement>()
     const [isDragging, setIsDragging] = useState(false)
     const [containerElement, setContainerElement] = useState<HTMLDivElement | null>(null)
@@ -269,8 +271,15 @@ const StepSlider: React.FC = () => {
                 })}
             </div>
 
-            {/* Custom tooltip that follows mouse */}
-            {isTooltipOpen && hoveredStepIndex !== null && stepsWithDepth[hoveredStepIndex] && (
+            {/* Mobile: Fixed tooltip always visible */}
+            {isMobile && currentStep && (
+                <div className="absolute -top-6 left-1/4 pl-3">
+                    {STEP_CONFIG[currentStep.type].tooltip}
+                </div>
+            )}
+
+            {/* Desktop: Tooltip that follows mouse on hover */}
+            {!isMobile && isTooltipOpen && hoveredStepIndex !== null && stepsWithDepth[hoveredStepIndex] && (
                 <div
                     className="fixed rounded-md bg-gray-900 px-3 py-1.5 text-sm text-white shadow-lg pointer-events-none border border-gray-700"
                     style={{
