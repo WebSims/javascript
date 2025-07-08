@@ -322,23 +322,51 @@ const StepSlider: React.FC = () => {
             )}
 
             {/* Desktop: Tooltip that follows mouse on hover */}
-            {!isMobile && isTooltipOpen && (
-                <div
-                    className="fixed rounded-md bg-gray-900 px-3 py-1.5 text-sm text-white shadow-lg pointer-events-none border border-gray-700"
-                    style={{
-                        left: (isThumbHovered ? getThumbPosition().x : mousePosition.x) + (containerElement?.getBoundingClientRect().left || 0),
-                        top: (containerElement?.getBoundingClientRect().top || 0) - 40,
-                        transform: 'translateX(-50%)',
-                    }}
-                >
-                    {isThumbHovered
-                        ? STEP_CONFIG[currentStep.type].tooltip
-                        : hoveredStepIndex !== null && stepsWithDepth[hoveredStepIndex]
-                            ? STEP_CONFIG[stepsWithDepth[hoveredStepIndex].type].tooltip
-                            : STEP_CONFIG[currentStep.type].tooltip
-                    }
-                </div>
-            )}
+            {!isMobile && isTooltipOpen && (() => {
+                const containerRect = containerElement?.getBoundingClientRect()
+                if (!containerRect) return null
+
+                const baseX = (isThumbHovered ? getThumbPosition().x : mousePosition.x) + containerRect.left
+                const tooltipText = isThumbHovered
+                    ? STEP_CONFIG[currentStep.type].tooltip
+                    : hoveredStepIndex !== null && stepsWithDepth[hoveredStepIndex]
+                        ? STEP_CONFIG[stepsWithDepth[hoveredStepIndex].type].tooltip
+                        : STEP_CONFIG[currentStep.type].tooltip
+
+                // Estimate tooltip width (approximate based on text length)
+                const estimatedTooltipWidth = Math.max(80, tooltipText.length * 8 + 24) // 8px per char + padding
+
+                // Calculate boundaries
+                const leftBoundary = containerRect.left
+                const rightBoundary = containerRect.right
+                const halfTooltipWidth = estimatedTooltipWidth / 2
+
+                // Determine positioning
+                const left = baseX
+                let transform = 'translateX(-50%)'
+
+                // Check if tooltip would overflow left boundary
+                if (baseX - halfTooltipWidth < leftBoundary) {
+                    transform = 'translateX(0)'
+                }
+                // Check if tooltip would overflow right boundary
+                else if (baseX + halfTooltipWidth > rightBoundary) {
+                    transform = 'translateX(-100%)'
+                }
+
+                return (
+                    <div
+                        className="fixed rounded-md bg-gray-900 px-3 py-1.5 text-sm text-white text-nowrap shadow-lg pointer-events-none border border-gray-700"
+                        style={{
+                            left,
+                            top: containerRect.top - 40,
+                            transform,
+                        }}
+                    >
+                        {tooltipText}
+                    </div>
+                )
+            })()}
 
             <Slider
                 value={[currentStep.index]}
