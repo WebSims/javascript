@@ -278,24 +278,30 @@ const StepSlider: React.FC = () => {
     if (!currentStep) return null
 
     return (
-        <div className="relative flex h-8 w-full items-center">
+        <div className="relative flex h-10 lg:h-16 w-full items-center">
+            {/* Extended hover area */}
             <div
-                ref={setRefs}
-                className="absolute flex h-4 w-full items-center overflow-hidden rounded-full"
+                className="absolute inset-0 w-full h-full"
                 onMouseDown={handleMouseDown}
                 onTouchStart={handleTouchStart}
                 onMouseMove={handleContainerMouseMove}
                 onMouseEnter={handleContainerMouseEnter}
                 onMouseLeave={handleContainerMouseLeave}
-                style={{ cursor: isDragging ? 'grabbing' : 'grab', touchAction: 'none' }}
+                style={{ cursor: isDragging ? 'grabbing' : 'pointer', touchAction: 'none' }}
+            />
+
+            <div
+                ref={setRefs}
+                className="absolute flex h-4 w-full items-center overflow-hidden rounded-full"
+                style={{ pointerEvents: 'none' }}
             >
-                {stepsWithDepth.map((step, index) => {
+                {stepsWithDepth.map((step) => {
                     const lightness = Math.min(90, 20 + step.depth * 10)
 
                     let backgroundColor: string
                     // Use blue color range when inside a function scope
                     if (step.inFunctionScope) {
-                        backgroundColor = `hsl(220, 70%, ${lightness}%)`
+                        backgroundColor = `hsl(50, 50%, ${lightness}%)`
                     } else {
                         // Use default grayscale
                         backgroundColor = `hsl(0, 0%, ${lightness}%)`
@@ -303,12 +309,11 @@ const StepSlider: React.FC = () => {
 
                     return (
                         <div
-                            key={index}
+                            key={step.index}
                             className={cn(
-                                'flex h-full w-full cursor-pointer select-none items-center justify-center font-mono text-xs',
+                                'flex h-full w-full select-none items-center justify-center font-mono text-xs',
                             )}
                             style={{ backgroundColor }}
-                            onClick={() => !isDragging && changeStep(index)}
                         />
                     )
                 })}
@@ -316,7 +321,7 @@ const StepSlider: React.FC = () => {
 
             {/* Mobile: Fixed tooltip always visible */}
             {isMobile && currentStep && (
-                <div className="absolute -top-6 left-1/4 pl-3">
+                <div className="absolute -top-6 left-1/4 pl-3 text-sm">
                     {STEP_CONFIG[currentStep.type].tooltip}
                 </div>
             )}
@@ -356,10 +361,10 @@ const StepSlider: React.FC = () => {
 
                 return (
                     <div
-                        className="fixed rounded-md bg-gray-900 px-3 py-1.5 text-sm text-white text-nowrap shadow-lg pointer-events-none border border-gray-700"
+                        className="fixed rounded-md bg-gray-900 px-3 py-1.5 text-sm text-white text-nowrap shadow-lg pointer-events-none border border-gray-700 z-50"
                         style={{
                             left,
-                            top: containerRect.top - 40,
+                            top: containerRect.top - 50,
                             transform,
                         }}
                     >
@@ -378,17 +383,19 @@ const StepSlider: React.FC = () => {
                     '[&_[data-orientation=horizontal]]:h-4',
                     // Enable pointer events and add hover styles for the thumb
                     '[&_[role=slider]]:pointer-events-auto',
-                    '[&_[role=slider]]:cursor-pointer',
+                    isDragging ? '[&_[role=slider]]:cursor-grabbing' : '[&_[role=slider]]:cursor-pointer',
                     '[&_[role=slider]]:hover:scale-125',
                     '[&_[role=slider]]:hover:shadow-lg',
                     '[&_[role=slider]]:transition-all',
                     '[&_[role=slider]]:duration-150',
                     '[&_[role=slider]]:ease-in-out',
-                    // Glass-like effect for filled portion
+                    // Glass-like effect for filled portion  
                     '[&_[data-orientation=horizontal]_span[data-orientation=horizontal]]:bg-white/20',
                     '[&_[data-orientation=horizontal]_span[data-orientation=horizontal]]:backdrop-blur',
                     '[&_[data-orientation=horizontal]_span[data-orientation=horizontal]]:border-white/30',
-                    '[&_[data-orientation=horizontal]_span[data-orientation=horizontal]]:-mr-2',
+                    // current step is lest than 50%
+                    '[&_[data-orientation=horizontal]_span[data-orientation=horizontal]]:rounded-full',
+                    currentStep.index < steps.length / 2 ? '[&_[data-orientation=horizontal]_span[data-orientation=horizontal]]:-mr-[10px]' : '',
                 )}
                 onMouseEnter={handleThumbMouseEnter}
                 onMouseLeave={handleThumbMouseLeave}
