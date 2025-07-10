@@ -278,7 +278,7 @@ const StepSlider: React.FC = () => {
     if (!currentStep) return null
 
     return (
-        <div className="relative flex h-10 lg:h-16 w-full items-center">
+        <div className="relative flex h-10 lg:h-14 w-full items-center">
             {/* Extended hover area */}
             <div
                 className="absolute inset-0 w-full h-full"
@@ -364,7 +364,7 @@ const StepSlider: React.FC = () => {
                         className="fixed rounded-md bg-gray-900 px-3 py-1.5 text-sm text-white text-nowrap shadow-lg pointer-events-none border border-gray-700 z-50"
                         style={{
                             left,
-                            top: containerRect.top - 50,
+                            top: containerRect.top - 45,
                             transform,
                         }}
                     >
