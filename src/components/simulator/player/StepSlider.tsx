@@ -412,15 +412,17 @@ const StepSlider: React.FC = () => {
                 const stepClassName = typeof stepConfig.className === 'function'
                     ? stepConfig.className(currentStep)
                     : stepConfig.className
+                const stepNumber = `${currentStep.index + 1}/${steps.length}`
 
                 return (
-                    <div className="absolute -top-6 left-1/4 pl-3 text-sm flex items-center gap-2">
+                    <div className="absolute -top-7 left-1/4 pl-3 text-sm flex items-center gap-1 p-0.5">
                         {stepLabel && stepLabel.trim() && (
                             <span className={cn("inline-flex items-center justify-center w-6 h-6 text-gray-800 text-xs font-bold rounded-full", stepClassName)}>
                                 {stepLabel}
                             </span>
                         )}
                         <span className="text-gray-700">{stepType}</span>
+                        <span className="text-xs opacity-75">{stepNumber}</span>
                     </div>
                 )
             })()}
