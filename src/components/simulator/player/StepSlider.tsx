@@ -537,7 +537,7 @@ const StepSlider: React.FC = () => {
                         '[&_[data-orientation=horizontal]_span[data-orientation=horizontal]]:border-white/30',
                         // current step is lest than 50%
                         '[&_[data-orientation=horizontal]_span[data-orientation=horizontal]]:rounded-full',
-                        currentStep.index < steps.length / 2 ? '[&_[data-orientation=horizontal]_span[data-orientation=horizontal]]:-mr-[10px]' : '',
+                        currentStep.index < steps.length / 2 ? '[&_[data-orientation=horizontal]_span[data-orientation=horizontal]]:-mr-[7px]' : '',
                     )}
                     onMouseEnter={handleSliderMouseEnter}
                     onMouseLeave={handleSliderMouseLeave}
