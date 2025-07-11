@@ -121,22 +121,46 @@ const StepSlider: React.FC = () => {
     const handleMouseDown = useCallback((e: React.MouseEvent) => {
         e.preventDefault()
         setIsDragging(true)
+        setIsTooltipOpen(true)
+        setIsThumbHovered(false) // Reset thumb hover state when dragging starts
 
         const stepIndex = getStepFromPosition(getClientX(e))
         if (stepIndex !== null) {
             changeStep(stepIndex)
+            setHoveredStepIndex(stepIndex)
+
+            // Update mouse position immediately
+            if (containerElement) {
+                const rect = containerElement.getBoundingClientRect()
+                setMousePosition({
+                    x: getClientX(e) - rect.left,
+                    y: getClientY(e) - rect.top
+                })
+            }
         }
-    }, [getStepFromPosition, getClientX, changeStep])
+    }, [getStepFromPosition, getClientX, changeStep, containerElement])
 
     const handleTouchStart = useCallback((e: React.TouchEvent) => {
         e.preventDefault()
         setIsDragging(true)
+        setIsTooltipOpen(true)
+        setIsThumbHovered(false) // Reset thumb hover state when dragging starts
 
         const stepIndex = getStepFromPosition(getClientX(e))
         if (stepIndex !== null) {
             changeStep(stepIndex)
+            setHoveredStepIndex(stepIndex)
+
+            // Update mouse position immediately
+            if (containerElement) {
+                const rect = containerElement.getBoundingClientRect()
+                setMousePosition({
+                    x: getClientX(e) - rect.left,
+                    y: getClientY(e) - rect.top
+                })
+            }
         }
-    }, [getStepFromPosition, getClientX, changeStep])
+    }, [getStepFromPosition, getClientX, changeStep, containerElement])
 
     const handleContainerMouseMove = useCallback((e: React.MouseEvent) => {
         const stepIndex = getStepFromPosition(getClientX(e))
@@ -159,11 +183,9 @@ const StepSlider: React.FC = () => {
     }, [])
 
     const handleContainerMouseLeave = useCallback(() => {
-        if (!isDragging) {
-            setIsTooltipOpen(false)
-            setHoveredStepIndex(null)
-        }
-    }, [isDragging])
+        setIsTooltipOpen(false)
+        setHoveredStepIndex(null)
+    }, [])
 
     // Handlers for slider thumb hover
     const handleThumbMouseEnter = useCallback((e: React.MouseEvent) => {
@@ -182,10 +204,8 @@ const StepSlider: React.FC = () => {
 
     const handleThumbMouseLeave = useCallback(() => {
         setIsThumbHovered(false)
-        if (!isDragging) {
-            setIsTooltipOpen(false)
-        }
-    }, [isDragging])
+        // Don't hide tooltip when leaving thumb, let container handle it
+    }, [])
 
     const handleThumbMouseMove = useCallback((e: React.MouseEvent) => {
         if (isThumbHovered && containerElement) {
@@ -204,16 +224,19 @@ const StepSlider: React.FC = () => {
         if (stepIndex !== null) {
             changeStep(stepIndex)
             setHoveredStepIndex(stepIndex)
+
+            // Update mouse position relative to the container during dragging
+            if (containerElement) {
+                const rect = containerElement.getBoundingClientRect()
+                setMousePosition({
+                    x: getClientX(e) - rect.left,
+                    y: getClientY(e) - rect.top
+                })
+            }
         }
 
-        // Update mouse position relative to the container during dragging
-        if (containerElement) {
-            const rect = containerElement.getBoundingClientRect()
-            setMousePosition({
-                x: getClientX(e) - rect.left,
-                y: getClientY(e) - rect.top
-            })
-        }
+        // Ensure tooltip stays visible during dragging
+        setIsTooltipOpen(true)
     }, [isDragging, getStepFromPosition, getClientX, getClientY, changeStep, containerElement])
 
     const handleTouchMove = useCallback((e: TouchEvent) => {
@@ -224,28 +247,31 @@ const StepSlider: React.FC = () => {
         if (stepIndex !== null) {
             changeStep(stepIndex)
             setHoveredStepIndex(stepIndex)
+
+            // Update mouse position relative to the container during dragging
+            if (containerElement) {
+                const rect = containerElement.getBoundingClientRect()
+                setMousePosition({
+                    x: getClientX(e) - rect.left,
+                    y: getClientY(e) - rect.top
+                })
+            }
         }
 
-        // Update mouse position relative to the container during dragging
-        if (containerElement) {
-            const rect = containerElement.getBoundingClientRect()
-            setMousePosition({
-                x: getClientX(e) - rect.left,
-                y: getClientY(e) - rect.top
-            })
-        }
+        // Ensure tooltip stays visible during dragging
+        setIsTooltipOpen(true)
     }, [isDragging, getStepFromPosition, getClientX, getClientY, changeStep, containerElement])
 
     const handleMouseUp = useCallback(() => {
         setIsDragging(false)
-        setIsTooltipOpen(false)
-        setHoveredStepIndex(null)
+        setHoveredStepIndex(null) // Clear hovered step when dragging ends
+        // Don't hide tooltip immediately, let container mouse leave handle it
     }, [])
 
     const handleTouchEnd = useCallback(() => {
         setIsDragging(false)
-        setIsTooltipOpen(false)
-        setHoveredStepIndex(null)
+        setHoveredStepIndex(null) // Clear hovered step when dragging ends
+        // Don't hide tooltip immediately, let container mouse leave handle it
     }, [])
 
     // Add global mouse and touch event listeners when dragging
@@ -265,15 +291,7 @@ const StepSlider: React.FC = () => {
         }
     }, [isDragging, handleMouseMove, handleMouseUp, handleTouchMove, handleTouchEnd])
 
-    // Calculate thumb position for tooltip
-    const getThumbPosition = useCallback(() => {
-        if (!containerElement || !containerSize.width || !currentStep) return { x: 0, y: 0 }
 
-        const progress = steps.length > 1 ? currentStep.index / (steps.length - 1) : 0
-        const thumbX = progress * containerSize.width
-
-        return { x: thumbX, y: 8 } // y: 8 is approximate center of the thumb
-    }, [containerElement, containerSize.width, currentStep, steps.length])
 
     if (!currentStep) return null
 
@@ -310,6 +328,7 @@ const StepSlider: React.FC = () => {
                     return (
                         <div
                             key={step.index}
+                            data-depth={step.depth}
                             className={cn(
                                 'flex h-full w-full select-none items-center justify-center font-mono text-xs',
                             )}
@@ -331,11 +350,11 @@ const StepSlider: React.FC = () => {
                 const containerRect = containerElement?.getBoundingClientRect()
                 if (!containerRect) return null
 
-                const baseX = (isThumbHovered ? getThumbPosition().x : mousePosition.x) + containerRect.left
-                const tooltipText = isThumbHovered
-                    ? STEP_CONFIG[currentStep.type].tooltip
-                    : hoveredStepIndex !== null && stepsWithDepth[hoveredStepIndex]
-                        ? STEP_CONFIG[stepsWithDepth[hoveredStepIndex].type].tooltip
+                const baseX = mousePosition.x + containerRect.left
+                const tooltipText = (isDragging || hoveredStepIndex !== null) && stepsWithDepth[hoveredStepIndex || currentStep.index]
+                    ? STEP_CONFIG[stepsWithDepth[hoveredStepIndex || currentStep.index].type].tooltip
+                    : isThumbHovered
+                        ? STEP_CONFIG[currentStep.type].tooltip
                         : STEP_CONFIG[currentStep.type].tooltip
 
                 // Estimate tooltip width (approximate based on text length)
@@ -369,6 +388,22 @@ const StepSlider: React.FC = () => {
                         }}
                     >
                         {tooltipText}
+                        {/* Arrow pointing down */}
+                        <div
+                            className="absolute left-1/2 top-full border-l-8 border-r-8 border-t-8 border-l-transparent border-r-transparent border-t-gray-900"
+                            style={{
+                                transform: 'translateX(-50%)',
+                                marginTop: '-1px', // Overlap with border
+                            }}
+                        />
+                        {/* Arrow border */}
+                        <div
+                            className="absolute left-1/2 top-full border-l-[9px] border-r-[9px] border-t-[9px] border-l-transparent border-r-transparent border-t-gray-700"
+                            style={{
+                                transform: 'translateX(-50%)',
+                                zIndex: -1,
+                            }}
+                        />
                     </div>
                 )
             })()}
@@ -376,6 +411,7 @@ const StepSlider: React.FC = () => {
             <Slider
                 value={[currentStep.index]}
                 onValueChange={([v]) => changeStep(v)}
+                min={-1}
                 max={steps.length > 0 ? steps.length - 1 : 0}
                 step={1}
                 className={cn(
