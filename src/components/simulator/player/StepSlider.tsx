@@ -1,5 +1,5 @@
 import React, { useMemo, useState, useCallback } from 'react'
-import { EXEC_STEP_TYPE, ExecStep } from '@/types/simulator'
+import { EXEC_STEP_TYPE, ExecStep, ExecStepType } from '@/types/simulator'
 import { cn } from '@/lib/utils'
 import { useSimulatorStore } from '@/hooks/useSimulatorStore'
 import { useResponsive } from '@/hooks/useResponsive'
@@ -7,34 +7,69 @@ import { useResponsive } from '@/hooks/useResponsive'
 import { Slider } from '@/components/ui/slider'
 import useElementSize from '@/hooks/useElementSize'
 
-const STEP_CONFIG: Record<ExecStep['type'], {
+const STEP_CONFIG: Record<ExecStepType, {
+    label: string | ((step: ExecStep) => string)
+    className: string | ((step: ExecStep) => string)
     tooltip: string
 }> = {
     [EXEC_STEP_TYPE.INITIAL]: {
+        label: 'I',
+        className: 'bg-white',
         tooltip: 'Initial',
     },
     [EXEC_STEP_TYPE.PUSH_SCOPE]: {
+        label: (step: ExecStep) => {
+            if (step.memoryChange?.type === 'push_scope' && step.memoryChange.kind === 'program') {
+                return 'G'
+            }
+            return '{'
+        },
+        className: (step: ExecStep) => {
+            if (step.memoryChange?.type === 'push_scope' && step.memoryChange.kind === 'function') {
+                return 'bg-blue-100'
+            }
+            return 'bg-gray-100'
+        },
         tooltip: 'Push Scope',
     },
     [EXEC_STEP_TYPE.HOISTING]: {
+        label: 'H',
+        className: 'bg-orange-200',
         tooltip: 'Hoisting',
     },
     [EXEC_STEP_TYPE.POP_SCOPE]: {
+        label: '}',
+        className: (step: ExecStep) => {
+            if (step.memoryChange?.type === 'pop_scope' && step.memoryChange.kind === 'function') {
+                return 'bg-blue-100'
+            }
+            return 'bg-gray-100'
+        },
         tooltip: 'Pop Scope',
     },
     [EXEC_STEP_TYPE.EXECUTING]: {
+        label: 'S',
+        className: 'bg-yellow-200',
         tooltip: 'Executing',
     },
     [EXEC_STEP_TYPE.EXECUTED]: {
+        label: ';',
+        className: 'bg-yellow-200',
         tooltip: 'Executed',
     },
     [EXEC_STEP_TYPE.EVALUATING]: {
+        label: '(',
+        className: 'bg-green-100',
         tooltip: 'Evaluating',
     },
     [EXEC_STEP_TYPE.EVALUATED]: {
+        label: ')',
+        className: 'bg-green-100',
         tooltip: 'Evaluated',
     },
     [EXEC_STEP_TYPE.FUNCTION_CALL]: {
+        label: 'F',
+        className: 'bg-purple-100',
         tooltip: 'Function Call',
     },
 }
@@ -368,11 +403,27 @@ const StepSlider: React.FC = () => {
             </div>
 
             {/* Mobile: Fixed tooltip always visible */}
-            {isMobile && currentStep && (
-                <div className="absolute -top-6 left-1/4 pl-3 text-sm">
-                    {STEP_CONFIG[currentStep.type].tooltip}
-                </div>
-            )}
+            {isMobile && currentStep && (() => {
+                const stepConfig = STEP_CONFIG[currentStep.type]
+                const stepLabel = typeof stepConfig.label === 'function'
+                    ? stepConfig.label(currentStep)
+                    : stepConfig.label
+                const stepType = stepConfig.tooltip
+                const stepClassName = typeof stepConfig.className === 'function'
+                    ? stepConfig.className(currentStep)
+                    : stepConfig.className
+
+                return (
+                    <div className="absolute -top-6 left-1/4 pl-3 text-sm flex items-center gap-2">
+                        {stepLabel && stepLabel.trim() && (
+                            <span className={cn("inline-flex items-center justify-center w-6 h-6 text-gray-800 text-xs font-bold rounded-full", stepClassName)}>
+                                {stepLabel}
+                            </span>
+                        )}
+                        <span className="text-gray-700">{stepType}</span>
+                    </div>
+                )
+            })()}
 
             {/* Desktop: Tooltip that follows mouse on hover */}
             {!isMobile && isTooltipOpen && (() => {
@@ -381,13 +432,23 @@ const StepSlider: React.FC = () => {
 
                 const baseX = mousePosition.x + containerRect.left
                 const stepIndex = hoveredStepIndex !== null ? hoveredStepIndex : currentStep.index
-                const stepType = (hoveredStepIndex !== null && stepsWithDepth[hoveredStepIndex])
-                    ? STEP_CONFIG[stepsWithDepth[hoveredStepIndex].type].tooltip
-                    : STEP_CONFIG[currentStep.type].tooltip
+                const hoveredStep = (hoveredStepIndex !== null && stepsWithDepth[hoveredStepIndex])
+                    ? stepsWithDepth[hoveredStepIndex]
+                    : currentStep
+                const stepConfig = STEP_CONFIG[hoveredStep.type]
+                const stepLabel = typeof stepConfig.label === 'function'
+                    ? stepConfig.label(hoveredStep)
+                    : stepConfig.label
+                const stepType = stepConfig.tooltip
                 const stepNumber = `${stepIndex + 1}/${steps.length}`
+                const stepClassName = typeof stepConfig.className === 'function'
+                    ? stepConfig.className(hoveredStep)
+                    : stepConfig.className
 
-                // Estimate tooltip width (approximate based on text length)
-                const estimatedTooltipWidth = Math.max(80, (stepType.length + stepNumber.length) * 8 + 24) // 8px per char + padding
+                // Estimate tooltip width (approximate based on text length + badge)
+                const badgeWidth = (stepLabel && stepLabel.trim()) ? 32 : 0 // 24px for badge + 8px gap
+                const textWidth = (stepType.length + stepNumber.length) * 8
+                const estimatedTooltipWidth = Math.max(80, badgeWidth + textWidth + 24) // badge + text + padding
 
                 // Calculate boundaries
                 const leftBoundary = containerRect.left
@@ -409,15 +470,22 @@ const StepSlider: React.FC = () => {
 
                 return (
                     <div
-                        className="fixed rounded-md bg-gray-900 px-3 py-1.5 text-sm text-white text-nowrap shadow-lg pointer-events-none border border-gray-700 z-50"
+                        className="fixed rounded-md bg-gray-900 px-3 py-2 text-sm text-white shadow-lg pointer-events-none border border-gray-700 z-50"
                         style={{
                             left,
-                            top: containerRect.top - 45,
+                            top: containerRect.top - 55,
                             transform,
                         }}
                     >
-                        <span>{stepType}</span>
-                        <span className="text-xs ml-1 opacity-75">{stepNumber}</span>
+                        <div className="flex items-center gap-2 text-nowrap">
+                            {stepLabel && stepLabel.trim() && (
+                                <span className={cn("inline-flex items-center justify-center w-6 h-6 text-gray-800 text-xs font-bold rounded-full", stepClassName)}>
+                                    {stepLabel}
+                                </span>
+                            )}
+                            <span className="text-white">{stepType}</span>
+                            <span className="text-xs opacity-75">{stepNumber}</span>
+                        </div>
                         {/* Arrow pointing down */}
                         <div
                             className="absolute left-1/2 top-full border-l-8 border-r-8 border-t-8 border-l-transparent border-r-transparent border-t-gray-900"
