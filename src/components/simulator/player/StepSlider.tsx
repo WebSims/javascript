@@ -531,10 +531,13 @@ const StepSlider: React.FC = () => {
                         '[&_[role=slider]]:transition-all',
                         '[&_[role=slider]]:duration-150',
                         '[&_[role=slider]]:ease-in-out',
-                        // Glass-like effect for filled portion  
-                        '[&_[data-orientation=horizontal]_span[data-orientation=horizontal]]:bg-white/20',
-                        '[&_[data-orientation=horizontal]_span[data-orientation=horizontal]]:backdrop-blur',
-                        '[&_[data-orientation=horizontal]_span[data-orientation=horizontal]]:border-white/30',
+                        // Glass-like effect for filled portion with enhanced contrast
+                        '[&_[data-orientation=horizontal]_span[data-orientation=horizontal]]:bg-white/10',
+                        '[&_[data-orientation=horizontal]_span[data-orientation=horizontal]]:backdrop-blur-sm',
+                        '[&_[data-orientation=horizontal]_span[data-orientation=horizontal]]:border-white/20',
+                        '[&_[data-orientation=horizontal]_span[data-orientation=horizontal]]:shadow-inner',
+                        '[&_[data-orientation=horizontal]_span[data-orientation=horizontal]]:contrast-125',
+                        '[&_[data-orientation=horizontal]_span[data-orientation=horizontal]]:saturate-110',
                         // current step is lest than 50%
                         '[&_[data-orientation=horizontal]_span[data-orientation=horizontal]]:rounded-full',
                         currentStep.index < steps.length / 2 ? '[&_[data-orientation=horizontal]_span[data-orientation=horizontal]]:-mr-[7px]' : '',
