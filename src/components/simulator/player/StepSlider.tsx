@@ -374,7 +374,7 @@ const StepSlider: React.FC = () => {
 
             <div
                 ref={setRefs}
-                className="absolute flex h-4 w-full items-center overflow-hidden rounded-full"
+                className="absolute flex h-4 w-full items-center overflow-hidden rounded-full px-2"
                 style={{ pointerEvents: 'none' }}
             >
                 {stepsWithDepth.map((step) => {
@@ -390,14 +390,18 @@ const StepSlider: React.FC = () => {
                     }
 
                     return (
-                        <div
-                            key={step.index}
-                            data-depth={step.depth}
-                            className={cn(
-                                'flex h-full w-full select-none items-center justify-center font-mono text-xs',
-                            )}
-                            style={{ backgroundColor }}
-                        />
+                        <>
+                            {step.index === 0 && (<div className='w-2 absolute left-0 top-0 bottom-0' style={{ backgroundColor }}></div>)}
+                            <div
+                                key={step.index}
+                                data-depth={step.depth}
+                                className={cn(
+                                    'flex h-full w-full select-none items-center justify-center font-mono text-xs',
+                                )}
+                                style={{ backgroundColor }}
+                            />
+                            {step.index === steps.length - 1 && (<div className='w-2 absolute right-0 top-0 bottom-0' style={{ backgroundColor }}></div>)}
+                        </>
                     )
                 })}
             </div>
@@ -433,18 +437,19 @@ const StepSlider: React.FC = () => {
                 if (!containerRect) return null
 
                 const baseX = mousePosition.x + containerRect.left
-                const stepIndex = hoveredStepIndex !== null ? hoveredStepIndex : currentStep.index
-                const hoveredStep = (hoveredStepIndex !== null && stepsWithDepth[hoveredStepIndex])
+                // When dragging, always show current step index, otherwise show hovered step
+                const stepIndex = isDragging ? currentStep.index : (hoveredStepIndex !== null ? hoveredStepIndex : currentStep.index)
+                const tooltipStep = isDragging ? currentStep : (hoveredStepIndex !== null && stepsWithDepth[hoveredStepIndex])
                     ? stepsWithDepth[hoveredStepIndex]
                     : currentStep
-                const stepConfig = STEP_CONFIG[hoveredStep.type]
+                const stepConfig = STEP_CONFIG[tooltipStep.type]
                 const stepLabel = typeof stepConfig.label === 'function'
-                    ? stepConfig.label(hoveredStep)
+                    ? stepConfig.label(tooltipStep)
                     : stepConfig.label
                 const stepType = stepConfig.tooltip
                 const stepNumber = `${stepIndex + 1}/${steps.length}`
                 const stepClassName = typeof stepConfig.className === 'function'
-                    ? stepConfig.className(hoveredStep)
+                    ? stepConfig.className(tooltipStep)
                     : stepConfig.className
 
                 // Estimate tooltip width (approximate based on text length + badge)
@@ -517,8 +522,8 @@ const StepSlider: React.FC = () => {
                 <Slider
                     value={[currentStep.index]}
                     onValueChange={handleSliderValueChange}
-                    min={-1}
-                    max={steps.length > 0 ? steps.length - 1 : 0}
+                    min={0}
+                    max={steps.length > 0 ? steps.length : 0}
                     step={1}
                     className={cn(
                         'pointer-events-none w-full',
@@ -532,12 +537,7 @@ const StepSlider: React.FC = () => {
                         '[&_[role=slider]]:duration-150',
                         '[&_[role=slider]]:ease-in-out',
                         // Glass-like effect for filled portion with enhanced contrast
-                        '[&_[data-orientation=horizontal]_span[data-orientation=horizontal]]:bg-white/10',
-                        '[&_[data-orientation=horizontal]_span[data-orientation=horizontal]]:backdrop-blur-sm',
-                        '[&_[data-orientation=horizontal]_span[data-orientation=horizontal]]:border-white/20',
-                        '[&_[data-orientation=horizontal]_span[data-orientation=horizontal]]:shadow-inner',
-                        '[&_[data-orientation=horizontal]_span[data-orientation=horizontal]]:contrast-125',
-                        '[&_[data-orientation=horizontal]_span[data-orientation=horizontal]]:saturate-110',
+                        '[&_[data-orientation=horizontal]_span[data-orientation=horizontal]]:bg-black/50',
                         // current step is lest than 50%
                         '[&_[data-orientation=horizontal]_span[data-orientation=horizontal]]:rounded-full',
                         currentStep.index < steps.length / 2 ? '[&_[data-orientation=horizontal]_span[data-orientation=horizontal]]:-mr-[7px]' : '',
