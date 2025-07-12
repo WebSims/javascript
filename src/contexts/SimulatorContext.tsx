@@ -85,7 +85,7 @@ export const SimulatorProvider = ({ children }: { children: React.ReactNode }) =
                 setAstError(null)
                 setAstOfCode(ast)
                 setSteps(steps)
-                setCurrentExecStep(steps[0] || null)
+                changeStep(0)
             }
         } catch (error) {
             setAstError(error instanceof Error ? error.message : 'Unknown error')
@@ -108,7 +108,7 @@ export const SimulatorProvider = ({ children }: { children: React.ReactNode }) =
         const currentIndex = currentStep?.index ?? -1
         if (currentIndex < totalSteps - 1) {
             const nextIndex = currentIndex + 1
-            setCurrentExecStep(steps[nextIndex])
+            changeStep(nextIndex)
         } else {
             setIsPlaying(false)
         }
@@ -118,7 +118,7 @@ export const SimulatorProvider = ({ children }: { children: React.ReactNode }) =
         const currentIndex = currentStep?.index ?? 0
         if (currentIndex > 0) {
             const prevIndex = currentIndex - 1
-            setCurrentExecStep(steps[prevIndex])
+            changeStep(prevIndex)
         }
     }
 
@@ -129,7 +129,7 @@ export const SimulatorProvider = ({ children }: { children: React.ReactNode }) =
     }
 
     const resetSimulation = () => {
-        setCurrentExecStep(steps[0] ?? null)
+        changeStep(0)
         togglePlaying(false)
     }
 
