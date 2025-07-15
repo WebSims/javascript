@@ -496,11 +496,12 @@ const StepSlider: React.FC = () => {
 
                 return (
                     <div
-                        className={`min-w-[${TOOLTIP_WIDTH}px] fixed rounded-md bg-gray-900 px-3 py-2 text-sm text-white shadow-lg pointer-events-none border border-gray-700 z-50`}
+                        className="fixed rounded-md bg-gray-900 px-3 py-2 text-sm text-white shadow-lg pointer-events-none border border-gray-700 z-50"
                         style={{
                             left,
                             top: containerRect.top - 55,
                             transform,
+                            minWidth: `${TOOLTIP_WIDTH}px`,
                         }}
                     >
                         <div className="flex items-center gap-2 text-nowrap">
