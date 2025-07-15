@@ -7,6 +7,8 @@ import { useResponsive } from '@/hooks/useResponsive'
 import { Slider } from '@/components/ui/slider'
 import useElementSize from '@/hooks/useElementSize'
 
+const TOOLTIP_WIDTH = 260
+
 const STEP_CONFIG: Record<ExecStepType, {
     label: string | ((step: ExecStep) => string)
     className: string | ((step: ExecStep) => string)
@@ -455,32 +457,49 @@ const StepSlider: React.FC = () => {
                     ? stepConfig.className(tooltipStep)
                     : stepConfig.className
 
-                // Estimate tooltip width (approximate based on text length + badge)
-                const badgeWidth = (stepLabel && stepLabel.trim()) ? 32 : 0 // 24px for badge + 8px gap
-                const textWidth = (stepType.length + stepNumber.length) * 8
-                const estimatedTooltipWidth = Math.max(80, badgeWidth + textWidth + 24) // badge + text + padding
-
                 // Calculate boundaries
                 const leftBoundary = containerRect.left
                 const rightBoundary = containerRect.right
-                const halfTooltipWidth = estimatedTooltipWidth / 2
+                const halfTooltipWidth = TOOLTIP_WIDTH / 2
 
                 // Determine positioning
-                const left = baseX
+                let left = baseX
                 let transform = 'translateX(-50%)'
 
                 // Check if tooltip would overflow left boundary
                 if (baseX - halfTooltipWidth < leftBoundary) {
+                    left = leftBoundary
                     transform = 'translateX(0)'
                 }
                 // Check if tooltip would overflow right boundary
                 else if (baseX + halfTooltipWidth > rightBoundary) {
+                    left = rightBoundary
                     transform = 'translateX(-100%)'
+                }
+
+                // Calculate arrow position relative to tooltip
+                // The arrow should point to the actual step position (baseX), not the tooltip position
+                let arrowLeft = '50%'
+                let arrowTransform = 'translateX(-50%)'
+
+                if (baseX - halfTooltipWidth < leftBoundary) {
+                    // Tooltip is at left boundary, arrow should point to actual step position
+                    const arrowOffset = Math.max(baseX - leftBoundary - 10, 2)
+                    arrowLeft = `${arrowOffset}px`
+                    arrowTransform = 'translateX(0)'
+                } else if (baseX + halfTooltipWidth > rightBoundary) {
+                    // Tooltip is at right boundary, arrow should point to actual step position
+                    const arrowOffset = Math.min(baseX - (rightBoundary - TOOLTIP_WIDTH) - 10, 238)
+                    arrowLeft = `${arrowOffset}px`
+                    arrowTransform = 'translateX(0)'
                 }
 
                 return (
                     <div
-                        className="fixed rounded-md bg-gray-900 px-3 py-2 text-sm text-white shadow-lg pointer-events-none border border-gray-700 z-50"
+                        className={cn(
+                            `min-w-[${TOOLTIP_WIDTH}px] `,
+                            "fixed rounded-md bg-gray-900 px-3 py-2 text-sm text-white shadow-lg pointer-events-none border border-gray-700 z-50",
+                        )}
                         style={{
                             left,
                             top: containerRect.top - 55,
@@ -493,22 +512,24 @@ const StepSlider: React.FC = () => {
                                     {stepLabel}
                                 </span>
                             )}
-                            <span className="text-white">{stepType}</span>
+                            <span className="flex-1 text-white">{stepType}</span>
                             <span className="text-xs opacity-75">{stepNumber}</span>
                         </div>
                         {/* Arrow pointing down */}
                         <div
-                            className="absolute left-1/2 top-full border-l-8 border-r-8 border-t-8 border-l-transparent border-r-transparent border-t-gray-900"
+                            className="absolute top-full border-l-8 border-r-8 border-t-8 border-l-transparent border-r-transparent border-t-gray-900"
                             style={{
-                                transform: 'translateX(-50%)',
+                                left: arrowLeft,
+                                transform: arrowTransform,
                                 marginTop: '-1px', // Overlap with border
                             }}
                         />
                         {/* Arrow border */}
                         <div
-                            className="absolute left-1/2 top-full border-l-[9px] border-r-[9px] border-t-[9px] border-l-transparent border-r-transparent border-t-gray-700"
+                            className="absolute top-full border-l-[9px] border-r-[9px] border-t-[9px] border-l-transparent border-r-transparent border-t-gray-700"
                             style={{
-                                transform: 'translateX(-50%)',
+                                left: arrowLeft,
+                                transform: arrowTransform,
                                 zIndex: -1,
                             }}
                         />
