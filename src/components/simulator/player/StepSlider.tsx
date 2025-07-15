@@ -374,7 +374,10 @@ const StepSlider: React.FC = () => {
 
             <div
                 ref={setRefs}
-                className="absolute flex h-4 w-full items-center overflow-hidden rounded-full px-2"
+                className={cn(
+                    "absolute flex w-full items-center overflow-hidden rounded-full px-2 transition-all duration-200 ease-in-out",
+                    isTooltipOpen ? "h-3.5" : "h-3"
+                )}
                 style={{ pointerEvents: 'none' }}
             >
                 {stepsWithDepth.map((step) => {
@@ -527,17 +530,21 @@ const StepSlider: React.FC = () => {
                     step={1}
                     className={cn(
                         'pointer-events-none w-full',
-                        '[&_[data-orientation=horizontal]]:h-4',
+                        isTooltipOpen ? '[&_[data-orientation=horizontal]]:h-3.5' : '[&_[data-orientation=horizontal]]:h-3',
                         // Enable pointer events and add hover styles for the thumb
                         '[&_[role=slider]]:pointer-events-auto',
                         isDragging ? '[&_[role=slider]]:cursor-grabbing' : '[&_[role=slider]]:cursor-pointer',
+                        '[&_[role=slider]]:bg-red-500',
+                        '[&_[role=slider]]:border-red-500',
+                        '[&_[role=slider]]:w-5',
+                        '[&_[role=slider]]:h-5',
                         '[&_[role=slider]]:hover:scale-125',
                         '[&_[role=slider]]:hover:shadow-lg',
                         '[&_[role=slider]]:transition-all',
                         '[&_[role=slider]]:duration-150',
                         '[&_[role=slider]]:ease-in-out',
                         // Glass-like effect for filled portion with enhanced contrast
-                        '[&_[data-orientation=horizontal]_span[data-orientation=horizontal]]:bg-black/50',
+                        '[&_[data-orientation=horizontal]_span[data-orientation=horizontal]]:bg-red-500/60',
                         // current step is lest than 50%
                         '[&_[data-orientation=horizontal]_span[data-orientation=horizontal]]:rounded-full',
                         currentStep.index < steps.length / 2 ? '[&_[data-orientation=horizontal]_span[data-orientation=horizontal]]:-mr-[7px]' : '',
