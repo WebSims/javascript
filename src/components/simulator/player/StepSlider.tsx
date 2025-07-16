@@ -148,11 +148,11 @@ const StepSlider: React.FC = () => {
 
         const rect = containerElement.getBoundingClientRect()
         const x = clientX - rect.left
-        const stepWidth = containerSize.width / stepsWithDepth.length
+        const stepWidth = containerSize.width / (steps.length - 1)
         const stepIndex = Math.floor(x / stepWidth)
 
-        return Math.max(0, Math.min(stepIndex, stepsWithDepth.length - 1))
-    }, [containerElement, containerSize.width, stepsWithDepth.length])
+        return Math.max(0, Math.min(stepIndex, steps.length - 1))
+    }, [containerElement, containerSize.width, steps.length])
 
     const updateMousePosition = useCallback((e: React.MouseEvent | React.TouchEvent | MouseEvent | TouchEvent) => {
         if (containerElement) {
@@ -382,7 +382,7 @@ const StepSlider: React.FC = () => {
                 )}
                 style={{ pointerEvents: 'none' }}
             >
-                {stepsWithDepth.map((step) => {
+                {stepsWithDepth.map((step, index) => {
                     const lightness = Math.min(90, 20 + step.depth * 10)
 
                     let backgroundColor: string
@@ -396,16 +396,17 @@ const StepSlider: React.FC = () => {
 
                     return (
                         <>
-                            {step.index === 0 && (<div className='w-2 absolute left-0 top-0 bottom-0' style={{ backgroundColor }}></div>)}
+                            {index === 0 && (<div className='w-2 absolute left-0 top-0 bottom-0' style={{ backgroundColor }}></div>)}
                             <div
                                 key={step.index}
                                 data-depth={step.depth}
                                 className={cn(
-                                    'flex h-full w-full select-none items-center justify-center font-mono text-xs',
+                                    'flex h-full select-none items-center justify-center font-mono text-xs',
+                                    index === steps.length - 1 ? 'w-0' : 'w-full',
                                 )}
                                 style={{ backgroundColor }}
                             />
-                            {step.index === steps.length - 1 && (<div className='w-2 absolute right-0 top-0 bottom-0' style={{ backgroundColor }}></div>)}
+                            {index === steps.length - 1 && (<div className='w-2 absolute right-0 top-0 bottom-0' style={{ backgroundColor }}></div>)}
                         </>
                     )
                 })}
@@ -444,8 +445,8 @@ const StepSlider: React.FC = () => {
                 const baseX = mousePosition.x + containerRect.left
                 // When dragging, always show current step index, otherwise show hovered step
                 const stepIndex = isDragging ? currentStep.index : (hoveredStepIndex !== null ? hoveredStepIndex : currentStep.index)
-                const tooltipStep = isDragging ? currentStep : (hoveredStepIndex !== null && stepsWithDepth[hoveredStepIndex])
-                    ? stepsWithDepth[hoveredStepIndex]
+                const tooltipStep = isDragging ? currentStep : (hoveredStepIndex !== null && steps[hoveredStepIndex])
+                    ? steps[hoveredStepIndex]
                     : currentStep
                 const stepConfig = STEP_CONFIG[tooltipStep.type]
                 const stepLabel = typeof stepConfig.label === 'function'
@@ -545,7 +546,7 @@ const StepSlider: React.FC = () => {
                     value={[currentStep.index]}
                     onValueChange={handleSliderValueChange}
                     min={0}
-                    max={steps.length > 0 ? steps.length : 0}
+                    max={steps.length > 0 ? steps.length - 1 : 0}
                     step={1}
                     className={cn(
                         'pointer-events-none w-full',
