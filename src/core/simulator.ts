@@ -46,6 +46,7 @@ class Simulator {
     private declarations: Declaration[]
     private hoistingHandlers: NodeHandlerMap
     private execHandlers: NodeHandlerMap
+    private consoleOutput: { type: "log" | "error" | 'info' | 'warn' | 'debug' | 'table' | 'group' | 'groupEnd' | 'groupCollapsed', values: JSValue[] }[]
 
     /* Constructor */
     constructor(ast: ESTree.Program) {
@@ -63,6 +64,7 @@ class Simulator {
                 scopeIndex: 0,
                 memoryChange: { type: "none" },
                 memvalChanges: [],
+                consoleSnapshot: [],
             }
         ]
         this.scopes = []
@@ -76,6 +78,7 @@ class Simulator {
         this.declarations = []
         this.execHandlers = execHandlers
         this.hoistingHandlers = hoistingHandlers
+        this.consoleOutput = []
     }
 
     /* Run */
@@ -100,6 +103,7 @@ class Simulator {
             memorySnapshot: snapshot,
             memoryChange: this.stepMemoryChange,
             memvalChanges: this.stepMemvalChanges,
+            consoleSnapshot: this.getConsoleSnapshot(),
             bubbleUp,
         }
         this.steps.push(step)
@@ -137,6 +141,11 @@ class Simulator {
     }
 
     addThrownStep(astNode: ESTree.BaseNode) {
+        const errorValue = this.popMemval()
+        if (errorValue && errorValue.type === 'reference') {
+            const errorObject = this.getHeapObject(errorValue.ref)
+            this.addConsoleOutput('error', [errorObject.properties.stack])
+        }
         this.addStep(astNode, EXEC_STEP_TYPE.EXECUTED, BUBBLE_UP_TYPE.THROW)
         throw BUBBLE_UP_TYPE.THROW
     }
@@ -198,6 +207,17 @@ class Simulator {
             }
         })
         this.pushMemval({ type: 'reference', ref: this.lastRef })
+    }
+
+    /* Console */
+    addConsoleOutput(type: "log" | "error" | 'info' | 'warn' | 'debug' | 'table' | 'group' | 'groupEnd' | 'groupCollapsed', values: JSValue[]) {
+        const consoleEntry = { type, values }
+        this.consoleOutput.push(consoleEntry)
+        return consoleEntry
+    }
+
+    getConsoleSnapshot() {
+        return [...this.consoleOutput]
     }
 
     /* Declaration */

@@ -141,6 +141,12 @@ export type MemvalChange = {
     value: JSValue
 }
 
+// ----- Console -----
+export type ConsoleEntry = {
+    type: "log" | "error" | 'info' | 'warn' | 'debug' | 'table' | 'group' | 'groupEnd' | 'groupCollapsed',
+    values: JSValue[]
+}
+
 // ----- Bubble Up -----
 export const BUBBLE_UP_TYPE = {
     RETURN: 'return',
@@ -187,9 +193,8 @@ export type ExecStep = {
     memoryChange: MemoryChange // Description of the memory effect of this step
     memvalChanges: MemvalChange[] // The memvals that were added or removed in this step
     // TODO: instead of output and error, refactor to: 
-    // consoleAdded: null | {type: "log" | "error" | 'info' | 'warn' | 'debug' | 'table' | ..., values: JSValue[]}
-    // consoleSnapshot: {type: "log" | "error" | 'info' | 'warn' | 'debug' | 'table' | ..., values: JSValue[]}[]
-    output?: string // Any output generated in this step (e.g., console.log)
+    consoleAdded?: ConsoleEntry
+    consoleSnapshot: ConsoleEntry[]
     bubbleUp?: BubbleUp
 }
 

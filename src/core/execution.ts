@@ -1,4 +1,4 @@
-import { BUBBLE_UP_TYPE, DECLARATION_TYPE, EXEC_STEP_TYPE, HEAP_OBJECT_TYPE, JSValue, JS_VALUE_NAN, NodeHandlerMap, JS_VALUE_TDZ, JS_VALUE_UNDEFINED, JSValuePrimitive } from "@/types/simulator"
+import { BUBBLE_UP_TYPE, DECLARATION_TYPE, EXEC_STEP_TYPE, HEAP_OBJECT_TYPE, JSValue, JS_VALUE_NAN, NodeHandlerMap, JS_VALUE_TDZ, JS_VALUE_UNDEFINED } from "@/types/simulator"
 import { forEach } from "lodash"
 
 export const execHandlers = {} as NodeHandlerMap
