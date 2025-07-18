@@ -1,142 +1,130 @@
-import React, { useEffect, useState } from 'react'
-
-type ConsoleLogValue = string | number | boolean | null | undefined | object
-
-type ConsoleLog = {
-    type: 'log' | 'error' | 'warn' | 'info'
-    args: ConsoleLogValue[]
-    timestamp: number
-}
+import React from 'react'
+import { useSimulatorStore } from '@/hooks/useSimulatorStore'
+import { JSValue } from '@/types/simulator'
 
 interface ConsoleProps {
     code: string
 }
 
-const Console: React.FC<ConsoleProps> = ({ code }) => {
-    const [logs, setLogs] = useState<ConsoleLog[]>([])
-    const [error, setError] = useState<string | null>(null)
+const ConsoleOutput: React.FC<ConsoleProps> = () => {
+    const { currentStep } = useSimulatorStore()
 
-    useEffect(() => {
-        setLogs([])
-        setError(null)
-
-        // Create a sandbox environment to safely execute code
-        const executeCode = () => {
-            const consoleLogs: ConsoleLog[] = []
-
-            // Create a mock console object
-            const mockConsole = {
-                log: (...args: ConsoleLogValue[]) => {
-                    consoleLogs.push({ type: 'log', args, timestamp: Date.now() })
-                },
-                error: (...args: ConsoleLogValue[]) => {
-                    consoleLogs.push({ type: 'error', args, timestamp: Date.now() })
-                },
-                warn: (...args: ConsoleLogValue[]) => {
-                    consoleLogs.push({ type: 'warn', args, timestamp: Date.now() })
-                },
-                info: (...args: ConsoleLogValue[]) => {
-                    consoleLogs.push({ type: 'info', args, timestamp: Date.now() })
-                }
+    const formatJSValue = (value: JSValue): React.ReactNode => {
+        if (value.type === 'primitive') {
+            if (value.value === undefined) {
+                return <span className="text-gray-500 italic">undefined</span>
             }
-
-            try {
-                // Prepare code with mock console
-                const codeToExecute = `
-                    const console = {
-                        log: (...args) => { self.mockConsole.log(...args) },
-                        error: (...args) => { self.mockConsole.error(...args) },
-                        warn: (...args) => { self.mockConsole.warn(...args) },
-                        info: (...args) => { self.mockConsole.info(...args) }
-                    };
-                    
-                    ${code}
-                `
-
-                // Create a safe evaluation environment using Function constructor
-                const evaluator = new Function('self', `
-                    self.mockConsole = arguments[0];
-                    try {
-                        ${codeToExecute}
-                    } catch (e) {
-                        self.mockConsole.error("Error:", e.message);
-                    }
-                `)
-
-                // Execute the code with our mock console
-                evaluator(mockConsole)
-                setLogs(consoleLogs)
-            } catch (err) {
-                setError(err instanceof Error ? err.message : String(err))
+            if (value.value === null) {
+                return <span className="text-gray-500 italic">null</span>
             }
+            if (typeof value.value === 'string') {
+                return <span className="text-green-600">"{value.value}"</span>
+            }
+            if (typeof value.value === 'number') {
+                return <span className="text-blue-600">{value.value}</span>
+            }
+            if (typeof value.value === 'boolean') {
+                return <span className="text-purple-600">{String(value.value)}</span>
+            }
+            return <span className="text-gray-900">{String(value.value)}</span>
+        } else if (value.type === 'reference') {
+            return <span className="text-orange-600">[Object {value.ref}]</span>
         }
-
-        executeCode()
-    }, [code])
-
-    // Function to format console log arguments
-    const formatLogArgs = (args: ConsoleLogValue[]) => {
-        return args.map((arg, index) => {
-            if (typeof arg === 'object') {
-                try {
-                    return <span key={index} className="text-blue-500">{JSON.stringify(arg)}</span>
-                } catch {
-                    return <span key={index} className="text-blue-500">[Object]</span>
-                }
-            } else if (typeof arg === 'string') {
-                return <span key={index} className="text-green-600">"{arg}"</span>
-            } else if (typeof arg === 'number') {
-                return <span key={index} className="text-blue-500">{arg}</span>
-            } else if (typeof arg === 'boolean') {
-                return <span key={index} className="text-purple-500">{String(arg)}</span>
-            } else if (arg === null) {
-                return <span key={index} className="text-gray-500">null</span>
-            } else if (arg === undefined) {
-                return <span key={index} className="text-gray-500">undefined</span>
-            }
-            return <span key={index}>{String(arg)}</span>
-        }).reduce((acc: React.ReactNode[], item, i) => {
-            if (i === 0) return [item]
-            return [...acc, <span key={`sep-${i}`} className="mx-1">,</span>, item]
-        }, [])
+        return <span className="text-gray-900">{String(value)}</span>
     }
 
-    return (
-        <div className="h-full text-white font-mono text-sm">
-            {error && (
-                <div className="text-red-500 pb-2">
-                    Execution Error: {error}
-                </div>
-            )}
-            {logs.map((log, index) => {
-                let className = "border-b border-gray-800 py-1"
+    const getConsoleOutput = () => {
+        if (!currentStep?.consoleSnapshot) return []
+        return currentStep.consoleSnapshot
+    }
 
-                switch (log.type) {
-                    case 'error':
-                        className += " text-red-500"
-                        break
-                    case 'warn':
-                        className += " text-yellow-500"
-                        break
-                    case 'info':
-                        className += " text-cyan-400"
-                        break
-                    default:
-                        className += " text-white"
-                }
-
+    const getConsoleIcon = (type: string) => {
+        switch (type) {
+            case 'error':
                 return (
-                    <div key={index} className={className}>
-                        <span className="text-gray-500 mr-2">{'>'}</span>
-                        {formatLogArgs(log.args)}
-                    </div>
+                    <svg className="w-4 h-4 text-red-500" fill="currentColor" viewBox="0 0 20 20">
+                        <path fillRule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7 4a1 1 0 11-2 0 1 1 0 012 0zm-1-9a1 1 0 00-1 1v4a1 1 0 102 0V6a1 1 0 00-1-1z" clipRule="evenodd" />
+                    </svg>
                 )
-            })}
-            {logs.length === 0 && !error && (
-                <div className="text-gray-500 italic">No console output</div>
-            )}
+            case 'warn':
+                return (
+                    <svg className="w-4 h-4 text-yellow-500" fill="currentColor" viewBox="0 0 20 20">
+                        <path fillRule="evenodd" d="M8.257 3.099c.765-1.36 2.722-1.36 3.486 0l5.58 9.92c.75 1.334-.213 2.98-1.742 2.98H4.42c-1.53 0-2.493-1.646-1.743-2.98l5.58-9.92zM11 13a1 1 0 11-2 0 1 1 0 012 0zm-1-8a1 1 0 00-1 1v3a1 1 0 002 0V6a1 1 0 00-1-1z" clipRule="evenodd" />
+                    </svg>
+                )
+            case 'info':
+                return (
+                    <svg className="w-4 h-4 text-blue-500" fill="currentColor" viewBox="0 0 20 20">
+                        <path fillRule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7-4a1 1 0 11-2 0 1 1 0 012 0zM9 9a1 1 0 000 2v3a1 1 0 001 1h1a1 1 0 100-2v-3a1 1 0 00-1-1H9z" clipRule="evenodd" />
+                    </svg>
+                )
+            case 'debug':
+                return (
+                    <svg className="w-4 h-4 text-gray-500" fill="currentColor" viewBox="0 0 20 20">
+                        <path fillRule="evenodd" d="M3 4a1 1 0 011-1h12a1 1 0 110 2H4a1 1 0 01-1-1zm0 4a1 1 0 011-1h12a1 1 0 110 2H4a1 1 0 01-1-1zm0 4a1 1 0 011-1h12a1 1 0 110 2H4a1 1 0 01-1-1z" clipRule="evenodd" />
+                    </svg>
+                )
+            default:
+                return (
+                    <svg className="w-4 h-4 text-gray-400" fill="currentColor" viewBox="0 0 20 20">
+                        <path fillRule="evenodd" d="M3 4a1 1 0 011-1h12a1 1 0 110 2H4a1 1 0 01-1-1zm0 4a1 1 0 011-1h12a1 1 0 110 2H4a1 1 0 01-1-1zm0 4a1 1 0 011-1h12a1 1 0 110 2H4a1 1 0 01-1-1z" clipRule="evenodd" />
+                    </svg>
+                )
+        }
+    }
+
+    const getConsoleStyle = (type: string) => {
+        switch (type) {
+            case 'error':
+                return 'bg-red-50 border-l-4 border-red-500'
+            case 'warn':
+                return 'bg-yellow-50 border-l-4 border-yellow-500'
+            case 'info':
+                return 'bg-blue-50 border-l-4 border-blue-500'
+            case 'debug':
+                return 'bg-gray-50 border-l-4 border-gray-500'
+            default:
+                return 'bg-white border-l-4 border-gray-300'
+        }
+    }
+
+    const consoleOutput = getConsoleOutput()
+
+    return (
+        <div className="flex flex-col h-full bg-white overflow-hidden">
+            {/* Console Content */}
+            <div className="flex-1 overflow-auto bg-white">
+                {consoleOutput.length === 0 ? (
+                    <div className="flex items-center justify-center h-full text-gray-400">
+                        <div className="text-center">
+                            <p className="text-sm">No console output yet</p>
+                        </div>
+                    </div>
+                ) : (
+                    <div className="space-y-0">
+                        {consoleOutput.map((entry, index) => (
+                            <div
+                                key={index}
+                                className={`flex items-start space-x-2 px-3 py-2 hover:bg-gray-50 transition-colors ${getConsoleStyle(entry.type)}`}
+                            >
+                                <div className="flex-shrink-0 mt-0.5">
+                                    {getConsoleIcon(entry.type)}
+                                </div>
+                                <div className="flex-1 font-mono text-sm leading-relaxed">
+                                    {entry.values.map((value, valueIndex) => (
+                                        <span key={valueIndex}>
+                                            {formatJSValue(value)}
+                                            {valueIndex < entry.values.length - 1 ? ' ' : ''}
+                                        </span>
+                                    ))}
+                                </div>
+                            </div>
+                        ))}
+                    </div>
+                )}
+            </div>
         </div>
     )
 }
 
-export default Console 
+export default ConsoleOutput 
