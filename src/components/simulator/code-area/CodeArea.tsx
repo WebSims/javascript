@@ -896,7 +896,7 @@ const TryStatement = ({ st, parent, parens }: { st: any, parent: any, parens: an
                 <>
                     <span className="keyword keyword-catch text-red-700 font-bold mr-2">catch</span>
                     <span className="text-blue-600">(
-                        {st.handler.param.name || ''}
+                        {st?.handler?.param?.name || ''}
                         )</span>
                     <Statement st={st.handler.body} parent={st} parens={parens} />
                 </>
