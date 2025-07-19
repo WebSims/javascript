@@ -147,8 +147,8 @@ const StepSlider: React.FC = () => {
         if (!containerElement || !containerSize.width) return null
 
         const rect = containerElement.getBoundingClientRect()
-        const x = clientX - rect.left - 8
-        const stepWidth = containerSize.width / (steps.length - 1)
+        const x = clientX - rect.left - 10
+        const stepWidth = (containerSize.width) / (steps.length - 1)
         const stepIndex = Math.floor(x / stepWidth)
 
         return Math.max(0, Math.min(stepIndex, steps.length - 1))
@@ -404,7 +404,7 @@ const StepSlider: React.FC = () => {
             <div
                 ref={setRefs}
                 className={cn(
-                    "absolute flex w-full items-center overflow-hidden rounded-full px-2 transition-all duration-200 ease-in-out",
+                    "absolute flex w-full items-center overflow-hidden rounded-full px-2.5 transition-all duration-200 ease-in-out",
                     isTooltipOpen ? "h-3" : "h-2.5"
                 )}
                 style={{ pointerEvents: 'none' }}
@@ -423,7 +423,7 @@ const StepSlider: React.FC = () => {
 
                     return (
                         <>
-                            {index === 0 && (<div className='w-2 absolute left-0 top-0 bottom-0' style={{ backgroundColor }}></div>)}
+                            {index === 0 && (<div className='w-2.5 absolute left-0 top-0 bottom-0' style={{ backgroundColor }}></div>)}
                             <div
                                 key={step.index}
                                 data-depth={step.depth}
@@ -433,7 +433,7 @@ const StepSlider: React.FC = () => {
                                 )}
                                 style={{ backgroundColor }}
                             />
-                            {index === steps.length - 1 && (<div className='w-2 absolute right-0 top-0 bottom-0' style={{ backgroundColor }}></div>)}
+                            {index === steps.length - 1 && (<div className='w-2.5 absolute right-0 top-0 bottom-0' style={{ backgroundColor }}></div>)}
                         </>
                     )
                 })}
@@ -471,7 +471,7 @@ const StepSlider: React.FC = () => {
 
                 // When dragging, use the thumb position, otherwise use mouse position
                 const baseX = isDragging
-                    ? containerRect.left + getStepCenterPosition(currentStep.index) + 8
+                    ? containerRect.left + getStepCenterPosition(currentStep.index) + 10
                     : mousePosition.x + containerRect.left
 
                 // When dragging, always show current step index, otherwise show hovered step
