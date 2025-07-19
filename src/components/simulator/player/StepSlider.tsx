@@ -300,11 +300,27 @@ const StepSlider: React.FC = () => {
         setIsTooltipOpen(true)
     }, [isDragging, getStepFromPosition, getClientX, changeStep, updateMousePosition])
 
-    const handleMouseUp = useCallback(() => {
+    const isMouseInSliderArea = useCallback((clientX: number, clientY: number) => {
+        if (!containerElement) return false
+
+        const rect = containerElement.getBoundingClientRect()
+        return (
+            clientX >= rect.left &&
+            clientX <= rect.right &&
+            clientY >= rect.top &&
+            clientY <= rect.bottom
+        )
+    }, [containerElement])
+
+    const handleMouseUp = useCallback((e: MouseEvent) => {
         setIsDragging(false)
-        // Keep tooltip open after dragging ends if mouse is still over the container
-        // The mouse leave handler will hide it when appropriate
-    }, [])
+
+        // Check if mouse is outside the slider area
+        if (!isMouseInSliderArea(e.clientX, e.clientY)) {
+            setIsTooltipOpen(false)
+            setHoveredStepIndex(null)
+        }
+    }, [isMouseInSliderArea])
 
     const handleTouchEnd = useCallback(() => {
         setIsDragging(false)
@@ -333,9 +349,14 @@ const StepSlider: React.FC = () => {
                 }
             }
 
-            const handlePointerUp = () => {
+            const handlePointerUp = (e: PointerEvent) => {
                 setIsDragging(false)
                 setHoveredStepIndex(null)
+
+                // Check if mouse is outside the slider area
+                if (!isMouseInSliderArea(e.clientX, e.clientY)) {
+                    setIsTooltipOpen(false)
+                }
             }
 
             // Use pointer events with capture for better reliability
@@ -355,7 +376,7 @@ const StepSlider: React.FC = () => {
                 document.removeEventListener('touchend', handleTouchEnd, { capture: true })
             }
         }
-    }, [isDragging, handleMouseMove, handleMouseUp, handleTouchMove, handleTouchEnd, containerElement, getStepFromPosition])
+    }, [isDragging, handleMouseMove, handleMouseUp, handleTouchMove, handleTouchEnd, containerElement, getStepFromPosition, isMouseInSliderArea])
 
 
 
