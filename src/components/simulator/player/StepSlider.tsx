@@ -404,7 +404,7 @@ const StepSlider: React.FC = () => {
             <div
                 ref={setRefs}
                 className={cn(
-                    "absolute flex w-full items-center overflow-hidden rounded-full px-2.5 transition-all duration-200 ease-in-out",
+                    "absolute flex w-full overflow-hidden rounded-full px-2.5 transition-all duration-200 ease-in-out",
                     isTooltipOpen ? "h-3" : "h-2.5"
                 )}
                 style={{ pointerEvents: 'none' }}
@@ -421,21 +421,21 @@ const StepSlider: React.FC = () => {
                         backgroundColor = `hsl(0, 0%, ${lightness}%)`
                     }
 
-                    return (
-                        <>
-                            {index === 0 && (<div className='w-2.5 absolute left-0 top-0 bottom-0' style={{ backgroundColor }}></div>)}
-                            <div
-                                key={step.index}
-                                data-depth={step.depth}
-                                className={cn(
-                                    'flex h-full select-none items-center justify-center font-mono text-xs',
-                                    index === steps.length - 1 ? 'w-0' : 'w-full',
-                                )}
-                                style={{ backgroundColor }}
-                            />
-                            {index === steps.length - 1 && (<div className='w-2.5 absolute right-0 top-0 bottom-0' style={{ backgroundColor }}></div>)}
-                        </>
-                    )
+                    if (index !== steps.length - 1) {
+                        return (
+                            <>
+                                {index === 0 && (<div className='w-2.5 absolute left-0 top-0 bottom-0' style={{ backgroundColor }}></div>)}
+                                <div
+                                    key={step.index}
+                                    data-depth={step.depth}
+                                    className='flex-1 h-full'
+                                    style={{ backgroundColor }}
+                                />
+                            </>
+                        )
+                    } else {
+                        return (<div className='w-2.5 absolute right-0 top-0 bottom-0' style={{ backgroundColor }}></div>)
+                    }
                 })}
             </div>
 
