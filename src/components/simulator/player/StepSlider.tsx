@@ -147,7 +147,7 @@ const StepSlider: React.FC = () => {
         if (!containerElement || !containerSize.width) return null
 
         const rect = containerElement.getBoundingClientRect()
-        const x = clientX - rect.left
+        const x = clientX - rect.left - 8
         const stepWidth = containerSize.width / (steps.length - 1)
         const stepIndex = Math.floor(x / stepWidth)
 
