@@ -51,6 +51,7 @@ const MemoryModelVisualizer = () => {
     const { currentStep } = useSimulatorStore()
     const svgRef = useRef<SVGSVGElement>(null)
     const zoomGroupRef = useRef<SVGGElement | null>(null)
+    const zoomRef = useRef<d3.ZoomBehavior<SVGSVGElement, unknown> | null>(null)
 
     // Transform snapshot data into visualization format
     const transformData = () => {
@@ -279,6 +280,20 @@ const MemoryModelVisualizer = () => {
             .attr("width", viewportWidth)
             .attr("height", viewportHeight)
             .attr("viewBox", `0 0 ${viewportWidth} ${viewportHeight}`)
+
+        // Create zoom behavior
+        const zoom = d3.zoom<SVGSVGElement, unknown>()
+            .scaleExtent([0.1, 5]) // Min zoom 0.1x, max zoom 5x
+            .on("zoom", (event) => {
+                if (zoomGroupRef.current) {
+                    d3.select(zoomGroupRef.current)
+                        .attr("transform", event.transform)
+                }
+            })
+
+        // Apply zoom behavior to SVG
+        svg.call(zoom)
+        zoomRef.current = zoom
 
         // Create a group for content positioning with scale 1
         const contentGroup = svg.append("g")
@@ -573,25 +588,26 @@ const MemoryModelVisualizer = () => {
             return path.toString()
         }
 
-        // Define drag behavior for scopes
+        // Define drag behavior for scopes - updated to work with zoom
         const scopeDrag = d3
             .drag<SVGGElement, unknown>()
-            .on("start", function () {
+            .on("start", function (event) {
                 d3.select(this).raise().classed("active", true)
+                // Prevent zoom when dragging elements
+                event.sourceEvent.stopPropagation()
             })
             .on("drag", function (event) {
                 const scopeId = d3.select(this).attr("data-id")
                 const scopeData = nodeData.get(scopeId)
                 if (!scopeData) return
 
-                let newX = event.x
-                let newY = event.y
+                // Get current zoom transform
+                const transform = d3.zoomTransform(svg.node()!)
+                const scale = transform.k
 
-                // Allow unlimited dragging in all directions
-                // Remove horizontal constraints for endless canvas
-                newX = event.x
-                // Remove vertical constraints for endless canvas
-                newY = event.y
+                // Calculate new position in transformed coordinates
+                const newX = event.x / scale
+                const newY = event.y / scale
 
                 d3.select(this).attr("transform", `translate(${newX},${newY})`)
 
@@ -611,25 +627,26 @@ const MemoryModelVisualizer = () => {
                 d3.select(this).classed("active", false)
             })
 
-        // Define drag behavior for heap objects
+        // Define drag behavior for heap objects - updated to work with zoom
         const heapObjectDrag = d3
             .drag<SVGGElement, unknown>()
-            .on("start", function () {
+            .on("start", function (event) {
                 d3.select(this).raise().classed("active", true)
+                // Prevent zoom when dragging elements
+                event.sourceEvent.stopPropagation()
             })
             .on("drag", function (event) {
                 const objId = d3.select(this).attr("data-id")
                 const objData = nodeData.get(objId)
                 if (!objData) return
 
-                let newX = event.x
-                let newY = event.y
+                // Get current zoom transform
+                const transform = d3.zoomTransform(svg.node()!)
+                const scale = transform.k
 
-                // Allow unlimited dragging in all directions
-                // Remove horizontal constraints for endless canvas
-                newX = event.x
-                // Remove vertical constraints for endless canvas
-                newY = event.y
+                // Calculate new position in transformed coordinates
+                const newX = event.x / scale
+                const newY = event.y / scale
 
                 d3.select(this).attr("transform", `translate(${newX},${newY})`)
 
@@ -1210,6 +1227,97 @@ const MemoryModelVisualizer = () => {
                 // Initial draw of connections
                 updateConnections()
 
+                // Add navigation controls
+                const navControls = svg.append("g")
+                    .attr("class", "navigation-controls")
+                    .attr("transform", `translate(20, 20)`)
+
+                // Zoom in button
+                navControls.append("circle")
+                    .attr("cx", 15)
+                    .attr("cy", 15)
+                    .attr("r", 15)
+                    .attr("fill", "#ffffff")
+                    .attr("stroke", "#d1d5db")
+                    .attr("stroke-width", 2)
+                    .attr("cursor", "pointer")
+                    .on("click", () => {
+                        svg.transition().duration(300).call(
+                            zoom.scaleBy, 1.5
+                        )
+                    })
+
+                navControls.append("text")
+                    .attr("x", 15)
+                    .attr("y", 20)
+                    .attr("text-anchor", "middle")
+                    .attr("font-size", "16px")
+                    .attr("font-weight", "bold")
+                    .attr("fill", "#374151")
+                    .attr("cursor", "pointer")
+                    .text("+")
+
+                // Zoom out button
+                navControls.append("circle")
+                    .attr("cx", 15)
+                    .attr("cy", 50)
+                    .attr("r", 15)
+                    .attr("fill", "#ffffff")
+                    .attr("stroke", "#d1d5db")
+                    .attr("stroke-width", 2)
+                    .attr("cursor", "pointer")
+                    .on("click", () => {
+                        svg.transition().duration(300).call(
+                            zoom.scaleBy, 0.75
+                        )
+                    })
+
+                navControls.append("text")
+                    .attr("x", 15)
+                    .attr("y", 55)
+                    .attr("text-anchor", "middle")
+                    .attr("font-size", "16px")
+                    .attr("font-weight", "bold")
+                    .attr("fill", "#374151")
+                    .attr("cursor", "pointer")
+                    .text("−")
+
+                // Reset view button
+                navControls.append("circle")
+                    .attr("cx", 15)
+                    .attr("cy", 85)
+                    .attr("r", 15)
+                    .attr("fill", "#ffffff")
+                    .attr("stroke", "#d1d5db")
+                    .attr("stroke-width", 2)
+                    .attr("cursor", "pointer")
+                    .on("click", () => {
+                        svg.transition().duration(300).call(
+                            zoom.transform, d3.zoomIdentity
+                        )
+                    })
+
+                navControls.append("text")
+                    .attr("x", 15)
+                    .attr("y", 90)
+                    .attr("text-anchor", "middle")
+                    .attr("font-size", "12px")
+                    .attr("font-weight", "bold")
+                    .attr("fill", "#374151")
+                    .attr("cursor", "pointer")
+                    .text("⌂")
+
+                // Add tooltips for navigation controls
+                navControls.selectAll("circle")
+                    .on("mouseover", function () {
+                        const button = d3.select(this)
+                        button.attr("fill", "#f3f4f6")
+                    })
+                    .on("mouseout", function () {
+                        const button = d3.select(this)
+                        button.attr("fill", "#ffffff")
+                    })
+
 
             })
             .catch((error) => {
@@ -1220,9 +1328,10 @@ const MemoryModelVisualizer = () => {
     return (
         <div className="relative w-full h-full">
             <svg ref={svgRef} className="w-full h-full" />
-            {/* <div className="absolute bottom-1 left-0 font-mono text-gray-600">
-                MEMVAL: {JSON.stringify(currentStep?.memorySnapshot?.memval.map(val => val.type === "reference" ? `ref: ${val.ref}` : String(val.value)))}
-            </div> */}
+            {/* Navigation instructions */}
+            <div className="absolute top-2 right-2 text-xs text-gray-500 bg-white bg-opacity-80 px-2 py-1 rounded">
+                <div>🖱️ Drag to pan • 🔍 Scroll to zoom • 🎯 Drag elements to move</div>
+            </div>
         </div >
     )
 }
