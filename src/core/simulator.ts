@@ -151,10 +151,10 @@ class Simulator {
     }
 
     addPopScopeStep(astNode: ESTree.BaseNode, kind: ScopeKind, bubbleUp?: BubbleUp) {
-        console.log(kind)
         this.scopes.splice(this.lastScopeIndex, 1)
         this.stepMemoryChange = { type: "pop_scope", kind, scopeIndex: this.lastScopeIndex }
         this.addStep(astNode, EXEC_STEP_TYPE.POP_SCOPE, bubbleUp)
+        this.lastScopeIndex--
     }
 
     /* Scope */
@@ -351,11 +351,10 @@ class Simulator {
     ) {
         if (this.isBlock(astNode) || options.callee || options.for) {
             const scopeKind = this.getScopeKind(astNode, options)
-
             try {
-                const isForInit = options.for
+                const isForInit = Boolean(options.for)
                 delete options.for
-
+                console.log(isForInit)
                 options.strict = this.isStrict(astNode, options)
 
                 this.lastScopeIndex++
@@ -374,15 +373,12 @@ class Simulator {
                     console.warn(`Execution Pass: Unhandled node type - ${astNode.type}`)
                 }
 
-                console.log(isForInit)
                 if (this.lastScopeIndex !== 0 && !isForInit) {
                     this.addPopScopeStep(astNode, scopeKind)
-                    this.lastScopeIndex--
                 }
             } catch (bubbleUp) {
                 if (this.lastScopeIndex !== 0) {
                     this.addPopScopeStep(astNode, scopeKind, bubbleUp as BubbleUp)
-                    this.lastScopeIndex--
                     throw bubbleUp
                 }
             }
