@@ -218,28 +218,23 @@ const MemoryModelVisualizer = () => {
         // Transform the data into visualization format
         const memoryModelData = transformData()
 
-        // Set up dimensions
-        const width = 1000
-        const height = 700
+        // Set up dimensions - make canvas endless
         const margin = { top: 40, right: 20, bottom: 20, left: 20 }
-        const contentWidth = width - margin.left - margin.right
-        const contentHeight = height - margin.top - margin.bottom
-        const dividerX = contentWidth * 0.4
+
+        // Section positioning will be calculated dynamically by ELK layout
 
         // Define common dimensions
-        const scopeWidth = 300
         const scopeHeight = 120
         const variableHeight = 30
         const objectWidth = 180
         const objectHeight = 120
 
-        // Create SVG
+        // Create SVG with unlimited dimensions
         const svg = d3
             .select(svgRef.current)
-            .attr("width", width)
-            .attr("height", height)
-            .attr("viewBox", `0 0 ${width} ${height}`)
-            .attr("style", "max-width: 100%; height: auto;")
+            .attr("width", "100%")
+            .attr("height", "100%")
+            .attr("style", "width: 100%; height: 100%;")
 
         // Create a group for zooming
         const zoomGroup = svg.append("g")
@@ -257,7 +252,7 @@ const MemoryModelVisualizer = () => {
 
         // Add zoom controls
         const zoomControlsGroup = svg.append("g")
-            .attr("transform", `translate(${width - 100}, ${margin.top})`)
+            .attr("transform", `translate(1100, ${margin.top})`)
             .attr("class", "zoom-controls")
 
         // Zoom in button
@@ -326,45 +321,12 @@ const MemoryModelVisualizer = () => {
             .attr("font-size", "12px")
             .text("⌂")
 
-        // Add title for scopes section
-        zoomGroup.append("text")
-            .attr("x", margin.left + contentWidth * 0.25)
-            .attr("y", margin.top - 20)
-            .attr("text-anchor", "middle")
-            .attr("font-weight", "bold")
-            .text("Scopes")
-
-        // Add title for heap section
-        zoomGroup.append("text")
-            .attr("x", margin.left + contentWidth * 0.75)
-            .attr("y", margin.top - 20)
-            .attr("text-anchor", "middle")
-            .attr("font-weight", "bold")
-            .text("Memory Heap")
+        // Section titles will be added dynamically after layout
 
         // Create a container for the graph
         const graphContainer = zoomGroup.append("g").attr("transform", `translate(${margin.left}, ${margin.top})`)
 
-        // Add background rectangles for scope and heap areas
-        graphContainer
-            .append("rect")
-            .attr("class", "scope-area")
-            .attr("x", 0)
-            .attr("y", 0)
-            .attr("width", dividerX)
-            .attr("height", contentHeight)
-            .attr("fill", "#f7fafc")
-            .attr("opacity", 0.5)
-
-        graphContainer
-            .append("rect")
-            .attr("class", "heap-area")
-            .attr("x", dividerX)
-            .attr("y", 0)
-            .attr("width", contentWidth - dividerX)
-            .attr("height", contentHeight)
-            .attr("fill", "#f7fafc")
-            .attr("opacity", 0.5)
+        // Background rectangles and dividers will be added dynamically after layout
 
         // Prepare ELK graph structure
         const createElkGraph = (): ElkGraph => {
@@ -382,7 +344,24 @@ const MemoryModelVisualizer = () => {
                 edges: [],
             }
 
-            // Create a section for scopes with fixed position - changed direction to DOWN
+            // Create a section for memval with content-based sizing
+            const memvalSection: ElkNode = {
+                id: "memvalSection",
+                layoutOptions: {
+                    "elk.algorithm": "layered",
+                    "elk.direction": "DOWN",
+                    "elk.partitioning.activate": "true",
+                    "elk.padding": "[top=20, left=20, bottom=20, right=20]",
+                    "elk.spacing.nodeNode": "20",
+                    "elk.layered.spacing.baseValue": "15",
+                    "elk.layered.nodePlacement.strategy": "BRANDES_KOEPF",
+                    "elk.layered.considerModelOrder.strategy": "PREFER_EDGES",
+                    "elk.layered.crossingMinimization.strategy": "LAYER_SWEEP",
+                },
+                children: [],
+            }
+
+            // Create a section for scopes with content-based sizing
             const scopeSection: ElkNode = {
                 id: "scopeSection",
                 layoutOptions: {
@@ -396,14 +375,10 @@ const MemoryModelVisualizer = () => {
                     "elk.layered.considerModelOrder.strategy": "PREFER_EDGES",
                     "elk.layered.crossingMinimization.strategy": "LAYER_SWEEP",
                 },
-                width: dividerX,
-                height: contentHeight,
-                x: 0,
-                y: 0,
                 children: [],
             }
 
-            // Create a section for heap with fixed position
+            // Create a section for heap with content-based sizing
             const heapSection: ElkNode = {
                 id: "heapSection",
                 layoutOptions: {
@@ -419,18 +394,35 @@ const MemoryModelVisualizer = () => {
                     "elk.layered.nodePlacement.bk.fixedAlignment": "BALANCED",
                     "elk.edgeRouting": "SPLINES",
                 },
-                width: contentWidth - dividerX,
-                height: contentHeight,
-                x: dividerX,
-                y: 0,
                 children: [],
             }
+
+            // Add memval nodes (FILO pattern - reverse the array to show first in at bottom)
+            const memvalItems = currentStep?.memorySnapshot.memval || []
+            const reversedMemval = [...memvalItems].reverse() // Reverse for FILO display
+
+            reversedMemval.forEach((memval, index) => {
+                const memvalNode: ElkNode = {
+                    id: `memval-${index}`,
+                    width: 150,
+                    height: 40,
+                    layoutOptions: {
+                        "elk.padding": "[top=5, left=5, bottom=5, right=5]",
+                    },
+                    labels: [{
+                        text: memval.type === "reference" ? `ref: ${memval.ref}` : String(memval.value),
+                        width: 130,
+                        height: 30
+                    }],
+                }
+                memvalSection.children?.push(memvalNode)
+            })
 
             // Add scope nodes
             memoryModelData.scopes.forEach((scope) => {
                 const scopeNode: ElkNode = {
                     id: scope.id,
-                    width: scopeWidth,
+                    width: 200,
                     height: Math.max(scopeHeight, 40 + scope.variables.length * (variableHeight + 5)),
                     layoutOptions: {
                         "elk.padding": "[top=10, left=10, bottom=10, right=10]",
@@ -443,7 +435,7 @@ const MemoryModelVisualizer = () => {
                 scope.variables.forEach((variable) => {
                     const varNode: ElkNode = {
                         id: variable.id,
-                        width: scopeWidth - 20,
+                        width: 180,
                         height: variableHeight,
                         labels: [{ text: variable.name, width: 80, height: 20 }],
                     }
@@ -469,6 +461,7 @@ const MemoryModelVisualizer = () => {
                 heapSection.children?.push(objNode)
             })
 
+            graph.children?.push(memvalSection)
             graph.children?.push(scopeSection)
             graph.children?.push(heapSection)
 
@@ -533,9 +526,8 @@ const MemoryModelVisualizer = () => {
         ): string => {
             const path = d3.path()
 
-            // Determine if we're crossing the divider
-            const crossingDivider =
-                (source.x < dividerX && target.x >= dividerX) || (source.x >= dividerX && target.x < dividerX)
+            // Determine if we're crossing between different sections
+            const crossingDivider = Math.abs(target.x - source.x) > 200
 
             // Calculate distances and directions
             const dx = target.x - source.x
@@ -634,9 +626,11 @@ const MemoryModelVisualizer = () => {
                 let newX = event.x
                 let newY = event.y
 
-                // Confine dragging to the scope area
-                newX = Math.max(0, Math.min(dividerX - scopeData.width, newX))
-                newY = Math.max(0, Math.min(contentHeight - scopeData.height, newY))
+                // Allow unlimited dragging in all directions
+                // Remove horizontal constraints for endless canvas
+                newX = event.x
+                // Remove vertical constraints for endless canvas
+                newY = event.y
 
                 d3.select(this).attr("transform", `translate(${newX},${newY})`)
 
@@ -645,7 +639,7 @@ const MemoryModelVisualizer = () => {
 
                 // Update variable positions
                 scopeData.variables.forEach((varId: string, index: number) => {
-                    const varX = newX + scopeWidth - 5 // Position at the right edge of the variable
+                    const varX = newX + 195 // Position at the right edge of the variable
                     const varY = newY + 40 + index * 35 + 10 // Center of the variable
                     nodePositions.set(varId, { x: varX, y: varY })
                 })
@@ -674,9 +668,11 @@ const MemoryModelVisualizer = () => {
                 let newX = event.x
                 let newY = event.y
 
-                // Confine dragging to the heap area
-                newX = Math.max(dividerX, Math.min(contentWidth - objData.width, newX))
-                newY = Math.max(0, Math.min(contentHeight - objData.height, newY))
+                // Allow unlimited dragging in all directions
+                // Remove horizontal constraints for endless canvas
+                newX = event.x
+                // Remove vertical constraints for endless canvas
+                newY = event.y
 
                 d3.select(this).attr("transform", `translate(${newX},${newY})`)
 
@@ -738,22 +734,29 @@ const MemoryModelVisualizer = () => {
         elk
             .layout(elkGraph)
             .then((layoutedGraph) => {
-                // Draw a divider between scopes and heap
-                graphContainer
-                    .append("line")
-                    .attr("x1", dividerX)
-                    .attr("y1", 0)
-                    .attr("x2", dividerX)
-                    .attr("y2", contentHeight)
-                    .attr("stroke", "#e2e8f0")
-                    .attr("stroke-width", 2)
-                    .attr("stroke-dasharray", "4")
-
-                // Get scope and heap sections from layouted graph
+                // Get memval, scope and heap sections from layouted graph
+                const memvalSection = layoutedGraph.children?.find(section => section.id === "memvalSection")
                 const scopeSection = layoutedGraph.children?.find(section => section.id === "scopeSection")
                 const heapSection = layoutedGraph.children?.find(section => section.id === "heapSection")
 
-                if (!scopeSection || !heapSection) return
+                if (!memvalSection || !scopeSection || !heapSection) return
+
+                // Calculate section widths and positions
+                const memvalWidth = memvalSection.width || 200
+                const scopeWidth = scopeSection.width || 300
+                const heapWidth = heapSection.width || 400
+
+                // Position sections horizontally with spacing
+                const sectionSpacing = 50
+                memvalSection.x = 0
+                scopeSection.x = memvalWidth + sectionSpacing
+                heapSection.x = memvalWidth + sectionSpacing + scopeWidth + sectionSpacing
+
+                // Update viewBox to be fully dynamic for endless canvas
+                const totalWidth = heapSection.x + heapWidth + sectionSpacing
+                const dynamicHeight = Math.max(800, (heapSection.height || 600) + 100)
+                const dynamicWidth = Math.max(1200, totalWidth + 200)
+                svg.attr("viewBox", `0 0 ${dynamicWidth} ${dynamicHeight}`)
 
                 // Add arrow marker definitions with different colors and sizes
                 const defs = svg.append("defs")
@@ -800,6 +803,57 @@ const MemoryModelVisualizer = () => {
                     .attr("d", "M0,-5L10,0L0,5")
                     .attr("fill", "#e53e3e")
 
+                // Draw memval items
+                memvalSection.children?.forEach((memvalNode: ElkNode) => {
+                    if (!memvalNode.x || !memvalNode.y) return
+
+                    const memvalIndex = parseInt(memvalNode.id.split('-')[1])
+                    const memvalItems = currentStep?.memorySnapshot.memval || []
+                    const reversedMemval = [...memvalItems].reverse()
+                    const memvalData = reversedMemval[memvalIndex]
+
+                    if (!memvalData) return
+
+                    const memvalGroup = graphContainer
+                        .append("g")
+                        .attr("class", "memval-item")
+                        .attr("transform", `translate(${(memvalSection.x || 0) + memvalNode.x}, ${memvalNode.y})`)
+
+                    // Draw memval rectangle with different colors based on type
+                    const isReference = memvalData.type === "reference"
+                    const memvalColor = isReference ? "#dbeafe" : "#f0f9ff"
+                    const memvalBorderColor = isReference ? "#3b82f6" : "#0ea5e9"
+
+                    memvalGroup
+                        .append("rect")
+                        .attr("width", memvalNode.width || 150)
+                        .attr("height", memvalNode.height || 40)
+                        .attr("rx", 5)
+                        .attr("ry", 5)
+                        .attr("fill", memvalColor)
+                        .attr("stroke", memvalBorderColor)
+                        .attr("stroke-width", 2)
+
+                    // Add memval value
+                    const displayValue = isReference ? `ref: ${memvalData.ref}` : String(memvalData.value)
+                    memvalGroup
+                        .append("text")
+                        .attr("x", 10)
+                        .attr("y", 25)
+                        .attr("font-size", "11px")
+                        .attr("font-family", "monospace")
+                        .text(displayValue)
+
+                    // Add index indicator (FILO position)
+                    memvalGroup
+                        .append("text")
+                        .attr("x", 5)
+                        .attr("y", 15)
+                        .attr("font-size", "8px")
+                        .attr("fill", "#6b7280")
+                        .text(`[${memvalIndex}]`)
+                })
+
                 // Draw scopes
                 scopeSection.children?.forEach((scopeNode: ElkNode) => {
                     // Find the original scope data
@@ -810,7 +864,7 @@ const MemoryModelVisualizer = () => {
                         .append("g")
                         .attr("class", "scope")
                         .attr("data-id", scopeNode.id)
-                        .attr("transform", `translate(${scopeNode.x}, ${scopeNode.y})`)
+                        .attr("transform", `translate(${(scopeSection.x || 0) + (scopeNode.x || 0)}, ${scopeNode.y || 0})`)
                         .attr("cursor", "grab")
                         .call(scopeDrag as d3.DragBehavior<SVGGElement, unknown, unknown>)
 
@@ -818,15 +872,16 @@ const MemoryModelVisualizer = () => {
                     nodeData.set(scopeNode.id, {
                         id: scopeNode.id,
                         type: "scope",
-                        width: scopeNode.width || scopeWidth,
+                        width: scopeNode.width || 200,
                         height: scopeNode.height || scopeHeight,
                         variables: scopeNode.children?.map(child => child.id) || [],
+                        sectionOffset: scopeSection.x || 0,
                     })
 
                     // Draw scope rectangle
                     scopeGroup
                         .append("rect")
-                        .attr("width", scopeNode.width || scopeWidth)
+                        .attr("width", scopeNode.width || 200)
                         .attr("height", scopeNode.height || scopeHeight)
                         .attr("rx", 10)
                         .attr("ry", 10)
@@ -876,8 +931,8 @@ const MemoryModelVisualizer = () => {
 
                         // Store variable position for connections - position at the right side of the variable
                         if (scopeNode.x !== undefined && scopeNode.y !== undefined) {
-                            const varX = scopeNode.x + scopeWidth - 5
-                            const varY = scopeNode.y + 40 + varIndex * 35 + 10
+                            const varX = (scopeSection.x || 0) + (scopeNode.x || 0) + 195
+                            const varY = (scopeNode.y || 0) + 40 + varIndex * 35 + 10
                             nodePositions.set(varNode.id, { x: varX, y: varY })
                         } else {
                             console.warn(`Scope node position is undefined for scope ${scopeNode.id}, var ${varNode.id}`)
@@ -886,7 +941,7 @@ const MemoryModelVisualizer = () => {
                         // Add a small circle at the connection point for variables
                         variableGroup
                             .append("circle")
-                            .attr("cx", scopeWidth - 16)
+                            .attr("cx", 184)
                             .attr("cy", 10)
                             .attr("r", 3)
                             .attr("fill", "#4299e1")
@@ -909,14 +964,14 @@ const MemoryModelVisualizer = () => {
                     const objData = memoryModelData.heap.find(o => o.id === objNode.id)
                     if (!objData || !objNode.x || !objNode.y) return
 
-                    // Adjust x position to be in the heap section
-                    const objX = objNode.x + dividerX
+                    // Use the x position from ELK layout
+                    const objX = objNode.x || 0
 
                     const objectGroup = graphContainer
                         .append("g")
                         .attr("class", "heap-object")
                         .attr("data-id", objNode.id)
-                        .attr("transform", `translate(${objX}, ${objNode.y})`)
+                        .attr("transform", `translate(${(heapSection.x || 0) + objX}, ${objNode.y})`)
                         .attr("cursor", "grab")
                         .call(heapObjectDrag as d3.DragBehavior<SVGGElement, unknown, unknown>)
 
@@ -929,10 +984,11 @@ const MemoryModelVisualizer = () => {
                         properties: objData.properties
                             .filter(prop => prop.target)
                             .map(prop => `${objNode.id}_${prop.name}`),
+                        sectionOffset: heapSection.x || 0,
                     })
 
                     // Store object position for connections - use left edge for incoming connections
-                    nodePositions.set(objNode.id, { x: objX, y: objNode.y + (objNode.height || objectHeight) / 2 })
+                    nodePositions.set(objNode.id, { x: (heapSection.x || 0) + objX, y: objNode.y + (objNode.height || objectHeight) / 2 })
 
                     // Draw object rectangle
                     objectGroup
@@ -990,7 +1046,7 @@ const MemoryModelVisualizer = () => {
 
                                 // Store property position for connections
                                 if (objNode.x !== undefined && objNode.y !== undefined) {
-                                    const propX = objX + (objNode.width || objectWidth) - 10
+                                    const propX = (heapSection.x || 0) + objX + (objNode.width || objectWidth) - 10
                                     const propY = objNode.y + 45 + i * 20
                                     const propId = `${objNode.id}_${prop.name}`
                                     propertyPositions.set(propId, { x: propX, y: propY })
@@ -1038,8 +1094,8 @@ const MemoryModelVisualizer = () => {
     }, [currentStep])
 
     return (
-        <div className="relative h-full">
-            <svg ref={svgRef} />
+        <div className="relative w-full h-full min-h-screen">
+            <svg ref={svgRef} className="w-full h-full" />
             <div className="absolute bottom-1 left-0 font-mono text-gray-600">
                 MEMVAL: {JSON.stringify(currentStep?.memorySnapshot?.memval.map(val => val.type === "reference" ? `ref: ${val.ref}` : String(val.value)))}
             </div>
