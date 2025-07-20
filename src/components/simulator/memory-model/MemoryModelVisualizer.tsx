@@ -385,7 +385,7 @@ const MemoryModelVisualizer = () => {
             memoryModelData.scopes.forEach((scope) => {
                 const scopeNode: ElkNode = {
                     id: scope.id,
-                    width: 200,
+                    width: 300,
                     height: calculateScopeHeight(scope.id),
                     layoutOptions: {
                         "elk.padding": "[top=10, left=10, bottom=10, right=10]",
@@ -398,7 +398,7 @@ const MemoryModelVisualizer = () => {
                 scope.variables.forEach((variable) => {
                     const varNode: ElkNode = {
                         id: variable.id,
-                        width: 180,
+                        width: 280,
                         height: variableHeight,
                         labels: [{ text: variable.name, width: 80, height: 20 }],
                     }
@@ -1056,7 +1056,7 @@ const MemoryModelVisualizer = () => {
                                 .text(`${varData.name}: ${varData.value || ""}`)
 
                             // Store variable position for connections - position at the right side of the variable
-                            const varX = (scopeSection.x || 0) + singleColumnX + 195
+                            const varX = (scopeSection.x || 0) + singleColumnX + 295
                             const varY = (scopeSection.y || 0) + singleColumnY + 40 + varIndex * 35 + 10
                             nodePositions.set(varNodeId, { x: varX, y: varY })
 
@@ -1064,7 +1064,7 @@ const MemoryModelVisualizer = () => {
                             if (varData.type === "reference") {
                                 variableGroup
                                     .append("circle")
-                                    .attr("cx", 184)
+                                    .attr("cx", 284)
                                     .attr("cy", 10)
                                     .attr("r", 3)
                                     .attr("fill", "#4299e1")
