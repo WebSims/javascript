@@ -4,7 +4,6 @@ import { forEach } from "lodash"
 export const execHandlers = {} as NodeHandlerMap
 
 execHandlers['Program'] = function (astNode, options) {
-    console.log(this)
     for (const statement of astNode.body) {
         if (statement.type === "FunctionDeclaration") continue
         this.traverseExec(statement, options)
@@ -689,5 +688,6 @@ execHandlers["ForStatement"] = function (astNode, options) {
         }
     } while (evaluatedTest.value)
 
+    this.addPopScopeStep(astNode, 'loop')
     this.addExecutedStep(astNode)
 }
