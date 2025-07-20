@@ -595,19 +595,39 @@ const MemoryModelVisualizer = () => {
                 d3.select(this).raise().classed("active", true)
                 // Prevent zoom when dragging elements
                 event.sourceEvent.stopPropagation()
+
+                // Store the initial transform to calculate offset
+                const currentTransform = d3.select(this).attr("transform")
+                const translateMatch = currentTransform.match(/translate\(([^,]+),\s*([^)]+)\)/)
+                if (translateMatch) {
+                    const initialX = parseFloat(translateMatch[1])
+                    const initialY = parseFloat(translateMatch[2])
+
+                    // Store initial position and mouse position
+                    d3.select(this).attr("data-initial-x", initialX.toString())
+                    d3.select(this).attr("data-initial-y", initialY.toString())
+                    d3.select(this).attr("data-mouse-x", event.x.toString())
+                    d3.select(this).attr("data-mouse-y", event.y.toString())
+                }
             })
             .on("drag", function (event) {
                 const scopeId = d3.select(this).attr("data-id")
                 const scopeData = nodeData.get(scopeId)
                 if (!scopeData) return
 
-                // Get current zoom transform
-                const transform = d3.zoomTransform(svg.node()!)
-                const scale = transform.k
+                // Get initial positions
+                const initialX = parseFloat(d3.select(this).attr("data-initial-x") || "0")
+                const initialY = parseFloat(d3.select(this).attr("data-initial-y") || "0")
+                const initialMouseX = parseFloat(d3.select(this).attr("data-mouse-x") || "0")
+                const initialMouseY = parseFloat(d3.select(this).attr("data-mouse-y") || "0")
 
-                // Calculate new position in transformed coordinates
-                const newX = event.x / scale
-                const newY = event.y / scale
+                // Calculate the offset from initial mouse position
+                const deltaX = event.x - initialMouseX
+                const deltaY = event.y - initialMouseY
+
+                // Calculate new position by adding offset to initial position
+                const newX = initialX + deltaX
+                const newY = initialY + deltaY
 
                 d3.select(this).attr("transform", `translate(${newX},${newY})`)
 
@@ -616,7 +636,7 @@ const MemoryModelVisualizer = () => {
 
                 // Update variable positions
                 scopeData.variables.forEach((varId: string, index: number) => {
-                    const varX = newX + 195 // Position at the right edge of the variable
+                    const varX = newX + 295 // Position at the right edge of the variable
                     const varY = newY + 40 + index * 35 + 10 // Center of the variable
                     nodePositions.set(varId, { x: varX, y: varY })
                 })
@@ -634,19 +654,39 @@ const MemoryModelVisualizer = () => {
                 d3.select(this).raise().classed("active", true)
                 // Prevent zoom when dragging elements
                 event.sourceEvent.stopPropagation()
+
+                // Store the initial transform to calculate offset
+                const currentTransform = d3.select(this).attr("transform")
+                const translateMatch = currentTransform.match(/translate\(([^,]+),\s*([^)]+)\)/)
+                if (translateMatch) {
+                    const initialX = parseFloat(translateMatch[1])
+                    const initialY = parseFloat(translateMatch[2])
+
+                    // Store initial position and mouse position
+                    d3.select(this).attr("data-initial-x", initialX.toString())
+                    d3.select(this).attr("data-initial-y", initialY.toString())
+                    d3.select(this).attr("data-mouse-x", event.x.toString())
+                    d3.select(this).attr("data-mouse-y", event.y.toString())
+                }
             })
             .on("drag", function (event) {
                 const objId = d3.select(this).attr("data-id")
                 const objData = nodeData.get(objId)
                 if (!objData) return
 
-                // Get current zoom transform
-                const transform = d3.zoomTransform(svg.node()!)
-                const scale = transform.k
+                // Get initial positions
+                const initialX = parseFloat(d3.select(this).attr("data-initial-x") || "0")
+                const initialY = parseFloat(d3.select(this).attr("data-initial-y") || "0")
+                const initialMouseX = parseFloat(d3.select(this).attr("data-mouse-x") || "0")
+                const initialMouseY = parseFloat(d3.select(this).attr("data-mouse-y") || "0")
 
-                // Calculate new position in transformed coordinates
-                const newX = event.x / scale
-                const newY = event.y / scale
+                // Calculate the offset from initial mouse position
+                const deltaX = event.x - initialMouseX
+                const deltaY = event.y - initialMouseY
+
+                // Calculate new position by adding offset to initial position
+                const newX = initialX + deltaX
+                const newY = initialY + deltaY
 
                 d3.select(this).attr("transform", `translate(${newX},${newY})`)
 
