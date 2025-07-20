@@ -762,7 +762,7 @@ const MemoryModelVisualizer = () => {
                 // Position sections using calculated widths - only show sections that have content
                 memvalSection.x = 0
                 scopeSection.x = actualMemvalSectionWidth + sectionSpacing
-                heapSection.x = actualScopeSectionWidth + sectionSpacing
+                heapSection.x = actualMemvalSectionWidth + sectionSpacing + actualScopeSectionWidth + sectionSpacing
 
                 // Apply vertical centering to all sections
                 memvalSection.y = 0
