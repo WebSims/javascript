@@ -363,10 +363,11 @@ const MemoryModelVisualizer = () => {
                 children: [],
             }
 
-            // Add memval nodes (newest item at top)
+            // Add memval nodes (FILO pattern - reverse the array to show first in at bottom)
             const memvalItems = currentStep?.memorySnapshot.memval || []
+            const reversedMemval = [...memvalItems].reverse() // Reverse for FILO display
 
-            memvalItems.forEach((memval, index) => {
+            reversedMemval.forEach((memval, index) => {
                 const memvalNode: ElkNode = {
                     id: `memval-${index}`,
                     width: 150,
@@ -755,8 +756,9 @@ const MemoryModelVisualizer = () => {
 
                 // Draw memval items - ensure all memval items are drawn regardless of ELK positioning
                 const memvalItems = currentStep?.memorySnapshot.memval || []
+                const reversedMemval = [...memvalItems].reverse()
 
-                memvalItems.forEach((memvalData, memvalIndex: number) => {
+                reversedMemval.forEach((memvalData, memvalIndex: number) => {
                     const memvalNode = memvalSection.children?.find(child => child.id === `memval-${memvalIndex}`)
                     const memvalX = memvalNode?.x || memvalIndex * 160 // 160px spacing between memval items
                     const memvalY = memvalNode?.y || 0
