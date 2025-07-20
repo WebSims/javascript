@@ -226,11 +226,11 @@ const MemoryModelVisualizer = () => {
         const variableHeight = 30
         const objectWidth = 180
         const objectHeight = 120
+        const memvalSectionWidth = 200 // Define memvalSectionWidth early for consistent use
 
         // Calculate content dimensions
         const memvalCount = currentStep?.memorySnapshot.memval?.length || 0
         const memvalSectionHeight = memvalCount * 50 // 50px per memval item
-        const memvalSectionWidth = 200
 
         // Calculate scope section dimensions
         const scopeSectionWidth = 250
@@ -250,7 +250,7 @@ const MemoryModelVisualizer = () => {
             return total + objHeight + 50
         }, 0)
 
-        // Calculate total content dimensions
+        // Calculate total content dimensions using consistent memvalSectionWidth
         const sectionSpacing = 50
         const totalContentWidth = memvalSectionWidth + sectionSpacing + scopeSectionWidth + sectionSpacing + heapSectionWidth
         const totalContentHeight = Math.max(memvalSectionHeight, scopeSectionHeight, heapSectionHeight)
@@ -699,10 +699,10 @@ const MemoryModelVisualizer = () => {
 
                 if (!memvalSection || !scopeSection || !heapSection) return
 
-                // Position sections using our calculated centering
+                // Position sections using our calculated centering with consistent memvalSectionWidth
                 memvalSection.x = 0
-                scopeSection.x = memvalSectionWidth + sectionSpacing
-                heapSection.x = memvalSectionWidth + sectionSpacing + scopeSectionWidth + sectionSpacing
+                scopeSection.x = memvalSectionWidth + sectionSpacing // Use consistent memval section width
+                heapSection.x = memvalSectionWidth + sectionSpacing + scopeSectionWidth + sectionSpacing // Use consistent memval section width
 
                 // Apply vertical centering to all sections
                 memvalSection.y = 0
@@ -754,54 +754,161 @@ const MemoryModelVisualizer = () => {
                     .attr("d", "M0,-5L10,0L0,5")
                     .attr("fill", "#e53e3e")
 
-                // Draw memval items - ensure all memval items are drawn regardless of ELK positioning
+                // Refactored MEMVAL section with improved UI and consistent positioning
                 const memvalItems = currentStep?.memorySnapshot.memval || []
                 const reversedMemval = [...memvalItems].reverse()
 
-                reversedMemval.forEach((memvalData, memvalIndex: number) => {
-                    const memvalNode = memvalSection.children?.find(child => child.id === `memval-${memvalIndex}`)
-                    const memvalX = memvalNode?.x || memvalIndex * 160 // 160px spacing between memval items
-                    const memvalY = memvalNode?.y || 0
+                // Define consistent dimensions for memval section
+                const memvalItemHeight = 35
+                const memvalItemSpacing = 10
+                const memvalPadding = 20
+                const memvalHeaderHeight = 30
 
-                    const memvalGroup = graphContainer
+                // Calculate section height based on content
+                const itemCount = Math.max(reversedMemval.length, 1) // At least 1 item height for empty state
+                const memvalSectionHeight = memvalHeaderHeight + (itemCount * memvalItemHeight) + ((itemCount - 1) * memvalItemSpacing) + (memvalPadding * 2)
+
+                // Fixed position for memval section (consistent regardless of content)
+                const memvalSectionX = 0
+                const memvalSectionY = 0
+
+                // Create memval section container
+                const memvalContainer = graphContainer
+                    .append("g")
+                    .attr("class", "memval-section")
+                    .attr("transform", `translate(${memvalSectionX}, ${memvalSectionY})`)
+
+                // Draw memval section background with improved styling
+                memvalContainer
+                    .append("rect")
+                    .attr("width", memvalSectionWidth)
+                    .attr("height", memvalSectionHeight)
+                    .attr("rx", 12)
+                    .attr("ry", 12)
+                    .attr("fill", "#f8fafc")
+                    .attr("stroke", "#e2e8f0")
+                    .attr("stroke-width", 2)
+
+                // Add section header with better styling
+                memvalContainer
+                    .append("rect")
+                    .attr("width", memvalSectionWidth)
+                    .attr("height", memvalHeaderHeight)
+                    .attr("rx", 12)
+                    .attr("ry", 12)
+                    .attr("fill", "#475569")
+                    .attr("stroke", "none")
+
+                memvalContainer
+                    .append("text")
+                    .attr("x", memvalSectionWidth / 2)
+                    .attr("y", memvalHeaderHeight / 2 + 5)
+                    .attr("text-anchor", "middle")
+                    .attr("font-size", "14px")
+                    .attr("font-family", "monospace")
+                    .attr("font-weight", "bold")
+                    .attr("fill", "white")
+                    .text("MEMVAL STACK")
+
+                // Draw memval items or empty state
+                if (reversedMemval.length > 0) {
+                    // Draw actual memval items
+                    reversedMemval.forEach((memvalData, memvalIndex: number) => {
+                        const itemY = memvalHeaderHeight + memvalPadding + (memvalIndex * (memvalItemHeight + memvalItemSpacing))
+
+                        const memvalGroup = memvalContainer
+                            .append("g")
+                            .attr("class", "memval-item")
+                            .attr("transform", `translate(${memvalPadding}, ${itemY})`)
+
+                        // Determine item styling based on type
+                        const isReference = memvalData.type === "reference"
+                        const itemColor = isReference ? "#dbeafe" : "#f0f9ff"
+                        const itemBorderColor = isReference ? "#3b82f6" : "#0ea5e9"
+                        const itemWidth = memvalSectionWidth - (memvalPadding * 2)
+
+                        // Draw item background
+                        memvalGroup
+                            .append("rect")
+                            .attr("width", itemWidth)
+                            .attr("height", memvalItemHeight)
+                            .attr("rx", 6)
+                            .attr("ry", 6)
+                            .attr("fill", itemColor)
+                            .attr("stroke", itemBorderColor)
+                            .attr("stroke-width", 1.5)
+
+                        // Add stack position indicator (FILO - First In, Last Out)
+                        memvalGroup
+                            .append("text")
+                            .attr("x", 8)
+                            .attr("y", 15)
+                            .attr("font-size", "10px")
+                            .attr("font-family", "monospace")
+                            .attr("fill", "#64748b")
+                            .attr("font-weight", "bold")
+                            .text(`[${memvalIndex}]`)
+
+                        // Add memval value
+                        const displayValue = isReference ? `ref: ${memvalData.ref}` : String(memvalData.value)
+                        const typeText = isReference ? "ref" : typeof memvalData.value
+
+                        memvalGroup
+                            .append("text")
+                            .attr("x", 25)
+                            .attr("y", 15)
+                            .attr("font-size", "12px")
+                            .attr("font-family", "monospace")
+                            .attr("fill", "#1e293b")
+                            .attr("font-weight", "500")
+                            .text(displayValue)
+
+                        // Add type indicator
+                        memvalGroup
+                            .append("text")
+                            .attr("x", itemWidth - 8)
+                            .attr("y", 15)
+                            .attr("text-anchor", "end")
+                            .attr("font-size", "10px")
+                            .attr("font-family", "monospace")
+                            .attr("fill", "#64748b")
+                            .attr("font-style", "italic")
+                            .text(typeText)
+                    })
+                } else {
+                    // Draw empty state with placeholder
+                    const emptyItemY = memvalHeaderHeight + memvalPadding
+                    const emptyItemWidth = memvalSectionWidth - (memvalPadding * 2)
+
+                    const emptyGroup = memvalContainer
                         .append("g")
-                        .attr("class", "memval-item")
-                        .attr("transform", `translate(${(memvalSection.x || 0) + memvalX}, ${(memvalSection.y || 0) + memvalY})`)
+                        .attr("class", "memval-empty")
+                        .attr("transform", `translate(${memvalPadding}, ${emptyItemY})`)
 
-                    // Draw memval rectangle with different colors based on type
-                    const isReference = memvalData.type === "reference"
-                    const memvalColor = isReference ? "#dbeafe" : "#f0f9ff"
-                    const memvalBorderColor = isReference ? "#3b82f6" : "#0ea5e9"
-
-                    memvalGroup
+                    // Draw empty item background
+                    emptyGroup
                         .append("rect")
-                        .attr("width", memvalNode?.width || 150)
-                        .attr("height", memvalNode?.height || 40)
-                        .attr("rx", 5)
-                        .attr("ry", 5)
-                        .attr("fill", memvalColor)
-                        .attr("stroke", memvalBorderColor)
-                        .attr("stroke-width", 2)
+                        .attr("width", emptyItemWidth)
+                        .attr("height", memvalItemHeight)
+                        .attr("rx", 6)
+                        .attr("ry", 6)
+                        .attr("fill", "#f1f5f9")
+                        .attr("stroke", "#cbd5e1")
+                        .attr("stroke-width", 1.5)
+                        .attr("stroke-dasharray", "3,3")
 
-                    // Add memval value
-                    const displayValue = isReference ? `ref: ${memvalData.ref}` : String(memvalData.value)
-                    memvalGroup
+                    // Add empty state text
+                    emptyGroup
                         .append("text")
-                        .attr("x", 10)
-                        .attr("y", 25)
-                        .attr("font-size", "11px")
+                        .attr("x", emptyItemWidth / 2)
+                        .attr("y", memvalItemHeight / 2 + 5)
+                        .attr("text-anchor", "middle")
+                        .attr("font-size", "12px")
                         .attr("font-family", "monospace")
-                        .text(displayValue)
-
-                    // Add index indicator (FILO position)
-                    memvalGroup
-                        .append("text")
-                        .attr("x", 5)
-                        .attr("y", 15)
-                        .attr("font-size", "8px")
-                        .attr("fill", "#6b7280")
-                        .text(`[${memvalIndex}]`)
-                })
+                        .attr("fill", "#94a3b8")
+                        .attr("font-style", "italic")
+                        .text("empty")
+                }
 
                 // Draw scopes in a single column
                 scopeSection.children?.forEach((scopeNode: ElkNode, scopeIndex: number) => {
@@ -814,7 +921,7 @@ const MemoryModelVisualizer = () => {
                     const actualScopeHeight = calculateScopeHeight(scopeNode.id)
                     const singleColumnY = scopeIndex === 0 ? 0 :
                         scopeSection.children?.slice(0, scopeIndex).reduce((total, prevNode) =>
-                            total + calculateScopeHeight(prevNode.id) + 40, 0) || 0
+                            total + calculateScopeHeight(prevNode.id) + 20, 0) || 0
 
                     const scopeGroup = graphContainer
                         .append("g")
