@@ -226,14 +226,12 @@ const MemoryModelVisualizer = () => {
         const variableHeight = 30
         const objectWidth = 180
         const objectHeight = 120
-        const memvalSectionWidth = 200 // Define memvalSectionWidth early for consistent use
 
-        // Calculate content dimensions
+        // Calculate initial content dimensions (will be updated after layout)
         const memvalCount = currentStep?.memorySnapshot.memval?.length || 0
         const memvalSectionHeight = memvalCount * 50 // 50px per memval item
 
         // Calculate scope section dimensions
-        const scopeSectionWidth = 250
         const scopeSectionHeight = memoryModelData.scopes.reduce((total, scope) => {
             const headerHeight = 30
             const variableSpacing = 35
@@ -243,24 +241,23 @@ const MemoryModelVisualizer = () => {
         }, 0)
 
         // Calculate heap section dimensions
-        const heapSectionWidth = memoryModelData.heap.length * (objectWidth + 50) + 50
         const heapSectionHeight = memoryModelData.heap.reduce((total, objData) => {
             const propCount = objData.properties ? objData.properties.length : 0
             const objHeight = Math.max(objectHeight, 40 + propCount * 20)
             return total + objHeight + 50
         }, 0)
 
-        // Calculate total content dimensions using consistent memvalSectionWidth
+        // Calculate initial total content dimensions (will be updated after layout)
         const sectionSpacing = 50
-        const totalContentWidth = memvalSectionWidth + sectionSpacing + scopeSectionWidth + sectionSpacing + heapSectionWidth
+        const initialTotalContentWidth = 800 // Initial estimate, will be updated
         const totalContentHeight = Math.max(memvalSectionHeight, scopeSectionHeight, heapSectionHeight)
 
         // Calculate viewport dimensions (use container size or default)
-        const viewportWidth = Math.max(totalContentWidth + margin.left + margin.right, 1000)
+        const viewportWidth = Math.max(initialTotalContentWidth + margin.left + margin.right, 1000)
         const viewportHeight = Math.max(totalContentHeight + margin.top + margin.bottom, 1000)
 
         // Calculate centering offsets
-        const centerX = (viewportWidth - totalContentWidth) / 2
+        const centerX = (viewportWidth - initialTotalContentWidth) / 2
         const centerY = (viewportHeight - totalContentHeight) / 2
 
         // Helper function to calculate scope height based on content
@@ -283,9 +280,9 @@ const MemoryModelVisualizer = () => {
             .attr("height", viewportHeight)
             .attr("viewBox", `0 0 ${viewportWidth} ${viewportHeight}`)
 
-        // Create a group for content positioning (no zoom)
+        // Create a group for content positioning with scale 1
         const contentGroup = svg.append("g")
-            .attr("transform", `translate(${centerX}, ${centerY})`)
+            .attr("transform", `translate(${centerX}, ${centerY}) scale(1)`)
         zoomGroupRef.current = contentGroup.node()
 
 
@@ -699,15 +696,86 @@ const MemoryModelVisualizer = () => {
 
                 if (!memvalSection || !scopeSection || !heapSection) return
 
-                // Position sections using our calculated centering with consistent memvalSectionWidth
+                // Calculate actual section widths after layout
+                const calculateSectionWidth = (section: ElkNode): number => {
+                    if (!section.children || section.children.length === 0) {
+                        return section.width || 200 // Default width if no children
+                    }
+
+                    // Find the rightmost edge of all children
+                    const rightmostEdge = Math.max(...section.children.map(child =>
+                        (child.x || 0) + (child.width || 200)
+                    ))
+
+                    // Add padding
+                    const padding = 40
+                    return rightmostEdge + padding
+                }
+
+                const calculateSectionHeight = (section: ElkNode): number => {
+                    if (!section.children || section.children.length === 0) {
+                        return section.height || 200 // Default height if no children
+                    }
+
+                    // Find the bottommost edge of all children
+                    const bottommostEdge = Math.max(...section.children.map(child =>
+                        (child.y || 0) + (child.height || 200)
+                    ))
+
+                    // Add padding
+                    const padding = 40
+                    return bottommostEdge + padding
+                }
+
+                // Calculate actual section dimensions
+                const actualMemvalSectionWidth = calculateSectionWidth(memvalSection)
+                const actualScopeSectionWidth = scopeSection.children && scopeSection.children.length > 0 ? calculateSectionWidth(scopeSection) : 0
+                const actualHeapSectionWidth = heapSection.children && heapSection.children.length > 0 ? calculateSectionWidth(heapSection) : 0
+                const actualMemvalSectionHeight = calculateSectionHeight(memvalSection)
+                const actualScopeSectionHeight = scopeSection.children && scopeSection.children.length > 0 ? calculateSectionHeight(scopeSection) : 0
+                const actualHeapSectionHeight = heapSection.children && heapSection.children.length > 0 ? calculateSectionHeight(heapSection) : 0
+
+                // Log calculated section dimensions for debugging
+                console.log('Calculated Section Dimensions:', {
+                    memval: { width: actualMemvalSectionWidth, height: actualMemvalSectionHeight },
+                    scope: { width: actualScopeSectionWidth, height: actualScopeSectionHeight },
+                    heap: { width: actualHeapSectionWidth, height: actualHeapSectionHeight }
+                })
+
+                // Position sections using calculated widths - only show sections that have content
                 memvalSection.x = 0
-                scopeSection.x = memvalSectionWidth + sectionSpacing // Use consistent memval section width
-                heapSection.x = memvalSectionWidth + sectionSpacing + scopeSectionWidth + sectionSpacing // Use consistent memval section width
+                scopeSection.x = actualMemvalSectionWidth + sectionSpacing
+                heapSection.x = actualMemvalSectionWidth + sectionSpacing + actualScopeSectionWidth + sectionSpacing
 
                 // Apply vertical centering to all sections
                 memvalSection.y = 0
                 scopeSection.y = 0
                 heapSection.y = 0
+
+                // Calculate total content dimensions using actual section widths - only include sections with content
+                const totalContentWidth = actualMemvalSectionWidth +
+                    (actualScopeSectionWidth > 0 ? sectionSpacing + actualScopeSectionWidth : 0) +
+                    (actualHeapSectionWidth > 0 ? sectionSpacing + actualHeapSectionWidth : 0)
+                const totalContentHeight = Math.max(actualMemvalSectionHeight, actualScopeSectionHeight, actualHeapSectionHeight)
+
+                // Update viewport dimensions if needed
+                const newViewportWidth = Math.max(totalContentWidth + margin.left + margin.right, 700)
+                const newViewportHeight = Math.max(totalContentHeight + margin.top + margin.bottom, 700)
+
+                // Update SVG dimensions if they changed significantly
+                if (Math.abs(newViewportWidth - viewportWidth) > 50 || Math.abs(newViewportHeight - viewportHeight) > 50) {
+                    svg
+                        .attr("width", newViewportWidth)
+                        .attr("height", newViewportHeight)
+                        .attr("viewBox", `0 0 ${newViewportWidth} ${newViewportHeight}`)
+                }
+
+                // Recalculate centering offsets with actual dimensions
+                const newCenterX = (newViewportWidth - totalContentWidth) / 2
+                const newCenterY = (newViewportHeight - totalContentHeight) / 2
+
+                // Update content group position with scale 1
+                contentGroup.attr("transform", `translate(${newCenterX}, ${newCenterY}) scale(1)`)
 
                 // Add arrow marker definitions with different colors and sizes
                 const defs = svg.append("defs")
@@ -754,7 +822,7 @@ const MemoryModelVisualizer = () => {
                     .attr("d", "M0,-5L10,0L0,5")
                     .attr("fill", "#e53e3e")
 
-                // Refactored MEMVAL section with improved UI and consistent positioning
+                // Refactored MEMVAL section with improved UI and calculated positioning
                 const memvalItems = currentStep?.memorySnapshot.memval || []
                 const reversedMemval = [...memvalItems].reverse()
 
@@ -762,11 +830,11 @@ const MemoryModelVisualizer = () => {
                 const memvalItemHeight = 35
                 const memvalItemSpacing = 10
                 const memvalPadding = 20
-                const memvalHeaderHeight = 30
 
-                // Calculate section height based on content
+                // Calculate section height based on content (including title)
+                const titleHeight = 20 // Space for title (padding + text height)
                 const itemCount = Math.max(reversedMemval.length, 1) // At least 1 item height for empty state
-                const memvalSectionHeight = memvalHeaderHeight + (itemCount * memvalItemHeight) + ((itemCount - 1) * memvalItemSpacing) + (memvalPadding * 2)
+                const memvalSectionHeight = titleHeight + (itemCount * memvalItemHeight) + ((itemCount - 1) * memvalItemSpacing) + (memvalPadding * 2)
 
                 // Fixed position for memval section (consistent regardless of content)
                 const memvalSectionX = 0
@@ -778,10 +846,10 @@ const MemoryModelVisualizer = () => {
                     .attr("class", "memval-section")
                     .attr("transform", `translate(${memvalSectionX}, ${memvalSectionY})`)
 
-                // Draw memval section background with improved styling
+                // Draw memval section background with improved styling using calculated width
                 memvalContainer
                     .append("rect")
-                    .attr("width", memvalSectionWidth)
+                    .attr("width", actualMemvalSectionWidth)
                     .attr("height", memvalSectionHeight)
                     .attr("rx", 12)
                     .attr("ry", 12)
@@ -789,32 +857,23 @@ const MemoryModelVisualizer = () => {
                     .attr("stroke", "#e2e8f0")
                     .attr("stroke-width", 2)
 
-                // Add section header with better styling
-                memvalContainer
-                    .append("rect")
-                    .attr("width", memvalSectionWidth)
-                    .attr("height", memvalHeaderHeight)
-                    .attr("rx", 12)
-                    .attr("ry", 12)
-                    .attr("fill", "#475569")
-                    .attr("stroke", "none")
-
+                // Add memval section title
                 memvalContainer
                     .append("text")
-                    .attr("x", memvalSectionWidth / 2)
-                    .attr("y", memvalHeaderHeight / 2 + 5)
+                    .attr("x", actualMemvalSectionWidth / 2)
+                    .attr("y", memvalPadding)
                     .attr("text-anchor", "middle")
                     .attr("font-size", "14px")
                     .attr("font-family", "monospace")
                     .attr("font-weight", "bold")
-                    .attr("fill", "white")
-                    .text("MEMVAL STACK")
+                    .attr("fill", "#374151")
+                    .text("MEMVAL Stack")
 
                 // Draw memval items or empty state
                 if (reversedMemval.length > 0) {
                     // Draw actual memval items
                     reversedMemval.forEach((memvalData, memvalIndex: number) => {
-                        const itemY = memvalHeaderHeight + memvalPadding + (memvalIndex * (memvalItemHeight + memvalItemSpacing))
+                        const itemY = memvalPadding + titleHeight + (memvalIndex * (memvalItemHeight + memvalItemSpacing))
 
                         const memvalGroup = memvalContainer
                             .append("g")
@@ -825,7 +884,7 @@ const MemoryModelVisualizer = () => {
                         const isReference = memvalData.type === "reference"
                         const itemColor = isReference ? "#dbeafe" : "#f0f9ff"
                         const itemBorderColor = isReference ? "#3b82f6" : "#0ea5e9"
-                        const itemWidth = memvalSectionWidth - (memvalPadding * 2)
+                        const itemWidth = actualMemvalSectionWidth - (memvalPadding * 2)
 
                         // Draw item background
                         memvalGroup
@@ -877,8 +936,8 @@ const MemoryModelVisualizer = () => {
                     })
                 } else {
                     // Draw empty state with placeholder
-                    const emptyItemY = memvalHeaderHeight + memvalPadding
-                    const emptyItemWidth = memvalSectionWidth - (memvalPadding * 2)
+                    const emptyItemY = memvalPadding + titleHeight
+                    const emptyItemWidth = actualMemvalSectionWidth - (memvalPadding * 2)
 
                     const emptyGroup = memvalContainer
                         .append("g")
@@ -910,242 +969,248 @@ const MemoryModelVisualizer = () => {
                         .text("empty")
                 }
 
-                // Draw scopes in a single column
-                scopeSection.children?.forEach((scopeNode: ElkNode, scopeIndex: number) => {
-                    // Find the original scope data
-                    const scopeData = memoryModelData.scopes.find(s => s.id === scopeNode.id)
-                    if (!scopeData) return
+                // Draw scopes in a single column - only if there are scopes
+                if (scopeSection.children && scopeSection.children.length > 0) {
+                    scopeSection.children.forEach((scopeNode: ElkNode, scopeIndex: number) => {
+                        // Find the original scope data
+                        const scopeData = memoryModelData.scopes.find(s => s.id === scopeNode.id)
+                        if (!scopeData) return
 
-                    // Force single column positioning
-                    const singleColumnX = 0
-                    const actualScopeHeight = calculateScopeHeight(scopeNode.id)
-                    const singleColumnY = scopeIndex === 0 ? 0 :
-                        scopeSection.children?.slice(0, scopeIndex).reduce((total, prevNode) =>
-                            total + calculateScopeHeight(prevNode.id) + 20, 0) || 0
+                        // Force single column positioning
+                        const singleColumnX = 0
+                        const actualScopeHeight = calculateScopeHeight(scopeNode.id)
+                        const singleColumnY = scopeIndex === 0 ? 0 :
+                            scopeSection.children?.slice(0, scopeIndex).reduce((total, prevNode) =>
+                                total + calculateScopeHeight(prevNode.id) + 20, 0) || 0
 
-                    const scopeGroup = graphContainer
-                        .append("g")
-                        .attr("class", "scope")
-                        .attr("data-id", scopeNode.id)
-                        .attr("transform", `translate(${(scopeSection.x || 0) + singleColumnX}, ${(scopeSection.y || 0) + singleColumnY})`)
-                        .attr("cursor", "grab")
-                        .call(scopeDrag as d3.DragBehavior<SVGGElement, unknown, unknown>)
-
-                    // Store scope data for dragging
-                    nodeData.set(scopeNode.id, {
-                        id: scopeNode.id,
-                        type: "scope",
-                        width: scopeNode.width || 200,
-                        height: actualScopeHeight,
-                        variables: scopeNode.children?.map(child => child.id) || [],
-                        sectionOffset: scopeSection.x || 0,
-                    })
-
-                    // Store scope position for connections - use the forced single column position
-                    nodePositions.set(scopeNode.id, {
-                        x: (scopeSection.x || 0) + singleColumnX + (scopeNode.width || 200) / 2,
-                        y: (scopeSection.y || 0) + singleColumnY + actualScopeHeight / 2
-                    })
-
-                    // Draw scope rectangle
-                    scopeGroup
-                        .append("rect")
-                        .attr("width", scopeNode.width || 200)
-                        .attr("height", actualScopeHeight)
-                        .attr("rx", 10)
-                        .attr("ry", 10)
-                        .attr("fill", scopeData.color)
-                        .attr("stroke", scopeData.borderColor)
-                        .attr("stroke-width", 2)
-
-                    // Add scope name
-                    scopeGroup.append("text").attr("x", 10).attr("y", 20).attr("font-weight", "bold").text(scopeData.name)
-
-                    // Draw variables - ensure all variables are drawn regardless of ELK positioning
-                    scopeData.variables.forEach((varData, varIndex: number) => {
-                        const varNodeId = `var-${scopeNode.id}-${varData.name}`
-
-                        const variableGroup = scopeGroup
+                        const scopeGroup = graphContainer
                             .append("g")
-                            .attr("class", "variable")
-                            .attr("transform", `translate(10, ${40 + varIndex * 35})`)
+                            .attr("class", "scope")
+                            .attr("data-id", scopeNode.id)
+                            .attr("transform", `translate(${(scopeSection.x || 0) + singleColumnX}, ${(scopeSection.y || 0) + singleColumnY})`)
+                            .attr("cursor", "grab")
+                            .call(scopeDrag as d3.DragBehavior<SVGGElement, unknown, unknown>)
 
-                        // Draw file icon
-                        variableGroup
+                        // Store scope data for dragging
+                        nodeData.set(scopeNode.id, {
+                            id: scopeNode.id,
+                            type: "scope",
+                            width: scopeNode.width || 200,
+                            height: actualScopeHeight,
+                            variables: scopeNode.children?.map(child => child.id) || [],
+                            sectionOffset: scopeSection.x || 0,
+                        })
+
+                        // Store scope position for connections - use the forced single column position
+                        nodePositions.set(scopeNode.id, {
+                            x: (scopeSection.x || 0) + singleColumnX + (scopeNode.width || 200) / 2,
+                            y: (scopeSection.y || 0) + singleColumnY + actualScopeHeight / 2
+                        })
+
+                        // Draw scope rectangle
+                        scopeGroup
                             .append("rect")
-                            .attr("width", 16)
-                            .attr("height", 20)
-                            .attr("fill", "white")
-                            .attr("stroke", "black")
-                            .attr("stroke-width", 1)
+                            .attr("width", scopeNode.width || 200)
+                            .attr("height", actualScopeHeight)
+                            .attr("rx", 10)
+                            .attr("ry", 10)
+                            .attr("fill", scopeData.color)
+                            .attr("stroke", scopeData.borderColor)
+                            .attr("stroke-width", 2)
 
-                        // Draw file icon fold
-                        variableGroup
-                            .append("path")
-                            .attr("d", `M11,0 L11,5 L16,5 L16,0 Z`)
-                            .attr("fill", "white")
-                            .attr("stroke", "black")
-                            .attr("stroke-width", 1)
+                        // Add scope name
+                        scopeGroup.append("text").attr("x", 10).attr("y", 20).attr("font-weight", "bold").text(scopeData.name)
 
-                        // Add variable name
-                        variableGroup
-                            .append("text")
-                            .attr("x", 21)
-                            .attr("y", 15)
-                            .attr("font-size", "12px")
-                            .text(`${varData.name}: ${varData.value || ""}`)
+                        // Draw variables - ensure all variables are drawn regardless of ELK positioning
+                        scopeData.variables.forEach((varData, varIndex: number) => {
+                            const varNodeId = `var-${scopeNode.id}-${varData.name}`
 
-                        // Store variable position for connections - position at the right side of the variable
-                        const varX = (scopeSection.x || 0) + singleColumnX + 195
-                        const varY = (scopeSection.y || 0) + singleColumnY + 40 + varIndex * 35 + 10
-                        nodePositions.set(varNodeId, { x: varX, y: varY })
-
-                        // Add a small circle at the connection point for variables (only for reference types)
-                        if (varData.type === "reference") {
-                            variableGroup
-                                .append("circle")
-                                .attr("cx", 184)
-                                .attr("cy", 10)
-                                .attr("r", 3)
-                                .attr("fill", "#4299e1")
-                                .attr("stroke", "none")
-                        }
-
-                        // Add edge data if it's a reference
-                        if (varData.type === "reference" && varData.target) {
-                            edgeData.push({
-                                source: varNodeId,
-                                target: varData.target,
-                                type: "var-ref",
-                                label: varData.name,
-                            })
-                        }
-                    })
-                })
-
-                // Draw heap objects - ensure all heap objects are drawn regardless of ELK positioning
-                memoryModelData.heap.forEach((objData, objIndex: number) => {
-                    const objNodeId = objData.id
-
-                    // Use the x position from ELK layout if available, otherwise calculate manually
-                    const objNode = heapSection.children?.find(child => child.id === objNodeId)
-                    const objX = objNode?.x || objIndex * (objectWidth + 50) // 50px spacing between objects
-
-                    const objectGroup = graphContainer
-                        .append("g")
-                        .attr("class", "heap-object")
-                        .attr("data-id", objNodeId)
-                        .attr("transform", `translate(${(heapSection.x || 0) + objX}, ${(heapSection.y || 0) + (objNode?.y || 0)})`)
-                        .attr("cursor", "grab")
-                        .call(heapObjectDrag as d3.DragBehavior<SVGGElement, unknown, unknown>)
-
-                    // Store object data for dragging
-                    nodeData.set(objNodeId, {
-                        id: objNodeId,
-                        type: "heap-object",
-                        width: objNode?.width || objectWidth,
-                        height: objNode?.height || objectHeight,
-                        properties: objData.properties
-                            .filter(prop => prop.target)
-                            .map(prop => `${objNodeId}_${prop.name}`),
-                        sectionOffset: heapSection.x || 0,
-                    })
-
-                    // Store object position for connections - use left edge for incoming connections
-                    nodePositions.set(objNodeId, { x: (heapSection.x || 0) + objX, y: (heapSection.y || 0) + (objNode?.y || 0) + (objNode?.height || objectHeight) / 2 })
-
-                    // Draw object rectangle
-                    objectGroup
-                        .append("rect")
-                        .attr("width", objNode?.width || objectWidth)
-                        .attr("height", objNode?.height || objectHeight)
-                        .attr("rx", 5)
-                        .attr("ry", 5)
-                        .attr("fill", objData.color)
-                        .attr("stroke", objData.borderColor)
-                        .attr("stroke-width", 2)
-
-                    // Add object type header
-                    objectGroup
-                        .append("rect")
-                        .attr("width", objNode?.width || objectWidth)
-                        .attr("height", 25)
-                        .attr("rx", 5)
-                        .attr("ry", 5)
-                        .attr("fill", objData.borderColor)
-
-                    objectGroup
-                        .append("text")
-                        .attr("x", 10)
-                        .attr("y", 17)
-                        .attr("fill", "white")
-                        .attr("font-weight", "bold")
-                        .text(objData.type)
-
-                    // Add object properties
-                    if (objData.properties) {
-                        objData.properties.forEach((prop, i) => {
-                            const propertyGroup = objectGroup
+                            const variableGroup = scopeGroup
                                 .append("g")
-                                .attr("class", "property")
-                                .attr("transform", `translate(10, ${35 + i * 20})`)
-                                .attr("data-property-id", `${objNodeId}_${prop.name}`)
+                                .attr("class", "variable")
+                                .attr("transform", `translate(10, ${40 + varIndex * 35})`)
 
-                            // Property icon (document icon for references)
-                            if (prop.target) {
-                                propertyGroup
-                                    .append("rect")
-                                    .attr("width", 12)
-                                    .attr("height", 15)
-                                    .attr("fill", "white")
-                                    .attr("stroke", "black")
-                                    .attr("stroke-width", 0.5)
+                            // Draw file icon
+                            variableGroup
+                                .append("rect")
+                                .attr("width", 16)
+                                .attr("height", 20)
+                                .attr("fill", "white")
+                                .attr("stroke", "black")
+                                .attr("stroke-width", 1)
 
-                                propertyGroup
-                                    .append("path")
-                                    .attr("d", `M11,0 L11,5 L16,5 L16,0 Z`)
-                                    .attr("fill", "white")
-                                    .attr("stroke", "black")
-                                    .attr("stroke-width", 0.5)
+                            // Draw file icon fold
+                            variableGroup
+                                .append("path")
+                                .attr("d", `M11,0 L11,5 L16,5 L16,0 Z`)
+                                .attr("fill", "white")
+                                .attr("stroke", "black")
+                                .attr("stroke-width", 1)
 
-                                // Store property position for connections
-                                const propX = (heapSection.x || 0) + objX + (objNode?.width || objectWidth) - 10
-                                const propY = (heapSection.y || 0) + (objNode?.y || 0) + 45 + i * 20
-                                const propId = `${objNodeId}_${prop.name}`
-                                propertyPositions.set(propId, { x: propX, y: propY })
+                            // Add variable name
+                            variableGroup
+                                .append("text")
+                                .attr("x", 21)
+                                .attr("y", 15)
+                                .attr("font-size", "12px")
+                                .text(`${varData.name}: ${varData.value || ""}`)
 
-                                // Add edge data for property references
-                                edgeData.push({
-                                    source: propId,
-                                    target: prop.target,
-                                    type: "prop-ref",
-                                    label: prop.name,
-                                    propIndex: i,
-                                })
+                            // Store variable position for connections - position at the right side of the variable
+                            const varX = (scopeSection.x || 0) + singleColumnX + 195
+                            const varY = (scopeSection.y || 0) + singleColumnY + 40 + varIndex * 35 + 10
+                            nodePositions.set(varNodeId, { x: varX, y: varY })
 
-                                // Add a small circle at the connection point
-                                objectGroup
+                            // Add a small circle at the connection point for variables (only for reference types)
+                            if (varData.type === "reference") {
+                                variableGroup
                                     .append("circle")
-                                    .attr("cx", (objNode?.width || objectWidth) - 10)
-                                    .attr("cy", 45 + i * 20)
+                                    .attr("cx", 184)
+                                    .attr("cy", 10)
                                     .attr("r", 3)
-                                    .attr("fill", "#ed8936")
+                                    .attr("fill", "#4299e1")
                                     .attr("stroke", "none")
                             }
 
-                            // Property name and value
-                            propertyGroup
-                                .append("text")
-                                .attr("x", prop.target ? 20 : 0)
-                                .attr("y", 10)
-                                .attr("font-size", "12px")
-                                .text(`${prop.name}: ${prop.value}`)
+                            // Add edge data if it's a reference
+                            if (varData.type === "reference" && varData.target) {
+                                edgeData.push({
+                                    source: varNodeId,
+                                    target: varData.target,
+                                    type: "var-ref",
+                                    label: varData.name,
+                                })
+                            }
                         })
-                    }
-                })
+                    })
+                }
+
+                // Draw heap objects - ensure all heap objects are drawn regardless of ELK positioning - only if there are heap objects
+                if (memoryModelData.heap.length > 0) {
+                    memoryModelData.heap.forEach((objData, objIndex: number) => {
+                        const objNodeId = objData.id
+
+                        // Use the x position from ELK layout if available, otherwise calculate manually
+                        const objNode = heapSection.children?.find(child => child.id === objNodeId)
+                        const objX = objNode?.x || objIndex * (objectWidth + 50) // 50px spacing between objects
+
+                        const objectGroup = graphContainer
+                            .append("g")
+                            .attr("class", "heap-object")
+                            .attr("data-id", objNodeId)
+                            .attr("transform", `translate(${(heapSection.x || 0) + objX}, ${(heapSection.y || 0) + (objNode?.y || 0)})`)
+                            .attr("cursor", "grab")
+                            .call(heapObjectDrag as d3.DragBehavior<SVGGElement, unknown, unknown>)
+
+                        // Store object data for dragging
+                        nodeData.set(objNodeId, {
+                            id: objNodeId,
+                            type: "heap-object",
+                            width: objNode?.width || objectWidth,
+                            height: objNode?.height || objectHeight,
+                            properties: objData.properties
+                                .filter(prop => prop.target)
+                                .map(prop => `${objNodeId}_${prop.name}`),
+                            sectionOffset: heapSection.x || 0,
+                        })
+
+                        // Store object position for connections - use left edge for incoming connections
+                        nodePositions.set(objNodeId, { x: (heapSection.x || 0) + objX, y: (heapSection.y || 0) + (objNode?.y || 0) + (objNode?.height || objectHeight) / 2 })
+
+                        // Draw object rectangle
+                        objectGroup
+                            .append("rect")
+                            .attr("width", objNode?.width || objectWidth)
+                            .attr("height", objNode?.height || objectHeight)
+                            .attr("rx", 5)
+                            .attr("ry", 5)
+                            .attr("fill", objData.color)
+                            .attr("stroke", objData.borderColor)
+                            .attr("stroke-width", 2)
+
+                        // Add object type header
+                        objectGroup
+                            .append("rect")
+                            .attr("width", objNode?.width || objectWidth)
+                            .attr("height", 25)
+                            .attr("rx", 5)
+                            .attr("ry", 5)
+                            .attr("fill", objData.borderColor)
+
+                        objectGroup
+                            .append("text")
+                            .attr("x", 10)
+                            .attr("y", 17)
+                            .attr("fill", "white")
+                            .attr("font-weight", "bold")
+                            .text(objData.type)
+
+                        // Add object properties
+                        if (objData.properties) {
+                            objData.properties.forEach((prop, i) => {
+                                const propertyGroup = objectGroup
+                                    .append("g")
+                                    .attr("class", "property")
+                                    .attr("transform", `translate(10, ${35 + i * 20})`)
+                                    .attr("data-property-id", `${objNodeId}_${prop.name}`)
+
+                                // Property icon (document icon for references)
+                                if (prop.target) {
+                                    propertyGroup
+                                        .append("rect")
+                                        .attr("width", 12)
+                                        .attr("height", 15)
+                                        .attr("fill", "white")
+                                        .attr("stroke", "black")
+                                        .attr("stroke-width", 0.5)
+
+                                    propertyGroup
+                                        .append("path")
+                                        .attr("d", `M11,0 L11,5 L16,5 L16,0 Z`)
+                                        .attr("fill", "white")
+                                        .attr("stroke", "black")
+                                        .attr("stroke-width", 0.5)
+
+                                    // Store property position for connections
+                                    const propX = (heapSection.x || 0) + objX + (objNode?.width || objectWidth) - 10
+                                    const propY = (heapSection.y || 0) + (objNode?.y || 0) + 45 + i * 20
+                                    const propId = `${objNodeId}_${prop.name}`
+                                    propertyPositions.set(propId, { x: propX, y: propY })
+
+                                    // Add edge data for property references
+                                    edgeData.push({
+                                        source: propId,
+                                        target: prop.target,
+                                        type: "prop-ref",
+                                        label: prop.name,
+                                        propIndex: i,
+                                    })
+
+                                    // Add a small circle at the connection point
+                                    objectGroup
+                                        .append("circle")
+                                        .attr("cx", (objNode?.width || objectWidth) - 10)
+                                        .attr("cy", 45 + i * 20)
+                                        .attr("r", 3)
+                                        .attr("fill", "#ed8936")
+                                        .attr("stroke", "none")
+                                }
+
+                                // Property name and value
+                                propertyGroup
+                                    .append("text")
+                                    .attr("x", prop.target ? 20 : 0)
+                                    .attr("y", 10)
+                                    .attr("font-size", "12px")
+                                    .text(`${prop.name}: ${prop.value}`)
+                            })
+                        }
+                    })
+                }
 
                 // Initial draw of connections
                 updateConnections()
+
+
             })
             .catch((error) => {
                 console.error("ELK layout error:", error)
