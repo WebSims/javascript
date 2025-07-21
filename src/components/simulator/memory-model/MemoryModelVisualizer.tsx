@@ -50,7 +50,6 @@ type ElkGraph = ElkNode & {
 const MemoryModelVisualizer = () => {
     const { currentStep } = useSimulatorStore()
     const svgRef = useRef<SVGSVGElement>(null)
-    const [zoomLevel, setZoomLevel] = useState(1)
     const [isDragging, setIsDragging] = useState(false)
     // eslint-disable-next-line @typescript-eslint/no-unused-vars
     const [draggedItem, setDraggedItem] = useState<{ id: string; type: 'scope' | 'heap'; x: number; y: number } | null>(null)
@@ -288,13 +287,13 @@ const MemoryModelVisualizer = () => {
             .scaleExtent([0.1, 5]) // Min zoom 0.1x, max zoom 3x
             .on("zoom", (event) => {
                 const { transform } = event
-                setZoomLevel(transform.k)
                 contentGroup.attr("transform", transform)
             })
             .on("start", () => setIsDragging(true))
             .on("end", () => setIsDragging(false))
 
         // Apply zoom behavior to SVG
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
         svg.call(zoom as any)
 
         // Create a group for content positioning
@@ -656,10 +655,55 @@ const MemoryModelVisualizer = () => {
                         return section.height || 200 // Default height if no children
                     }
 
-                    // Find the bottommost edge of all children
-                    const bottommostEdge = Math.max(...section.children.map(child =>
+                    // Calculate height based on section type and content
+                    if (section.id === "memvalSection") {
+                        // For memval section, use the calculated height from rendering logic
+                        const memvalItems = currentStep?.memorySnapshot.memval || []
+                        const reversedMemval = [...memvalItems].reverse()
+                        const memvalItemHeight = 35
+                        const memvalItemSpacing = 10
+                        const memvalPadding = 20
+                        const titleHeight = 20
+                        const itemCount = Math.max(reversedMemval.length, 1)
+                        return titleHeight + (itemCount * memvalItemHeight) + ((itemCount - 1) * memvalItemSpacing) + (memvalPadding * 2)
+                    } else if (section.id === "scopeSection") {
+                        // For scope section, calculate based on manual positioning logic
+                        let totalHeight = 0
+                        section.children?.forEach((scopeNode, scopeIndex) => {
+                            const scopeData = memoryModelData.scopes.find(s => s.id === scopeNode.id)
+                            if (scopeData) {
+                                const headerHeight = 30
+                                const variableSpacing = 35
+                                const bottomPadding = 10
+                                const scopeHeight = headerHeight + scopeData.variables.length * variableSpacing + bottomPadding
+                                const actualScopeHeight = Math.max(120, scopeHeight)
+
+                                // Add spacing between scopes (20px) except for the last one
+                                const spacing = scopeIndex < (section.children?.length || 0) - 1 ? 20 : 0
+                                totalHeight += actualScopeHeight + spacing
+                            }
+                        })
+                        return totalHeight + 40 // Add section padding
+                    } else if (section.id === "heapSection") {
+                        // For heap section, use the original calculation
+                        if (!section.children || section.children.length === 0) {
+                            return section.height || 200 // Default height if no children
+                        }
+
+                        // Find the bottommost edge of all children
+                        const bottommostEdge = Math.max(...section.children.map(child =>
+                            (child.y || 0) + (child.height || 200)
+                        ))
+
+                        // Add padding
+                        const padding = 40
+                        return bottommostEdge + padding
+                    }
+
+                    // Fallback: use ELK positions but with better calculation
+                    const bottommostEdge = Math.max(...(section.children?.map(child =>
                         (child.y || 0) + (child.height || 200)
-                    ))
+                    ) || [0]))
 
                     // Add padding
                     const padding = 40
@@ -675,11 +719,11 @@ const MemoryModelVisualizer = () => {
                 const actualHeapSectionHeight = heapSection.children && heapSection.children.length > 0 ? calculateSectionHeight(heapSection) : 0
 
                 // Log calculated section dimensions for debugging
-                console.log('Calculated Section Dimensions:', {
-                    memval: { width: actualMemvalSectionWidth, height: actualMemvalSectionHeight },
-                    scope: { width: actualScopeSectionWidth, height: actualScopeSectionHeight },
-                    heap: { width: actualHeapSectionWidth, height: actualHeapSectionHeight }
-                })
+                // console.log('Calculated Section Dimensions:', {
+                //     memval: { width: actualMemvalSectionWidth, height: actualMemvalSectionHeight },
+                //     scope: { width: actualScopeSectionWidth, height: actualScopeSectionHeight },
+                //     heap: { width: actualHeapSectionWidth, height: actualHeapSectionHeight }
+                // })
 
                 // Position sections using calculated widths - only show sections that have content
                 memvalSection.x = 0
@@ -723,6 +767,7 @@ const MemoryModelVisualizer = () => {
 
                 svg.transition()
                     .duration(750)
+                    // eslint-disable-next-line @typescript-eslint/no-explicit-any
                     .call(zoom.transform as any, fitTransform)
 
                 // Add arrow marker definitions with different colors and sizes
@@ -1259,12 +1304,14 @@ const MemoryModelVisualizer = () => {
             })
     }, [currentStep])
 
-    // Navigation control functions
+    // Navigation control functions (commented out - not currently used)
+    /*
     const handleZoomIn = () => {
         if (!svgRef.current) return
         const svg = d3.select(svgRef.current)
         svg.transition()
             .duration(300)
+            // eslint-disable-next-line @typescript-eslint/no-explicit-any
             .call(d3.zoom().scaleBy as any, 1.5)
     }
 
@@ -1273,6 +1320,7 @@ const MemoryModelVisualizer = () => {
         const svg = d3.select(svgRef.current)
         svg.transition()
             .duration(300)
+            // eslint-disable-next-line @typescript-eslint/no-explicit-any
             .call(d3.zoom().scaleBy as any, 1 / 1.5)
     }
 
@@ -1281,6 +1329,7 @@ const MemoryModelVisualizer = () => {
         const svg = d3.select(svgRef.current)
         svg.transition()
             .duration(750)
+            // eslint-disable-next-line @typescript-eslint/no-explicit-any
             .call(d3.zoom().transform as any, d3.zoomIdentity)
     }
 
@@ -1311,23 +1360,11 @@ const MemoryModelVisualizer = () => {
 
             svg.transition()
                 .duration(750)
+                // eslint-disable-next-line @typescript-eslint/no-explicit-any
                 .call(d3.zoom().transform as any, transform)
         }
     }
-
-    // Helper function to calculate scope height (moved outside useEffect for reuse)
-    const calculateScopeHeight = (scopeId: string): number => {
-        const scopeData = currentStep?.memorySnapshot.scopes.find((_, index) => `scope-${index}` === scopeId)
-        if (!scopeData) return 120
-
-        const headerHeight = 30
-        const variableSpacing = 35
-        const bottomPadding = 10
-        const variableCount = Object.keys(scopeData.variables).length
-        const calculatedHeight = headerHeight + variableCount * variableSpacing + bottomPadding
-
-        return variableCount > 0 ? calculatedHeight : 120
-    }
+    */
 
     return (
         <div className="relative w-full h-full">
