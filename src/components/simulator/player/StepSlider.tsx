@@ -475,11 +475,9 @@ const StepSlider: React.FC = () => {
                 // const baseX = isDragging
                 //     ? containerRect.left + getStepStartPosition(currentStep.index) + 10
                 //     : mousePosition.x + containerRect.left
-                const stepWidth = containerSize.width / (steps.length - 1)
-
                 const baseX = isDragging
                     ? containerRect.left + getStepStartPosition(currentStep.index) + 10
-                    : containerRect.left + getStepStartPosition(stepIndex) + 10 + stepWidth / 2
+                    : containerRect.left + getStepStartPosition(stepIndex) + 10
 
                 // When dragging, always show current step index, otherwise show hovered step
                 const tooltipStep = isDragging ? currentStep : (hoveredStepIndex !== null && steps[hoveredStepIndex])
