@@ -144,7 +144,6 @@ execHandlers["BinaryExpression"] = function (astNode, options) {
 
     try {
         const evaluatedValue = this.binaryOperatorHandler(astNode.operator, evaluatedLeft, evaluatedRight)
-        console.log(evaluatedValue)
         this.pushMemval(evaluatedValue)
         this.addEvaluatedStep(astNode)
 

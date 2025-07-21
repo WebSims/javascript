@@ -354,7 +354,6 @@ class Simulator {
             try {
                 const isForInit = Boolean(options.for)
                 delete options.for
-                console.log(isForInit)
                 options.strict = this.isStrict(astNode, options)
 
                 this.lastScopeIndex++
