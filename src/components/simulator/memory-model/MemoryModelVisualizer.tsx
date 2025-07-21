@@ -50,8 +50,6 @@ type ElkGraph = ElkNode & {
 const MemoryModelVisualizer = () => {
     const { currentStep } = useSimulatorStore()
     const svgRef = useRef<SVGSVGElement>(null)
-    const zoomGroupRef = useRef<SVGGElement | null>(null)
-    const zoomRef = useRef<d3.ZoomBehavior<SVGSVGElement, unknown> | null>(null)
 
     // Transform snapshot data into visualization format
     const transformData = () => {
@@ -281,24 +279,9 @@ const MemoryModelVisualizer = () => {
             .attr("height", viewportHeight)
             .attr("viewBox", `0 0 ${viewportWidth} ${viewportHeight}`)
 
-        // Create zoom behavior
-        const zoom = d3.zoom<SVGSVGElement, unknown>()
-            .scaleExtent([0.1, 5]) // Min zoom 0.1x, max zoom 5x
-            .on("zoom", (event) => {
-                if (zoomGroupRef.current) {
-                    d3.select(zoomGroupRef.current)
-                        .attr("transform", event.transform)
-                }
-            })
-
-        // Apply zoom behavior to SVG
-        svg.call(zoom)
-        zoomRef.current = zoom
-
-        // Create a group for content positioning with scale 1
+        // Create a group for content positioning
         const contentGroup = svg.append("g")
-            .attr("transform", `translate(${centerX}, ${centerY}) scale(1)`)
-        zoomGroupRef.current = contentGroup.node()
+            .attr("transform", `translate(${centerX}, ${centerY})`)
 
 
 
@@ -484,10 +467,9 @@ const MemoryModelVisualizer = () => {
         const elkGraph = createElkGraph()
         const elk = new ELK()
 
-        // Create maps to store node positions and data
+        // Create maps to store node positions and edge data
         const nodePositions = new Map()
         const propertyPositions = new Map()
-        const nodeData = new Map()
         const edgeData: Array<{
             source: string
             target: string
@@ -588,125 +570,7 @@ const MemoryModelVisualizer = () => {
             return path.toString()
         }
 
-        // Define drag behavior for scopes - updated to work with zoom
-        const scopeDrag = d3
-            .drag<SVGGElement, unknown>()
-            .on("start", function (event) {
-                d3.select(this).raise().classed("active", true)
-                // Prevent zoom when dragging elements
-                event.sourceEvent.stopPropagation()
 
-                // Store the initial transform to calculate offset
-                const currentTransform = d3.select(this).attr("transform")
-                const translateMatch = currentTransform.match(/translate\(([^,]+),\s*([^)]+)\)/)
-                if (translateMatch) {
-                    const initialX = parseFloat(translateMatch[1])
-                    const initialY = parseFloat(translateMatch[2])
-
-                    // Store initial position and mouse position
-                    d3.select(this).attr("data-initial-x", initialX.toString())
-                    d3.select(this).attr("data-initial-y", initialY.toString())
-                    d3.select(this).attr("data-mouse-x", event.x.toString())
-                    d3.select(this).attr("data-mouse-y", event.y.toString())
-                }
-            })
-            .on("drag", function (event) {
-                const scopeId = d3.select(this).attr("data-id")
-                const scopeData = nodeData.get(scopeId)
-                if (!scopeData) return
-
-                // Get initial positions
-                const initialX = parseFloat(d3.select(this).attr("data-initial-x") || "0")
-                const initialY = parseFloat(d3.select(this).attr("data-initial-y") || "0")
-                const initialMouseX = parseFloat(d3.select(this).attr("data-mouse-x") || "0")
-                const initialMouseY = parseFloat(d3.select(this).attr("data-mouse-y") || "0")
-
-                // Calculate the offset from initial mouse position
-                const deltaX = event.x - initialMouseX
-                const deltaY = event.y - initialMouseY
-
-                // Calculate new position by adding offset to initial position
-                const newX = initialX + deltaX
-                const newY = initialY + deltaY
-
-                d3.select(this).attr("transform", `translate(${newX},${newY})`)
-
-                // Update node positions
-                nodePositions.set(scopeId, { x: newX + scopeData.width / 2, y: newY + scopeData.height / 2 })
-
-                // Update variable positions
-                scopeData.variables.forEach((varId: string, index: number) => {
-                    const varX = newX + 295 // Position at the right edge of the variable
-                    const varY = newY + 40 + index * 35 + 10 // Center of the variable
-                    nodePositions.set(varId, { x: varX, y: varY })
-                })
-
-                updateConnections()
-            })
-            .on("end", function () {
-                d3.select(this).classed("active", false)
-            })
-
-        // Define drag behavior for heap objects - updated to work with zoom
-        const heapObjectDrag = d3
-            .drag<SVGGElement, unknown>()
-            .on("start", function (event) {
-                d3.select(this).raise().classed("active", true)
-                // Prevent zoom when dragging elements
-                event.sourceEvent.stopPropagation()
-
-                // Store the initial transform to calculate offset
-                const currentTransform = d3.select(this).attr("transform")
-                const translateMatch = currentTransform.match(/translate\(([^,]+),\s*([^)]+)\)/)
-                if (translateMatch) {
-                    const initialX = parseFloat(translateMatch[1])
-                    const initialY = parseFloat(translateMatch[2])
-
-                    // Store initial position and mouse position
-                    d3.select(this).attr("data-initial-x", initialX.toString())
-                    d3.select(this).attr("data-initial-y", initialY.toString())
-                    d3.select(this).attr("data-mouse-x", event.x.toString())
-                    d3.select(this).attr("data-mouse-y", event.y.toString())
-                }
-            })
-            .on("drag", function (event) {
-                const objId = d3.select(this).attr("data-id")
-                const objData = nodeData.get(objId)
-                if (!objData) return
-
-                // Get initial positions
-                const initialX = parseFloat(d3.select(this).attr("data-initial-x") || "0")
-                const initialY = parseFloat(d3.select(this).attr("data-initial-y") || "0")
-                const initialMouseX = parseFloat(d3.select(this).attr("data-mouse-x") || "0")
-                const initialMouseY = parseFloat(d3.select(this).attr("data-mouse-y") || "0")
-
-                // Calculate the offset from initial mouse position
-                const deltaX = event.x - initialMouseX
-                const deltaY = event.y - initialMouseY
-
-                // Calculate new position by adding offset to initial position
-                const newX = initialX + deltaX
-                const newY = initialY + deltaY
-
-                d3.select(this).attr("transform", `translate(${newX},${newY})`)
-
-                // Update node positions
-                nodePositions.set(objId, { x: newX, y: newY + objData.height / 2 })
-
-                // Update property positions
-                if (objData.properties) {
-                    objData.properties.forEach((propId: string, i: number) => {
-                        const propX = newX + objectWidth - 10
-                        const propY = newY + 45 + i * 20
-                        propertyPositions.set(propId, { x: propX, y: propY })
-                    })
-                }
-
-                updateConnections()
-            })
-            .on("end", function () {
-                d3.select(this).classed("active", false)
-            })
 
         // Function to update connections
         const updateConnections = () => {
@@ -1045,18 +909,8 @@ const MemoryModelVisualizer = () => {
                             .attr("class", "scope")
                             .attr("data-id", scopeNode.id)
                             .attr("transform", `translate(${(scopeSection.x || 0) + singleColumnX}, ${(scopeSection.y || 0) + singleColumnY})`)
-                            .attr("cursor", "grab")
-                            .call(scopeDrag as d3.DragBehavior<SVGGElement, unknown, unknown>)
 
-                        // Store scope data for dragging
-                        nodeData.set(scopeNode.id, {
-                            id: scopeNode.id,
-                            type: "scope",
-                            width: scopeNode.width || 200,
-                            height: actualScopeHeight,
-                            variables: scopeNode.children?.map(child => child.id) || [],
-                            sectionOffset: scopeSection.x || 0,
-                        })
+
 
                         // Store scope position for connections - use the forced single column position
                         nodePositions.set(scopeNode.id, {
@@ -1155,20 +1009,8 @@ const MemoryModelVisualizer = () => {
                             .attr("class", "heap-object")
                             .attr("data-id", objNodeId)
                             .attr("transform", `translate(${(heapSection.x || 0) + objX}, ${(heapSection.y || 0) + (objNode?.y || 0)})`)
-                            .attr("cursor", "grab")
-                            .call(heapObjectDrag as d3.DragBehavior<SVGGElement, unknown, unknown>)
 
-                        // Store object data for dragging
-                        nodeData.set(objNodeId, {
-                            id: objNodeId,
-                            type: "heap-object",
-                            width: objNode?.width || objectWidth,
-                            height: objNode?.height || objectHeight,
-                            properties: objData.properties
-                                .filter(prop => prop.target)
-                                .map(prop => `${objNodeId}_${prop.name}`),
-                            sectionOffset: heapSection.x || 0,
-                        })
+
 
                         // Store object position for connections - use left edge for incoming connections
                         nodePositions.set(objNodeId, { x: (heapSection.x || 0) + objX, y: (heapSection.y || 0) + (objNode?.y || 0) + (objNode?.height || objectHeight) / 2 })
@@ -1267,97 +1109,6 @@ const MemoryModelVisualizer = () => {
                 // Initial draw of connections
                 updateConnections()
 
-                // Add navigation controls
-                const navControls = svg.append("g")
-                    .attr("class", "navigation-controls")
-                    .attr("transform", `translate(20, 20)`)
-
-                // Zoom in button
-                navControls.append("circle")
-                    .attr("cx", 15)
-                    .attr("cy", 15)
-                    .attr("r", 15)
-                    .attr("fill", "#ffffff")
-                    .attr("stroke", "#d1d5db")
-                    .attr("stroke-width", 2)
-                    .attr("cursor", "pointer")
-                    .on("click", () => {
-                        svg.transition().duration(300).call(
-                            zoom.scaleBy, 1.5
-                        )
-                    })
-
-                navControls.append("text")
-                    .attr("x", 15)
-                    .attr("y", 20)
-                    .attr("text-anchor", "middle")
-                    .attr("font-size", "16px")
-                    .attr("font-weight", "bold")
-                    .attr("fill", "#374151")
-                    .attr("cursor", "pointer")
-                    .text("+")
-
-                // Zoom out button
-                navControls.append("circle")
-                    .attr("cx", 15)
-                    .attr("cy", 50)
-                    .attr("r", 15)
-                    .attr("fill", "#ffffff")
-                    .attr("stroke", "#d1d5db")
-                    .attr("stroke-width", 2)
-                    .attr("cursor", "pointer")
-                    .on("click", () => {
-                        svg.transition().duration(300).call(
-                            zoom.scaleBy, 0.75
-                        )
-                    })
-
-                navControls.append("text")
-                    .attr("x", 15)
-                    .attr("y", 55)
-                    .attr("text-anchor", "middle")
-                    .attr("font-size", "16px")
-                    .attr("font-weight", "bold")
-                    .attr("fill", "#374151")
-                    .attr("cursor", "pointer")
-                    .text("−")
-
-                // Reset view button
-                navControls.append("circle")
-                    .attr("cx", 15)
-                    .attr("cy", 85)
-                    .attr("r", 15)
-                    .attr("fill", "#ffffff")
-                    .attr("stroke", "#d1d5db")
-                    .attr("stroke-width", 2)
-                    .attr("cursor", "pointer")
-                    .on("click", () => {
-                        svg.transition().duration(300).call(
-                            zoom.transform, d3.zoomIdentity
-                        )
-                    })
-
-                navControls.append("text")
-                    .attr("x", 15)
-                    .attr("y", 90)
-                    .attr("text-anchor", "middle")
-                    .attr("font-size", "12px")
-                    .attr("font-weight", "bold")
-                    .attr("fill", "#374151")
-                    .attr("cursor", "pointer")
-                    .text("⌂")
-
-                // Add tooltips for navigation controls
-                navControls.selectAll("circle")
-                    .on("mouseover", function () {
-                        const button = d3.select(this)
-                        button.attr("fill", "#f3f4f6")
-                    })
-                    .on("mouseout", function () {
-                        const button = d3.select(this)
-                        button.attr("fill", "#ffffff")
-                    })
-
 
             })
             .catch((error) => {
@@ -1367,12 +1118,11 @@ const MemoryModelVisualizer = () => {
 
     return (
         <div className="relative w-full h-full">
-            <svg ref={svgRef} className="w-full h-full" />
-            {/* Navigation instructions */}
-            <div className="absolute top-2 right-2 text-xs text-gray-500 bg-white bg-opacity-80 px-2 py-1 rounded">
-                <div>🖱️ Drag to pan • 🔍 Scroll to zoom • 🎯 Drag elements to move</div>
-            </div>
-        </div >
+            <svg
+                ref={svgRef}
+                className="w-full h-full"
+            />
+        </div>
     )
 }
 
