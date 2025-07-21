@@ -70,6 +70,12 @@ export const SimulatorProvider = ({ children }: { children: React.ReactNode }) =
         return cleanup
     }, [astOfCode])
 
+    useEffect(() => {
+        if (mode === 'EXECUTION') {
+            runSimulator()
+        }
+    }, [mode])
+
     const totalSteps = steps.length
 
     const updateFileContent = (filename: string, newContent: string) => {
@@ -79,21 +85,31 @@ export const SimulatorProvider = ({ children }: { children: React.ReactNode }) =
             const ast = astOf(newFiles[filename])
 
             if (ast) {
-                const simulator = new Simulator(ast)
-                const steps = simulator.run()
-                console.log(steps)
                 setAstError(null)
                 setAstOfCode(ast)
-                setSteps(steps)
-                changeStep(0)
             }
         } catch (error) {
             setAstError(error instanceof Error ? error.message : 'Unknown error')
         }
     }
 
+    const runSimulator = () => {
+        try {
+            const simulator = new Simulator(astOfCode as ESTree.Program)
+            const steps = simulator.run()
+            console.log(steps)
+            setSteps(steps)
+            changeStep(0)
+            setCurrentExecStep(steps[0])
+        } catch (error) {
+            console.error(error)
+        }
+    }
+
     const toggleMode = () => {
-        setMode(mode === 'CODE' ? 'EXECUTION' : 'CODE')
+        if (!astError) {
+            setMode(mode === 'CODE' ? 'EXECUTION' : 'CODE')
+        }
     }
 
     const togglePlaying = (state?: boolean) => {
