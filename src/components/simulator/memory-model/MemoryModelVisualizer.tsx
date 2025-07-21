@@ -1,4 +1,4 @@
-import { useEffect, useRef } from "react"
+import { useEffect, useRef, useState } from "react"
 import * as d3 from "d3"
 import ELK from "elkjs/lib/elk.bundled.js"
 import type { ElkNode as ElkLayoutNode, ElkEdge as ElkLayoutEdge } from "elkjs/lib/elk-api"
@@ -50,6 +50,8 @@ type ElkGraph = ElkNode & {
 const MemoryModelVisualizer = () => {
     const { currentStep } = useSimulatorStore()
     const svgRef = useRef<SVGSVGElement>(null)
+    const [zoomLevel, setZoomLevel] = useState(1)
+    const [isDragging, setIsDragging] = useState(false)
 
     // Transform snapshot data into visualization format
     const transformData = () => {
@@ -278,6 +280,20 @@ const MemoryModelVisualizer = () => {
             .attr("width", viewportWidth)
             .attr("height", viewportHeight)
             .attr("viewBox", `0 0 ${viewportWidth} ${viewportHeight}`)
+
+        // Create zoom behavior
+        const zoom = d3.zoom()
+            .scaleExtent([0.1, 3]) // Min zoom 0.1x, max zoom 3x
+            .on("zoom", (event) => {
+                const { transform } = event
+                setZoomLevel(transform.k)
+                contentGroup.attr("transform", transform)
+            })
+            .on("start", () => setIsDragging(true))
+            .on("end", () => setIsDragging(false))
+
+        // Apply zoom behavior to SVG
+        svg.call(zoom as any)
 
         // Create a group for content positioning
         const contentGroup = svg.append("g")
@@ -698,6 +714,15 @@ const MemoryModelVisualizer = () => {
                 // Update content group position with scale 1
                 contentGroup.attr("transform", `translate(${newCenterX}, ${newCenterY}) scale(1)`)
 
+                // Reset zoom to fit content
+                const fitTransform = d3.zoomIdentity
+                    .translate(newCenterX, newCenterY)
+                    .scale(1)
+
+                svg.transition()
+                    .duration(750)
+                    .call(zoom.transform as any, fitTransform)
+
                 // Add arrow marker definitions with different colors and sizes
                 const defs = svg.append("defs")
 
@@ -1116,11 +1141,132 @@ const MemoryModelVisualizer = () => {
             })
     }, [currentStep])
 
+    // Navigation control functions
+    const handleZoomIn = () => {
+        if (!svgRef.current) return
+        const svg = d3.select(svgRef.current)
+        svg.transition()
+            .duration(300)
+            .call(d3.zoom().scaleBy as any, 1.5)
+    }
+
+    const handleZoomOut = () => {
+        if (!svgRef.current) return
+        const svg = d3.select(svgRef.current)
+        svg.transition()
+            .duration(300)
+            .call(d3.zoom().scaleBy as any, 1 / 1.5)
+    }
+
+    const handleResetZoom = () => {
+        if (!svgRef.current) return
+        const svg = d3.select(svgRef.current)
+        svg.transition()
+            .duration(750)
+            .call(d3.zoom().transform as any, d3.zoomIdentity)
+    }
+
+    const handleFitToView = () => {
+        if (!svgRef.current || !currentStep) return
+        const svg = d3.select(svgRef.current)
+        const svgElement = svgRef.current
+
+        // Get the content bounds
+        const contentGroup = svg.select("g")
+        const node = contentGroup.node() as SVGGElement
+        const bbox = node?.getBBox()
+
+        if (bbox) {
+            const padding = 40
+            const scale = Math.min(
+                (svgElement.clientWidth - padding) / bbox.width,
+                (svgElement.clientHeight - padding) / bbox.height,
+                1 // Don't scale up beyond 1x
+            )
+
+            const transform = d3.zoomIdentity
+                .translate(
+                    (svgElement.clientWidth - bbox.width * scale) / 2 - bbox.x * scale,
+                    (svgElement.clientHeight - bbox.height * scale) / 2 - bbox.y * scale
+                )
+                .scale(scale)
+
+            svg.transition()
+                .duration(750)
+                .call(d3.zoom().transform as any, transform)
+        }
+    }
+
     return (
         <div className="relative w-full h-full">
+            {/* Navigation Controls */}
+            <div className="absolute top-4 right-4 z-10 flex flex-col gap-2 bg-white/90 backdrop-blur-sm rounded-lg p-2 shadow-lg border border-gray-200">
+                <button
+                    onClick={handleZoomIn}
+                    className="p-2 rounded-md bg-blue-500 text-white hover:bg-blue-600 transition-colors"
+                    title="Zoom In"
+                    aria-label="Zoom In"
+                >
+                    <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0zM10 7v3m0 0v3m0-3h3m-3 0H7" />
+                    </svg>
+                </button>
+
+                <button
+                    onClick={handleZoomOut}
+                    className="p-2 rounded-md bg-blue-500 text-white hover:bg-blue-600 transition-colors"
+                    title="Zoom Out"
+                    aria-label="Zoom Out"
+                >
+                    <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0zM13 10H7" />
+                    </svg>
+                </button>
+
+                <button
+                    onClick={handleResetZoom}
+                    className="p-2 rounded-md bg-gray-500 text-white hover:bg-gray-600 transition-colors"
+                    title="Reset Zoom"
+                    aria-label="Reset Zoom"
+                >
+                    <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 8V4m0 0h4M4 4l5 5m11-1V4m0 0h-4m4 0l-5 5M4 16v4m0 0h4m-4 0l5-5m11 5l-5-5m5 5v-4m0 4h-4" />
+                    </svg>
+                </button>
+
+                <button
+                    onClick={handleFitToView}
+                    className="p-2 rounded-md bg-green-500 text-white hover:bg-green-600 transition-colors"
+                    title="Fit to View"
+                    aria-label="Fit to View"
+                >
+                    <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 8V4m0 0h4M4 4l5 5m11-1V4m0 0h-4m4 0l-5 5M4 16v4m0 0h4m-4 0l5-5m11 5l-5-5m5 5v-4m0 4h-4" />
+                    </svg>
+                </button>
+            </div>
+
+            {/* Zoom Level Indicator */}
+            <div className="absolute bottom-4 left-4 z-10 bg-white/90 backdrop-blur-sm rounded-lg px-3 py-1 shadow-lg border border-gray-200">
+                <span className="text-sm font-mono text-gray-700">
+                    {Math.round(zoomLevel * 100)}%
+                </span>
+            </div>
+
+            {/* Instructions */}
+            <div className="absolute top-4 left-4 z-10 bg-white/90 backdrop-blur-sm rounded-lg p-3 shadow-lg border border-gray-200 max-w-xs">
+                <h3 className="text-sm font-semibold text-gray-800 mb-2">Navigation</h3>
+                <ul className="text-xs text-gray-600 space-y-1">
+                    <li>• <strong>Drag</strong> to pan around</li>
+                    <li>• <strong>Scroll</strong> to zoom in/out</li>
+                    <li>• <strong>Double-click</strong> to reset zoom</li>
+                </ul>
+            </div>
+
             <svg
                 ref={svgRef}
-                className="w-full h-full"
+                className="w-full h-full cursor-grab active:cursor-grabbing"
+                style={{ cursor: isDragging ? 'grabbing' : 'grab' }}
             />
         </div>
     )
