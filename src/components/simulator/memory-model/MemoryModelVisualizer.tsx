@@ -52,6 +52,8 @@ const MemoryModelVisualizer = () => {
     const svgRef = useRef<SVGSVGElement>(null)
     const [zoomLevel, setZoomLevel] = useState(1)
     const [isDragging, setIsDragging] = useState(false)
+    // eslint-disable-next-line @typescript-eslint/no-unused-vars
+    const [draggedItem, setDraggedItem] = useState<{ id: string; type: 'scope' | 'heap'; x: number; y: number } | null>(null)
 
     // Transform snapshot data into visualization format
     const transformData = () => {
@@ -934,6 +936,61 @@ const MemoryModelVisualizer = () => {
                             .attr("class", "scope")
                             .attr("data-id", scopeNode.id)
                             .attr("transform", `translate(${(scopeSection.x || 0) + singleColumnX}, ${(scopeSection.y || 0) + singleColumnY})`)
+                            .call(d3.drag()
+                                .on("start", (event) => {
+                                    event.sourceEvent.stopPropagation()
+                                    // Store the initial position and mouse position
+                                    const initialX = (scopeSection.x || 0) + singleColumnX
+                                    const initialY = (scopeSection.y || 0) + singleColumnY
+                                    const mouseX = event.x
+                                    const mouseY = event.y
+                                    setDraggedItem({ id: scopeNode.id, type: 'scope', x: initialX, y: initialY })
+                                    setIsDragging(true)
+                                    scopeGroup.select("rect").style("cursor", "grabbing")
+                                    // Store the offset for smooth dragging
+                                    scopeGroup.attr("data-drag-offset-x", String(mouseX - initialX))
+                                    scopeGroup.attr("data-drag-offset-y", String(mouseY - initialY))
+                                })
+                                .on("drag", (event) => {
+                                    // Get the stored offset
+                                    const offsetX = parseFloat(scopeGroup.attr("data-drag-offset-x") || "0")
+                                    const offsetY = parseFloat(scopeGroup.attr("data-drag-offset-y") || "0")
+
+                                    // Calculate new position based on current mouse position minus offset
+                                    const newX = event.x - offsetX
+                                    const newY = event.y - offsetY
+
+                                    // Update the visual position
+                                    scopeGroup.attr("transform", `translate(${newX}, ${newY})`)
+
+                                    // Update node positions for connections
+                                    const scopeWidth = scopeNode.width || 200
+                                    const scopeHeight = actualScopeHeight
+                                    nodePositions.set(scopeNode.id, {
+                                        x: newX + scopeWidth / 2,
+                                        y: newY + scopeHeight / 2
+                                    })
+
+                                    // Update variable positions
+                                    scopeData.variables.forEach((varData, varIndex) => {
+                                        const varNodeId = `var-${scopeNode.id}-${varData.name}`
+                                        nodePositions.set(varNodeId, {
+                                            x: newX + 295,
+                                            y: newY + 40 + varIndex * 35 + 10
+                                        })
+                                    })
+
+                                    // Update connections
+                                    updateConnections()
+                                })
+                                .on("end", () => {
+                                    setDraggedItem(null)
+                                    setIsDragging(false)
+                                    scopeGroup.select("rect").style("cursor", "grab")
+                                    // Clean up the stored offset
+                                    scopeGroup.attr("data-drag-offset-x", null)
+                                    scopeGroup.attr("data-drag-offset-y", null)
+                                }) as unknown as d3.DragBehavior<SVGGElement, unknown, unknown>)
 
 
 
@@ -953,6 +1010,13 @@ const MemoryModelVisualizer = () => {
                             .attr("fill", scopeData.color)
                             .attr("stroke", scopeData.borderColor)
                             .attr("stroke-width", 2)
+                            .style("cursor", "grab")
+                            .on("mouseover", function () {
+                                d3.select(this).style("cursor", "grab").attr("stroke-width", 3)
+                            })
+                            .on("mouseout", function () {
+                                d3.select(this).style("cursor", "grab").attr("stroke-width", 2)
+                            })
 
                         // Add scope name
                         scopeGroup.append("text").attr("x", 10).attr("y", 20).attr("font-weight", "bold").text(scopeData.name)
@@ -1034,6 +1098,63 @@ const MemoryModelVisualizer = () => {
                             .attr("class", "heap-object")
                             .attr("data-id", objNodeId)
                             .attr("transform", `translate(${(heapSection.x || 0) + objX}, ${(heapSection.y || 0) + (objNode?.y || 0)})`)
+                            .call(d3.drag()
+                                .on("start", (event) => {
+                                    event.sourceEvent.stopPropagation()
+                                    // Store the initial position and mouse position
+                                    const initialX = (heapSection.x || 0) + objX
+                                    const initialY = (heapSection.y || 0) + (objNode?.y || 0)
+                                    const mouseX = event.x
+                                    const mouseY = event.y
+                                    setDraggedItem({ id: objNodeId, type: 'heap', x: initialX, y: initialY })
+                                    setIsDragging(true)
+                                    objectGroup.select("rect").style("cursor", "grabbing")
+                                    // Store the offset for smooth dragging
+                                    objectGroup.attr("data-drag-offset-x", String(mouseX - initialX))
+                                    objectGroup.attr("data-drag-offset-y", String(mouseY - initialY))
+                                })
+                                .on("drag", (event) => {
+                                    // Get the stored offset
+                                    const offsetX = parseFloat(objectGroup.attr("data-drag-offset-x") || "0")
+                                    const offsetY = parseFloat(objectGroup.attr("data-drag-offset-y") || "0")
+
+                                    // Calculate new position based on current mouse position minus offset
+                                    const newX = event.x - offsetX
+                                    const newY = event.y - offsetY
+
+                                    // Update the visual position
+                                    objectGroup.attr("transform", `translate(${newX}, ${newY})`)
+
+                                    // Update node positions for connections
+                                    const objWidth = objNode?.width || objectWidth
+                                    const objHeight = objNode?.height || objectHeight
+                                    nodePositions.set(objNodeId, {
+                                        x: newX,
+                                        y: newY + objHeight / 2
+                                    })
+
+                                    // Update property positions
+                                    objData.properties?.forEach((prop, propIndex) => {
+                                        if (prop.target) {
+                                            const propId = `${objNodeId}_${prop.name}`
+                                            propertyPositions.set(propId, {
+                                                x: newX + objWidth - 10,
+                                                y: newY + 45 + propIndex * 20
+                                            })
+                                        }
+                                    })
+
+                                    // Update connections
+                                    updateConnections()
+                                })
+                                .on("end", () => {
+                                    setDraggedItem(null)
+                                    setIsDragging(false)
+                                    objectGroup.select("rect").style("cursor", "grab")
+                                    // Clean up the stored offset
+                                    objectGroup.attr("data-drag-offset-x", null)
+                                    objectGroup.attr("data-drag-offset-y", null)
+                                }) as unknown as d3.DragBehavior<SVGGElement, unknown, unknown>)
 
 
 
@@ -1050,6 +1171,13 @@ const MemoryModelVisualizer = () => {
                             .attr("fill", objData.color)
                             .attr("stroke", objData.borderColor)
                             .attr("stroke-width", 2)
+                            .style("cursor", "grab")
+                            .on("mouseover", function () {
+                                d3.select(this).style("cursor", "grab").attr("stroke-width", 3)
+                            })
+                            .on("mouseout", function () {
+                                d3.select(this).style("cursor", "grab").attr("stroke-width", 2)
+                            })
 
                         // Add object type header
                         objectGroup
@@ -1195,6 +1323,20 @@ const MemoryModelVisualizer = () => {
                 .duration(750)
                 .call(d3.zoom().transform as any, transform)
         }
+    }
+
+    // Helper function to calculate scope height (moved outside useEffect for reuse)
+    const calculateScopeHeight = (scopeId: string): number => {
+        const scopeData = currentStep?.memorySnapshot.scopes.find((_, index) => `scope-${index}` === scopeId)
+        if (!scopeData) return 120
+
+        const headerHeight = 30
+        const variableSpacing = 35
+        const bottomPadding = 10
+        const variableCount = Object.keys(scopeData.variables).length
+        const calculatedHeight = headerHeight + variableCount * variableSpacing + bottomPadding
+
+        return variableCount > 0 ? calculatedHeight : 120
     }
 
     return (
