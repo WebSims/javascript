@@ -154,7 +154,7 @@ const StepSlider: React.FC = () => {
         return Math.max(0, Math.min(stepIndex, steps.length - 1))
     }, [containerElement, containerSize.width, steps.length])
 
-    const getStepCenterPosition = useCallback((stepIndex: number) => {
+    const getStepStartPosition = useCallback((stepIndex: number) => {
         if (!containerSize.width) return 0
         const stepWidth = containerSize.width / (steps.length - 1)
         return stepIndex * stepWidth
@@ -469,13 +469,19 @@ const StepSlider: React.FC = () => {
                 const containerRect = containerElement?.getBoundingClientRect()
                 if (!containerRect) return null
 
+                const stepIndex = isDragging ? currentStep.index : (hoveredStepIndex !== null ? hoveredStepIndex : currentStep.index)
+
                 // When dragging, use the thumb position, otherwise use mouse position
+                // const baseX = isDragging
+                //     ? containerRect.left + getStepStartPosition(currentStep.index) + 10
+                //     : mousePosition.x + containerRect.left
+                const stepWidth = containerSize.width / (steps.length - 1)
+
                 const baseX = isDragging
-                    ? containerRect.left + getStepCenterPosition(currentStep.index) + 10
-                    : mousePosition.x + containerRect.left
+                    ? containerRect.left + getStepStartPosition(currentStep.index) + 10
+                    : containerRect.left + getStepStartPosition(stepIndex) + 10 + stepWidth / 2
 
                 // When dragging, always show current step index, otherwise show hovered step
-                const stepIndex = isDragging ? currentStep.index : (hoveredStepIndex !== null ? hoveredStepIndex : currentStep.index)
                 const tooltipStep = isDragging ? currentStep : (hoveredStepIndex !== null && steps[hoveredStepIndex])
                     ? steps[hoveredStepIndex]
                     : currentStep
