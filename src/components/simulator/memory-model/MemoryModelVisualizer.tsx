@@ -849,38 +849,28 @@ const MemoryModelVisualizer = () => {
                         memvalGroup
                             .append("text")
                             .attr("x", 8)
-                            .attr("y", 15)
+                            .attr("y", 12)
                             .attr("font-size", "10px")
                             .attr("font-family", "monospace")
                             .attr("fill", "#64748b")
                             .attr("font-weight", "bold")
-                            .text(`[${memvalIndex}]`)
+                            .text(`[${reversedMemval.length - 1 - memvalIndex}]`)
 
-                        // Add memval value
+                        // Add memval value with type at the bottom
                         const displayValue = isReference ? `ref: ${memvalData.ref}` : String(memvalData.value)
                         const typeText = isReference ? "ref" : typeof memvalData.value
+                        const valueWithType = `${displayValue}: (${typeText})`
 
                         memvalGroup
                             .append("text")
-                            .attr("x", 25)
-                            .attr("y", 15)
+                            .attr("x", itemWidth / 2)
+                            .attr("y", 28)
                             .attr("font-size", "12px")
                             .attr("font-family", "monospace")
                             .attr("fill", "#1e293b")
                             .attr("font-weight", "500")
-                            .text(displayValue)
-
-                        // Add type indicator
-                        memvalGroup
-                            .append("text")
-                            .attr("x", itemWidth - 8)
-                            .attr("y", 15)
-                            .attr("text-anchor", "end")
-                            .attr("font-size", "10px")
-                            .attr("font-family", "monospace")
-                            .attr("fill", "#64748b")
-                            .attr("font-style", "italic")
-                            .text(typeText)
+                            .attr("text-anchor", "middle")
+                            .text(valueWithType)
                     })
                 } else {
                     // Draw empty state with placeholder
