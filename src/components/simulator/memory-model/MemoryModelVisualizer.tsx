@@ -1199,7 +1199,7 @@ const MemoryModelVisualizer = () => {
 
     return (
         <div className="relative w-full h-full">
-            {/* Navigation Controls */}
+            {/* Navigation Controls
             <div className="absolute top-4 right-4 z-10 flex flex-col gap-2 bg-white/90 backdrop-blur-sm rounded-lg p-2 shadow-lg border border-gray-200">
                 <button
                     onClick={handleZoomIn}
@@ -1246,14 +1246,12 @@ const MemoryModelVisualizer = () => {
                 </button>
             </div>
 
-            {/* Zoom Level Indicator */}
             <div className="absolute bottom-4 left-4 z-10 bg-white/90 backdrop-blur-sm rounded-lg px-3 py-1 shadow-lg border border-gray-200">
                 <span className="text-sm font-mono text-gray-700">
                     {Math.round(zoomLevel * 100)}%
                 </span>
             </div>
 
-            {/* Instructions */}
             <div className="absolute top-4 left-4 z-10 bg-white/90 backdrop-blur-sm rounded-lg p-3 shadow-lg border border-gray-200 max-w-xs">
                 <h3 className="text-sm font-semibold text-gray-800 mb-2">Navigation</h3>
                 <ul className="text-xs text-gray-600 space-y-1">
@@ -1261,7 +1259,7 @@ const MemoryModelVisualizer = () => {
                     <li>• <strong>Scroll</strong> to zoom in/out</li>
                     <li>• <strong>Double-click</strong> to reset zoom</li>
                 </ul>
-            </div>
+            </div> */}
 
             <svg
                 ref={svgRef}
