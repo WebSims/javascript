@@ -283,7 +283,7 @@ const MemoryModelVisualizer = () => {
 
         // Create zoom behavior
         const zoom = d3.zoom()
-            .scaleExtent([0.1, 3]) // Min zoom 0.1x, max zoom 3x
+            .scaleExtent([0.1, 5]) // Min zoom 0.1x, max zoom 3x
             .on("zoom", (event) => {
                 const { transform } = event
                 setZoomLevel(transform.k)
