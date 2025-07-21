@@ -32,6 +32,7 @@
     "react-dom": "^18.3.1",
     "react-hotkeys-hook": "^5.1.0",
     "react-resizable-panels": "^2.1.7",
+    "react-router": "^7.7.0",
     "tailwind-merge": "^2.5.4",
     "tailwindcss-animate": "^1.0.7"
   },
