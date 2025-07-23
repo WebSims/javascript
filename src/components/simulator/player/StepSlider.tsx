@@ -32,7 +32,7 @@ const STEP_CONFIG: Record<ExecStepType, {
             }
             return 'bg-gray-100'
         },
-        tooltip: 'Push Scope',
+        tooltip: 'Create Scope',
     },
     [EXEC_STEP_TYPE.HOISTING]: {
         label: 'H',
