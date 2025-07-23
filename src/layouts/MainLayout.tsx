@@ -1,5 +1,6 @@
 import { Button } from '@/components/ui/button'
 import React from 'react'
+import { useNavigate } from 'react-router'
 
 import { useResponsive } from '@/hooks/useResponsive'
 import { useSimulatorStore } from '@/hooks/useSimulatorStore'
@@ -13,6 +14,18 @@ interface MainLayoutProps {
 const MainLayout: React.FC<MainLayoutProps> = ({ children }) => {
     const { isDesktop } = useResponsive()
     const { mode, toggleMode } = useSimulatorStore()
+    const navigate = useNavigate()
+
+    const handleHomeClick = () => {
+        navigate('/')
+    }
+
+    const handleHomeKeyDown = (e: React.KeyboardEvent) => {
+        if (e.key === 'Enter' || e.key === ' ') {
+            e.preventDefault()
+            handleHomeClick()
+        }
+    }
 
     return (
         <div className='h-lvh'>
@@ -24,7 +37,14 @@ const MainLayout: React.FC<MainLayoutProps> = ({ children }) => {
                 </div>
 
                 <div className='flex w-full items-center gap-2 overflow-hidden'>
-                    <div className='font-bold lg:text-lg'>
+                    <div
+                        className='font-bold lg:text-lg cursor-pointer hover:text-blue-600 transition-colors'
+                        onClick={handleHomeClick}
+                        onKeyDown={handleHomeKeyDown}
+                        tabIndex={0}
+                        aria-label="Go to home page"
+                        role="button"
+                    >
                         WebSims.org/js
                     </div>
                     {isDesktop && mode === 'CODE' && (

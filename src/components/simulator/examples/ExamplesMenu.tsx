@@ -43,7 +43,7 @@ const ExamplesMenu: React.FC = () => {
     }
 
     return (
-        <Select onValueChange={handleExampleSelect} open={isOpen} onOpenChange={setIsOpen}>
+        <Select onValueChange={handleExampleSelect} open={isOpen} onOpenChange={setIsOpen} value={exampleId || ''}>
             <SelectTrigger className="w-48 flex items-center gap-1 text-sm !text-primary focus:ring-0 focus:ring-offset-0 border-0 shadow-none bg-transparent hover:bg-gray-100">
                 <CodeIcon className="w-4 h-4" />
                 <span className="text-sm">{displayText}</span>

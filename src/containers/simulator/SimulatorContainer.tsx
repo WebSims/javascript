@@ -1,5 +1,5 @@
 import React, { useEffect } from 'react'
-import { useParams } from 'react-router'
+import { useNavigate, useParams } from 'react-router'
 import { useHotkeys } from 'react-hotkeys-hook'
 
 import CodeMode from './components/CodeMode'
@@ -25,6 +25,7 @@ const getExamplesMap = () => {
 const examplesMap = getExamplesMap()
 
 const SimulatorContainer: React.FC = () => {
+  const navigate = useNavigate()
   const { exampleId } = useParams()
   const { mode, files, initializeFiles, activeFile, toggleMode } = useSimulatorStore()
 
@@ -59,6 +60,9 @@ const SimulatorContainer: React.FC = () => {
         window.dispatchEvent(new CustomEvent('filesaved', {
           detail: { file: activeFile }
         }))
+        if (exampleId) {
+          navigate('/', { replace: true })
+        }
       }
     },
     { preventDefault: true },
