@@ -33,15 +33,17 @@ const SimulatorContainer: React.FC = () => {
       const exampleFiles = examplesMap[exampleId]
       if (exampleFiles) {
         initializeFiles(exampleFiles)
+      } else {
+        initializeFiles({ 'new/main.js': '' })
       }
     } else {
       const savedFilesString = localStorage.getItem('simulatorFiles')
       const savedFiles = JSON.parse(savedFilesString || '{}')
 
-      if (!savedFilesString || Object.keys(savedFiles).length === 0) {
-        initializeFiles({ 'main.js': '' })
-      } else {
+      if (savedFiles) {
         initializeFiles(savedFiles)
+      } else {
+        initializeFiles({ 'new/main.js': '' })
       }
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
