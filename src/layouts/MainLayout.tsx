@@ -1,11 +1,12 @@
 import { Button } from '@/components/ui/button'
-import React from 'react'
+import React, { useState } from 'react'
 import { useNavigate } from 'react-router'
 
 import { useResponsive } from '@/hooks/useResponsive'
 import { useSimulatorStore } from '@/hooks/useSimulatorStore'
 import { MenuIcon, PlayIcon, CodeIcon } from 'lucide-react'
 import ExamplesMenu from '@/components/simulator/examples/ExamplesMenu'
+import MobileMenu from '@/layouts/components/MobileMenu'
 
 interface MainLayoutProps {
     children: React.ReactNode
@@ -15,6 +16,7 @@ const MainLayout: React.FC<MainLayoutProps> = ({ children }) => {
     const { isDesktop } = useResponsive()
     const { mode, toggleMode } = useSimulatorStore()
     const navigate = useNavigate()
+    const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false)
 
     const handleHomeClick = () => {
         navigate('/')
@@ -27,11 +29,24 @@ const MainLayout: React.FC<MainLayoutProps> = ({ children }) => {
         }
     }
 
+    const handleMobileMenuToggle = () => {
+        setIsMobileMenuOpen(!isMobileMenuOpen)
+    }
+
+    const handleMobileMenuClose = () => {
+        setIsMobileMenuOpen(false)
+    }
+
     return (
         <div className='h-lvh'>
             <header className='h-14 bg-background flex justify-between items-center gap-2 px-3 border-b border-slate-200'>
                 <div className='lg:hidden'>
-                    <Button variant='ghost' size='icon' aria-label="Open menu">
+                    <Button
+                        variant='ghost'
+                        size='icon'
+                        aria-label="Open menu"
+                        onClick={handleMobileMenuToggle}
+                    >
                         <MenuIcon className='w-6 h-6' />
                     </Button>
                 </div>
@@ -80,6 +95,10 @@ const MainLayout: React.FC<MainLayoutProps> = ({ children }) => {
             <div className='h-[calc(100dvh-56px)]'>
                 {children}
             </div>
+            <MobileMenu
+                isOpen={isMobileMenuOpen}
+                onClose={handleMobileMenuClose}
+            />
         </div>
     )
 }
