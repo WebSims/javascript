@@ -196,15 +196,31 @@ const StepSlider: React.FC = () => {
         updateMousePosition(e)
     }, [getStepFromPosition, getClientX, changeStep, updateMousePosition])
 
+    // Helper to get hovered step and half
+    const getHoveredStepAndHalf = useCallback((clientX: number) => {
+        if (!containerElement || !containerSize.width) return { stepIndex: null, half: null }
+        const rect = containerElement.getBoundingClientRect()
+        const x = clientX - rect.left - 10
+        const stepWidth = containerSize.width / (steps.length - 1)
+        let stepIndex = Math.floor(x / stepWidth)
+        stepIndex = Math.max(0, Math.min(stepIndex, steps.length - 1))
+        const stepStart = stepIndex * stepWidth
+        const inRightHalf = x - stepStart > stepWidth / 2
+        return {
+            stepIndex: inRightHalf && stepIndex < steps.length - 1 ? stepIndex + 1 : stepIndex,
+            half: inRightHalf ? 'right' : 'left',
+        }
+    }, [containerElement, containerSize.width, steps.length])
+
+    // Update mouse move handler to use new logic
     const handleContainerMouseMove = useCallback((e: React.MouseEvent) => {
-        const stepIndex = getStepFromPosition(getClientX(e))
+        const { stepIndex } = getHoveredStepAndHalf(getClientX(e))
         if (stepIndex !== null) {
             setHoveredStepIndex(stepIndex)
         }
         updateMousePosition(e)
-        // Always keep tooltip open when moving within the container
         setIsTooltipOpen(true)
-    }, [getStepFromPosition, getClientX, updateMousePosition])
+    }, [getHoveredStepAndHalf, getClientX, updateMousePosition])
 
     const handleContainerMouseEnter = useCallback((e: React.MouseEvent) => {
         setIsTooltipOpen(true)
@@ -347,9 +363,7 @@ const StepSlider: React.FC = () => {
                     })
                 }
                 setIsTooltipOpen(true)
-
-                // Also update step based on position
-                const stepIndex = getStepFromPosition(e.clientX)
+                const { stepIndex } = getHoveredStepAndHalf(e.clientX)
                 if (stepIndex !== null) {
                     setHoveredStepIndex(stepIndex)
                 }
@@ -382,7 +396,7 @@ const StepSlider: React.FC = () => {
                 document.removeEventListener('touchend', handleTouchEnd, { capture: true })
             }
         }
-    }, [isDragging, handleMouseMove, handleMouseUp, handleTouchMove, handleTouchEnd, containerElement, getStepFromPosition, isMouseInSliderArea])
+    }, [isDragging, handleMouseMove, handleMouseUp, handleTouchMove, handleTouchEnd, containerElement, getStepFromPosition, isMouseInSliderArea, getHoveredStepAndHalf])
 
 
 
@@ -468,17 +482,11 @@ const StepSlider: React.FC = () => {
             {!isMobile && isTooltipOpen && (() => {
                 const containerRect = containerElement?.getBoundingClientRect()
                 if (!containerRect) return null
-
                 const stepIndex = isDragging ? currentStep.index : (hoveredStepIndex !== null ? hoveredStepIndex : currentStep.index)
-
                 // When dragging, use the thumb position, otherwise use mouse position
-                // const baseX = isDragging
-                //     ? containerRect.left + getStepStartPosition(currentStep.index) + 10
-                //     : mousePosition.x + containerRect.left
                 const baseX = isDragging
                     ? containerRect.left + getStepStartPosition(currentStep.index) + 10
                     : containerRect.left + getStepStartPosition(stepIndex) + 10
-
                 // When dragging, always show current step index, otherwise show hovered step
                 const tooltipStep = isDragging ? currentStep : (hoveredStepIndex !== null && steps[hoveredStepIndex])
                     ? steps[hoveredStepIndex]
@@ -492,44 +500,32 @@ const StepSlider: React.FC = () => {
                 const stepClassName = typeof stepConfig.className === 'function'
                     ? stepConfig.className(tooltipStep)
                     : stepConfig.className
-
                 // Calculate boundaries
                 const leftBoundary = containerRect.left
                 const rightBoundary = containerRect.right
                 const halfTooltipWidth = TOOLTIP_WIDTH / 2
-
                 // Determine positioning
                 let left = baseX
                 let transform = 'translateX(-50%)'
-
-                // Check if tooltip would overflow left boundary
                 if (baseX - halfTooltipWidth < leftBoundary) {
                     left = leftBoundary
                     transform = 'translateX(0)'
-                }
-                // Check if tooltip would overflow right boundary
-                else if (baseX + halfTooltipWidth > rightBoundary) {
+                } else if (baseX + halfTooltipWidth > rightBoundary) {
                     left = rightBoundary
                     transform = 'translateX(-100%)'
                 }
-
                 // Calculate arrow position relative to tooltip
-                // The arrow should point to the actual step position (baseX), not the tooltip position
                 let arrowLeft = '50%'
                 let arrowTransform = 'translateX(-50%)'
-
                 if (baseX - halfTooltipWidth < leftBoundary) {
-                    // Tooltip is at left boundary, arrow should point to actual step position
                     const arrowOffset = Math.max(baseX - leftBoundary - 10, 2)
                     arrowLeft = `${arrowOffset}px`
                     arrowTransform = 'translateX(0)'
                 } else if (baseX + halfTooltipWidth > rightBoundary) {
-                    // Tooltip is at right boundary, arrow should point to actual step position
                     const arrowOffset = Math.min(baseX - (rightBoundary - TOOLTIP_WIDTH) - 10, 238)
                     arrowLeft = `${arrowOffset}px`
                     arrowTransform = 'translateX(0)'
                 }
-
                 return (
                     <div
                         className="fixed rounded-md bg-gray-900 px-3 py-2 text-sm text-white shadow-lg pointer-events-none border border-gray-700 z-50"
@@ -555,10 +551,9 @@ const StepSlider: React.FC = () => {
                             style={{
                                 left: arrowLeft,
                                 transform: arrowTransform,
-                                marginTop: '-1px', // Overlap with border
+                                marginTop: '-1px',
                             }}
                         />
-                        {/* Arrow border */}
                         <div
                             className="absolute top-full border-l-[9px] border-r-[9px] border-t-[9px] border-l-transparent border-r-transparent border-t-gray-700"
                             style={{
