@@ -15,8 +15,8 @@ import CodeEditor from '@/components/code-editor/CodeEditor'
 
 const CodeMode: React.FC = () => {
   const { isDesktop } = useResponsive()
-  const { updateFileContent, currentFile, files } = useSimulatorStore()
-  const fileContent = files[currentFile]
+  const { updateFileContent, activeFile, files } = useSimulatorStore()
+  const fileContent = files[activeFile]
 
   const [isCheatSheetOpen, setIsCheatSheetOpen] = useState(true)
   const [minSize, setMinSize] = useState(5)
@@ -67,7 +67,7 @@ const CodeMode: React.FC = () => {
         <Tabs
           className='h-full'
           defaultValue="EDITOR"
-          onValueChange={() => updateFileContent(currentFile, fileContent)}
+          onValueChange={() => updateFileContent(activeFile, fileContent)}
         >
           <TabsList>
             <TabsTrigger value="EDITOR">Editor</TabsTrigger>

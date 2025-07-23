@@ -4,6 +4,7 @@ import React, { useEffect, useRef, useState } from 'react'
 import type { editor as MonacoEditor, IDisposable, Uri as MonacoUri } from 'monaco-editor'
 import { Tabs, TabsList, TabsTrigger } from '@radix-ui/react-tabs'
 import { cn } from '@/lib/utils'
+import { useNavigate, useParams } from 'react-router'
 
 const MODEL_PATH = "file:///main-editor-content.js"
 
@@ -17,9 +18,11 @@ interface InternalMonacoModel extends MonacoEditor.ITextModel {
 }
 
 const CodeEditor: React.FC = () => {
-    const { files, updateFileContent, currentFile, changeCurrentFile, toggleMode, settings } = useSimulatorStore()
-    const fileContent = files[currentFile]
+    const { files, updateFileContent, activeFile, changeCurrentFile, toggleMode, settings } = useSimulatorStore()
+    const fileContent = files[activeFile]
     const [unsavedFiles, setUnsavedFiles] = useState<Set<string>>(new Set())
+    const navigate = useNavigate()
+    const { exampleId } = useParams()
 
     const editorRef = useRef<MonacoEditor.IStandaloneCodeEditor | null>(null)
     const modelSnapshotRef = useRef<unknown>(null)
@@ -105,7 +108,7 @@ const CodeEditor: React.FC = () => {
             const changeListener = model.onDidChangeContent(() => {
                 saveModelSnapshot()
                 // Mark current file as unsaved when content changes
-                setUnsavedFiles(prev => new Set(prev).add(currentFile))
+                setUnsavedFiles(prev => new Set(prev).add(activeFile))
             })
             disposablesRef.current.push(changeListener)
 
@@ -140,13 +143,13 @@ const CodeEditor: React.FC = () => {
                 run: (edt) => {
                     const currentModel = edt.getModel()
                     if (currentModel) {
-                        const newFiles = { ...files, [currentFile]: currentModel.getValue() }
+                        const newFiles = { ...files, [activeFile]: currentModel.getValue() }
                         localStorage.setItem('simulatorFiles', JSON.stringify(newFiles))
 
                         // Remove current file from unsaved files after saving
                         setUnsavedFiles(prev => {
                             const updated = new Set(prev)
-                            updated.delete(currentFile)
+                            updated.delete(activeFile)
                             return updated
                         })
                     }
@@ -170,10 +173,15 @@ const CodeEditor: React.FC = () => {
 
     const handleEditorChange = (value: string | undefined) => {
         if (settings.autoSave) {
-            const newFiles = { ...files, [currentFile]: value || '' }
+            const newFiles = { ...files, [activeFile]: value || '' }
             localStorage.setItem('simulatorFiles', JSON.stringify(newFiles))
         }
-        updateFileContent(currentFile, value || '')
+        updateFileContent(activeFile, value || '')
+
+        // Check if we're in example mode and haven't redirected yet
+        if (exampleId) {
+            navigate('/', { replace: true })
+        }
     }
 
     useEffect(() => {
@@ -199,12 +207,12 @@ const CodeEditor: React.FC = () => {
         <div className="flex flex-col h-full">
             <Tabs
                 className='flex-none bg-gray-100'
-                defaultValue={currentFile}
+                defaultValue={activeFile}
             >
                 <TabsList>
                     {Object.keys(files).map((file) => (
                         <TabsTrigger
-                            className={cn(currentFile === file && 'bg-gray-50', 'px-4 py-2')}
+                            className={cn(activeFile === file && 'bg-gray-50', 'px-4 py-2')}
                             key={file}
                             value={file}
                             onClick={() => changeCurrentFile(file)}

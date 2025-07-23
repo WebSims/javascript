@@ -1,0 +1,9 @@
+const g = true && false && true
+const h = true || false
+const i = g && false || h
+const j = g || false && h
+const a = 2
+const b = a + 1
+const c = (a + 1) + (b + 2)
+const d = (a + 1) + (b + 2) + (c + 3)
+const e = (a + 1) * (b + 2) + (c - 3) / (d + 4)

@@ -3,7 +3,8 @@ import React from 'react'
 
 import { useResponsive } from '@/hooks/useResponsive'
 import { useSimulatorStore } from '@/hooks/useSimulatorStore'
-import { MenuIcon, ChevronDownIcon, PlayIcon, CodeIcon } from 'lucide-react'
+import { MenuIcon, PlayIcon, CodeIcon } from 'lucide-react'
+import ExamplesMenu from '@/components/simulator/examples/ExamplesMenu'
 
 interface MainLayoutProps {
     children: React.ReactNode
@@ -28,10 +29,7 @@ const MainLayout: React.FC<MainLayoutProps> = ({ children }) => {
                     </div>
                     {isDesktop && mode === 'CODE' && (
                         <nav className='flex items-center gap-2'>
-                            example drop dropdown
-                            <Button variant='ghost' size='icon' aria-label="Show examples">
-                                <ChevronDownIcon className='w-4 h-4' />
-                            </Button>
+                            <ExamplesMenu />
                         </nav>
                     )}
                 </div>

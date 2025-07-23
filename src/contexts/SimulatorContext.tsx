@@ -13,9 +13,11 @@ type SimulatorContextType = {
     mode: 'CODE' | 'EXECUTION'
     toggleMode: () => void
     files: Record<string, string>
-    currentFile: string
+    activeFile: string
     changeCurrentFile: (filename: string) => void
     updateFileContent: (filename: string, newContent: string) => void
+    setFiles: (files: Record<string, string>) => void
+    initializeFiles: (files: Record<string, string>) => void
     astOfCode: ESTree.Program | ts.SourceFile | null
     astError: string | null
     steps: ExecStep[]
@@ -40,7 +42,7 @@ const SimulatorContext = createContext<SimulatorContextType | undefined>(undefin
 export const SimulatorProvider = ({ children }: { children: React.ReactNode }) => {
     const [mode, setMode] = useState<'CODE' | 'EXECUTION'>('CODE')
     const [files, setFiles] = useState<Record<string, string>>({ "main.js": "" })
-    const [currentFile, setCurrentFile] = useState("main.js")
+    const [activeFile, setActiveFile] = useState("main.js")
     const [astOfCode, setAstOfCode] = useState<ESTree.Program | ts.SourceFile | null>(null)
     const [astError, setAstError] = useState<string | null>(null)
     const [steps, setSteps] = useState<ExecStep[]>([])
@@ -56,16 +58,6 @@ export const SimulatorProvider = ({ children }: { children: React.ReactNode }) =
     const cheatSheetRef = useRef<HTMLDivElement>(null)
 
     useEffect(() => {
-        const savedFilesString = localStorage.getItem('simulatorFiles')
-        const savedFiles = JSON.parse(savedFilesString || '{}')
-        const currentFile = Object.keys(savedFiles)[0] || "main.js"
-        setFiles(savedFiles)
-        setCurrentFile(currentFile)
-        updateFileContent(currentFile, savedFiles[currentFile])
-        // eslint-disable-next-line react-hooks/exhaustive-deps
-    }, [])
-
-    useEffect(() => {
         const cleanup = cheatSheetHighlighter(codeAreaRef, cheatSheetRef, setHighlightedId)
         return cleanup
     }, [astOfCode])
@@ -78,12 +70,9 @@ export const SimulatorProvider = ({ children }: { children: React.ReactNode }) =
 
     const totalSteps = steps.length
 
-    const updateFileContent = (filename: string, newContent: string) => {
-        const newFiles = { ...files, [filename]: newContent }
-        setFiles(newFiles)
+    const parseAndSetAst = (code: string) => {
         try {
-            const ast = astOf(newFiles[filename])
-
+            const ast = astOf(code)
             if (ast) {
                 setAstError(null)
                 setAstOfCode(ast)
@@ -91,6 +80,20 @@ export const SimulatorProvider = ({ children }: { children: React.ReactNode }) =
         } catch (error) {
             setAstError(error instanceof Error ? error.message : 'Unknown error')
         }
+    }
+
+    const initializeFiles = (files: Record<string, string>) => {
+        setFiles(files)
+        const fileNames = Object.keys(files)
+        const mainFile = fileNames.find(filename => filename.includes('main.js')) || fileNames[0]
+        setActiveFile(mainFile)
+        parseAndSetAst(files[mainFile])
+    }
+
+    const updateFileContent = (filename: string, newContent: string) => {
+        const newFiles = { ...files, [filename]: newContent }
+        setFiles(newFiles)
+        parseAndSetAst(newContent)
     }
 
     const runSimulator = () => {
@@ -170,7 +173,7 @@ export const SimulatorProvider = ({ children }: { children: React.ReactNode }) =
     }
 
     const changeCurrentFile = (filename: string) => {
-        setCurrentFile(filename)
+        setActiveFile(filename)
     }
 
     return (
@@ -179,9 +182,11 @@ export const SimulatorProvider = ({ children }: { children: React.ReactNode }) =
                 mode,
                 toggleMode,
                 files,
-                currentFile,
+                activeFile,
                 changeCurrentFile,
                 updateFileContent,
+                setFiles,
+                initializeFiles,
                 astOfCode,
                 astError,
                 steps,
