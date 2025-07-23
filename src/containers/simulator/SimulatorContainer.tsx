@@ -34,7 +34,7 @@ const SimulatorContainer: React.FC = () => {
       if (exampleFiles) {
         initializeFiles(exampleFiles)
       } else {
-        initializeFiles({ 'new/main.js': '' })
+        initializeFiles({ 'main.js': '' })
       }
     } else {
       const savedFilesString = localStorage.getItem('simulatorFiles')
@@ -43,7 +43,7 @@ const SimulatorContainer: React.FC = () => {
       if (savedFiles) {
         initializeFiles(savedFiles)
       } else {
-        initializeFiles({ 'new/main.js': '' })
+        initializeFiles({ 'main.js': '' })
       }
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
