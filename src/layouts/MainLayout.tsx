@@ -36,7 +36,7 @@ const MainLayout: React.FC<MainLayoutProps> = ({ children }) => {
                     </Button>
                 </div>
 
-                <div className='flex w-full items-center gap-2 overflow-hidden'>
+                <div className='flex w-full items-center gap-4 overflow-hidden'>
                     <div
                         className='font-bold lg:text-lg cursor-pointer hover:text-blue-600 transition-colors'
                         onClick={handleHomeClick}
@@ -70,7 +70,9 @@ const MainLayout: React.FC<MainLayoutProps> = ({ children }) => {
                             ) : (
                                 <PlayIcon className="w-4 h-4 mr-1" fill="currentColor" />
                             )}
-                            {mode === 'EXECUTION' ? 'Code' : <span className="font-bold">RUN</span>}
+                            <span>
+                                {mode === 'EXECUTION' ? 'Code' : 'Run'}
+                            </span>
                         </Button>
                     </div>
                 </div>
