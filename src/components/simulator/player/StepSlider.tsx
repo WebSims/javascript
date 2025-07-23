@@ -403,7 +403,7 @@ const StepSlider: React.FC = () => {
     if (!currentStep) return null
 
     return (
-        <div className="relative flex h-10 lg:h-14 w-full items-center">
+        <div className="relative flex h-10 lg:h-24 lg:pb-8 w-full items-center">
             {/* Extended hover area */}
             <div
                 className="absolute inset-0 w-full h-full"
