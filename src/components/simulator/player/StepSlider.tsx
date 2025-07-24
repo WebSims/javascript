@@ -17,7 +17,7 @@ const STEP_CONFIG: Record<ExecStepType, {
     [EXEC_STEP_TYPE.INITIAL]: {
         label: 'S',
         className: 'bg-white',
-        tooltip: 'Execution Script',
+        tooltip: 'Executing Script',
     },
     [EXEC_STEP_TYPE.PUSH_SCOPE]: {
         label: (step: ExecStep) => {
