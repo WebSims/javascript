@@ -15,9 +15,9 @@ const STEP_CONFIG: Record<ExecStepType, {
     tooltip: string
 }> = {
     [EXEC_STEP_TYPE.INITIAL]: {
-        label: 'I',
+        label: 'S',
         className: 'bg-white',
-        tooltip: 'Initial',
+        tooltip: 'Execution Script',
     },
     [EXEC_STEP_TYPE.PUSH_SCOPE]: {
         label: (step: ExecStep) => {
@@ -47,27 +47,27 @@ const STEP_CONFIG: Record<ExecStepType, {
             }
             return 'bg-gray-100'
         },
-        tooltip: 'Pop Scope',
+        tooltip: 'Remove Scope',
     },
     [EXEC_STEP_TYPE.EXECUTING]: {
         label: 'S',
         className: 'bg-yellow-200',
-        tooltip: 'Executing',
+        tooltip: 'Executing Statement',
     },
     [EXEC_STEP_TYPE.EXECUTED]: {
         label: ';',
         className: 'bg-yellow-200',
-        tooltip: 'Executed',
+        tooltip: 'Statement Executed',
     },
     [EXEC_STEP_TYPE.EVALUATING]: {
         label: '(',
         className: 'bg-green-100',
-        tooltip: 'Evaluating',
+        tooltip: 'Evaluating Expression',
     },
     [EXEC_STEP_TYPE.EVALUATED]: {
         label: ')',
         className: 'bg-green-100',
-        tooltip: 'Evaluated',
+        tooltip: 'Expression Evaluated',
     },
     [EXEC_STEP_TYPE.FUNCTION_CALL]: {
         label: 'F',
@@ -453,7 +453,7 @@ const StepSlider: React.FC = () => {
                 })}
             </div>
 
-            {/* Mobile: Fixed tooltip always visible */}
+            {/* Mobile */}
             {isMobile && currentStep && (() => {
                 const stepConfig = STEP_CONFIG[currentStep.type]
                 const stepLabel = typeof stepConfig.label === 'function'
@@ -466,19 +466,19 @@ const StepSlider: React.FC = () => {
                 const stepNumber = `${currentStep.index + 1}/${steps.length}`
 
                 return (
-                    <div className="absolute top-10 left-1/4 pl-3 text-sm flex items-center gap-1 p-0.5">
+                    <div className="absolute top-10 left-1/4 p-0.5 pl-3 text-sm w-3/4 flex items-center gap-1">
                         {stepLabel && stepLabel.trim() && (
                             <span className={cn("inline-flex items-center justify-center w-6 h-6 text-gray-800 text-xs font-bold rounded-full", stepClassName)}>
                                 {stepLabel}
                             </span>
                         )}
-                        <span className="text-gray-700">{stepType}</span>
+                        <span className="flex-1 text-gray-700">{stepType}</span>
                         <span className="text-xs opacity-75">{stepNumber}</span>
                     </div>
                 )
             })()}
 
-            {/* Desktop: Tooltip that follows mouse on hover */}
+            {/* Desktop */}
             {!isMobile && isTooltipOpen && (() => {
                 const containerRect = containerElement?.getBoundingClientRect()
                 if (!containerRect) return null
