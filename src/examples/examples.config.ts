@@ -1,8 +1,15 @@
+export const examplesCategories = [
+    'basics',
+    'functions',
+    'classes',
+    'advanced'
+] as const
+
 export interface ExampleConfig {
     id: string
     title: string
     description: string
-    category: 'basics' | 'functions' | 'classes' | 'advanced'
+    category: (typeof examplesCategories)[number]
     active: boolean
 }
 

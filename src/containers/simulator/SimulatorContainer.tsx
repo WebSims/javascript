@@ -1,12 +1,12 @@
 import React, { useEffect } from 'react'
 import { useNavigate, useParams } from 'react-router'
-import { useHotkeys } from 'react-hotkeys-hook'
 
 import CodeMode from './components/CodeMode'
 import MainLayout from '@/layouts/MainLayout'
 import ExecutionMode from './components/ExecutionMode'
 
 import { useSimulatorStore } from '@/hooks/useSimulatorStore'
+import useSimulatorHotkeys from '@/hooks/useSimulatorHotkeys'
 
 const exampleFiles = import.meta.glob('/src/examples/**', { query: '?raw', import: 'default', eager: true })
 
@@ -50,48 +50,14 @@ const SimulatorContainer: React.FC = () => {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [mode, exampleId])
 
-  useHotkeys(
-    'mod+s',
-    (event) => {
-      event.preventDefault()
-      if (files && Object.keys(files).length > 0) {
-        localStorage.setItem('simulatorFiles', JSON.stringify(files))
-        console.log('Files saved to localStorage!')
-        window.dispatchEvent(new CustomEvent('filesaved', {
-          detail: { file: activeFile }
-        }))
-        if (exampleId) {
-          navigate('/', { replace: true })
-        }
-      }
-    },
-    { preventDefault: true },
-    [files, activeFile]
-  )
-
-  useHotkeys(
-    'mod+r',
-    (event) => {
-      event.preventDefault()
-      if (mode !== 'EXECUTION') {
-        toggleMode()
-      }
-    },
-    { preventDefault: true },
-    [mode, toggleMode]
-  )
-
-  useHotkeys(
-    'mod+e',
-    (event) => {
-      event.preventDefault()
-      if (mode !== 'CODE') {
-        toggleMode()
-      }
-    },
-    { preventDefault: true },
-    [mode, toggleMode]
-  )
+  useSimulatorHotkeys({
+    files,
+    activeFile,
+    mode,
+    toggleMode,
+    exampleId,
+    navigate
+  })
 
   return (
     <MainLayout>

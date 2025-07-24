@@ -2,6 +2,7 @@ import { useSimulatorStore } from '@/hooks/useSimulatorStore'
 import { Editor, OnMount } from '@monaco-editor/react'
 import React, { useEffect, useRef, useState } from 'react'
 import type { editor as MonacoEditor, IDisposable, Uri as MonacoUri } from 'monaco-editor'
+import type * as MonacoType from 'monaco-editor'
 import { Tabs, TabsList, TabsTrigger } from '@radix-ui/react-tabs'
 import { cn } from '@/lib/utils'
 import { useNavigate, useParams } from 'react-router'
@@ -25,9 +26,16 @@ const CodeEditor: React.FC = () => {
     const { exampleId } = useParams()
 
     const editorRef = useRef<MonacoEditor.IStandaloneCodeEditor | null>(null)
+    const monacoRef = useRef<typeof MonacoType | null>(null)
     const modelSnapshotRef = useRef<unknown>(null)
     const disposablesRef = useRef<IDisposable[]>([])
     const [isEditorReady, setIsEditorReady] = useState(false)
+
+    // Add refs for files and activeFile to avoid stale closure in Monaco actions
+    const filesRef = useRef(files)
+    const activeFileRef = useRef(activeFile)
+    useEffect(() => { filesRef.current = files }, [files])
+    useEffect(() => { activeFileRef.current = activeFile }, [activeFile])
 
     // Load saved files from localStorage to compare with current files
     useEffect(() => {
@@ -94,8 +102,9 @@ const CodeEditor: React.FC = () => {
         }
     }
 
-    const handleEditorDidMount: OnMount = (editor) => {
+    const handleEditorDidMount: OnMount = (editor, monaco) => {
         editorRef.current = editor
+        monacoRef.current = monaco
         setIsEditorReady(true)
 
         restoreModelSnapshot()
@@ -108,7 +117,7 @@ const CodeEditor: React.FC = () => {
             const changeListener = model.onDidChangeContent(() => {
                 saveModelSnapshot()
                 // Mark current file as unsaved when content changes
-                setUnsavedFiles(prev => new Set(prev).add(activeFile))
+                setUnsavedFiles(prev => new Set(prev).add(activeFileRef.current))
             })
             disposablesRef.current.push(changeListener)
 
@@ -117,7 +126,6 @@ const CodeEditor: React.FC = () => {
                 id: 'selectAll',
                 label: 'Select All',
                 keybindings: [
-                    // @ts-expect-error monaco is a global variable
                     monaco.KeyMod.CtrlCmd | monaco.KeyCode.KeyA,
                 ],
                 contextMenuGroupId: 'selection',
@@ -135,7 +143,6 @@ const CodeEditor: React.FC = () => {
                 id: 'saveFile',
                 label: 'Save File',
                 keybindings: [
-                    // @ts-expect-error monaco is a global variable
                     monaco.KeyMod.CtrlCmd | monaco.KeyCode.KeyS,
                 ],
                 contextMenuGroupId: 'navigation',
@@ -143,13 +150,13 @@ const CodeEditor: React.FC = () => {
                 run: (edt) => {
                     const currentModel = edt.getModel()
                     if (currentModel) {
-                        const newFiles = { ...files, [activeFile]: currentModel.getValue() }
+                        const newFiles = { ...filesRef.current, [activeFileRef.current]: currentModel.getValue() }
                         localStorage.setItem('simulatorFiles', JSON.stringify(newFiles))
 
                         // Remove current file from unsaved files after saving
                         setUnsavedFiles(prev => {
                             const updated = new Set(prev)
-                            updated.delete(activeFile)
+                            updated.delete(activeFileRef.current)
                             return updated
                         })
                     }
@@ -161,7 +168,6 @@ const CodeEditor: React.FC = () => {
                 id: 'toggleExecutionMode',
                 label: 'Change to Execution Mode',
                 keybindings: [
-                    // @ts-expect-error monaco is a global variable
                     monaco.KeyMod.CtrlCmd | monaco.KeyCode.KeyR,
                 ],
                 run: () => {
