@@ -58,6 +58,12 @@ const ExamplesMenu: React.FC = () => {
                                 value={example.id}
                                 disabled={!example.active}
                                 className={!example.active ? 'opacity-50 cursor-not-allowed' : ''}
+                                onMouseDown={(event: React.MouseEvent<HTMLDivElement>) => {
+                                    if (event.button === 1 && example.active) {
+                                        event.preventDefault()
+                                        window.open(`/examples/${example.id}`, '_blank', 'noopener')
+                                    }
+                                }}
                             >
                                 <div className="flex flex-col items-start">
                                     <div className={`font-medium text-sm ${!example.active ? 'text-gray-400' : 'text-gray-900'}`}>
