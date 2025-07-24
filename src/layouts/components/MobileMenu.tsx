@@ -2,7 +2,7 @@ import React from 'react'
 import { useNavigate, useParams } from 'react-router'
 import { XIcon, BookOpenIcon } from 'lucide-react'
 import { Button } from '@/components/ui/button'
-import { examplesConfig, type ExampleConfig, getExampleById } from '@/examples/examples.config'
+import { examplesConfig, type ExampleConfig, getExampleById, examplesCategories } from '@/examples/examples.config'
 
 interface MobileMenuProps {
     isOpen: boolean
@@ -44,12 +44,10 @@ const MobileMenu: React.FC<MobileMenuProps> = ({ isOpen, onClose, mode }) => {
         return acc
     }, {} as Record<string, ExampleConfig[]>)
 
-    const categoryLabels = {
-        basics: 'Basics',
-        functions: 'Functions',
-        classes: 'Classes',
-        advanced: 'Advanced'
-    }
+    const categoryLabels = examplesCategories.reduce((acc, category) => {
+        acc[category] = category.charAt(0).toUpperCase() + category.slice(1)
+        return acc
+    }, {} as Record<(typeof examplesCategories)[number], string>)
 
     return (
         <>
