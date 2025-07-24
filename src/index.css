@@ -235,3 +235,9 @@
 .error-thrown {
   @apply bg-red-100 dark:bg-red-900/30 rounded;
 }
+
+@layer utilities {
+  [data-orientation='horizontal'] > span[style] {
+    @apply transition-all duration-75 ease-in-out;
+  }
+}
