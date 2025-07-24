@@ -403,10 +403,10 @@ const StepSlider: React.FC = () => {
     if (!currentStep) return null
 
     return (
-        <div className="relative flex h-10 lg:h-24 lg:pb-8 w-full items-center">
+        <div className="relative flex h-10 lg:h-24 lg:pb-6 items-center w-full">
             {/* Extended hover area */}
             <div
-                className="absolute inset-0 w-full h-full"
+                className="absolute z-20 left-0 lg:left-32 right-0 inset-0 h-full"
                 onMouseDown={handleMouseDown}
                 onTouchStart={handleTouchStart}
                 onMouseMove={handleContainerMouseMove}
@@ -418,7 +418,7 @@ const StepSlider: React.FC = () => {
             <div
                 ref={setRefs}
                 className={cn(
-                    "absolute flex w-full overflow-hidden rounded-full px-2.5 transition-all duration-200 ease-in-out",
+                    "absolute left-0 lg:left-32 right-0 flex overflow-hidden rounded-full px-2.5 transition-all duration-200 ease-in-out",
                     isTooltipOpen ? "h-3" : "h-2.5"
                 )}
                 style={{ pointerEvents: 'none' }}
@@ -453,7 +453,7 @@ const StepSlider: React.FC = () => {
                 })}
             </div>
 
-            {/* Mobile */}
+            {/* Mobile Tooltip */}
             {isMobile && currentStep && (() => {
                 const stepConfig = STEP_CONFIG[currentStep.type]
                 const stepLabel = typeof stepConfig.label === 'function'
@@ -478,7 +478,7 @@ const StepSlider: React.FC = () => {
                 )
             })()}
 
-            {/* Desktop */}
+            {/* Desktop Tooltip */}
             {!isMobile && isTooltipOpen && (() => {
                 const containerRect = containerElement?.getBoundingClientRect()
                 if (!containerRect) return null
@@ -566,11 +566,21 @@ const StepSlider: React.FC = () => {
                 )
             })()}
 
+            {/* Desktop Description */}
+            {!isMobile && (() => {
+                return (
+                    <div className="absolute z-10 bottom-4 right-0 left-0 px-0.5 text-sm flex items-center gap-1">
+                        <span className="flex-1 text-gray-700">Step description here!</span>
+                        <span className="text-xs opacity-75">Step {currentStep.index + 1} of {steps.length}</span>
+                    </div>
+                )
+            })()}
+
             <div
                 onMouseMove={handleContainerMouseMove}
                 onMouseEnter={handleContainerMouseEnter}
                 onMouseLeave={handleContainerMouseLeave}
-                className="w-full"
+                className="w-full lg:ml-32"
             >
                 <Slider
                     value={[currentStep.index]}

@@ -24,8 +24,8 @@ const PlayerBar = () => {
     }
 
     return (
-        <div className="w-full flex flex-col-reverse lg:flex-row lg:items-center overflow-hidden border-t border-slate-200 px-1 py-2 lg:py-0 lg:px-2.5 bg-slate-50">
-            <div className="flex items-center gap-2 justify-start lg:pb-8">
+        <div className="w-full flex flex-col-reverse lg:relative overflow-hidden border-t border-slate-200 px-1 py-2 lg:py-0 lg:px-2.5 bg-slate-50">
+            <div className="lg:absolute z-30 top-2 flex items-center gap-2 justify-start">
                 <TooltipProvider>
                     <Tooltip>
                         <TooltipTrigger asChild>
