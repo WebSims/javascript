@@ -428,11 +428,16 @@ const StepSlider: React.FC = () => {
                     }}
                 >
                     {stepsWithDepth.map((step, index) => {
-                        const lightness = Math.min(90, 20 + step.depth * 10)
+                        // For POP_SCOPE steps, use the next step's color
+                        const targetStep = step.type === EXEC_STEP_TYPE.POP_SCOPE && index < stepsWithDepth.length - 1
+                            ? stepsWithDepth[index + 1]
+                            : step
+
+                        const lightness = Math.min(90, 20 + targetStep.depth * 10)
 
                         let backgroundColor: string
                         // Use blue color range when inside a function scope
-                        if (step.inFunctionScope) {
+                        if (targetStep.inFunctionScope) {
                             backgroundColor = `hsl(50, 50%, ${lightness}%)`
                         } else {
                             // Use default grayscale
