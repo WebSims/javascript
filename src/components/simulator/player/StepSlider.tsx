@@ -133,6 +133,7 @@ const StepSlider: React.FC = () => {
             inFunctionScopes.push(inFunctionScope)
             functionScopeDepths.push(currentFunctionScopeDepth)
         }
+        console.log({ depths, inFunctionScopes, functionScopeDepths, maxDepth, maxFunctionScopeDepth })
         return { depths, inFunctionScopes, functionScopeDepths, maxDepth, maxFunctionScopeDepth }
     }, [steps])
 
@@ -439,7 +440,7 @@ const StepSlider: React.FC = () => {
                 })()}
 
                 {/* Desktop Tooltip */}
-                {!isMobile && isTooltipOpen && (() => {
+                {true && (() => {
                     const containerRect = containerElement?.getBoundingClientRect()
                     if (!containerRect) return null
                     const stepIndex = isDragging ? currentStep.index : (hoveredStepIndex !== null ? hoveredStepIndex : currentStep.index)
