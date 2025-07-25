@@ -89,42 +89,51 @@ const StepSlider: React.FC = () => {
     const [containerElement, setContainerElement] = useState<HTMLDivElement | null>(null)
     const [hoveredStepIndex, setHoveredStepIndex] = useState<number | null>(null)
     const [isTooltipOpen, setIsTooltipOpen] = useState(false)
-    const [mousePosition, setMousePosition] = useState({ x: 0, y: 0 })
 
     const setRefs = useCallback((el: HTMLDivElement | null) => {
         stepsContainerRef(el)
         setContainerElement(el)
     }, [stepsContainerRef])
 
-    const stepsWithDepth = useMemo(() => {
-        const newSteps: (ExecStep & { depth: number; inFunctionScope: boolean })[] = []
+    const depthInfo = useMemo(() => {
+        const depths: number[] = []
+        const inFunctionScopes: boolean[] = []
+        const functionScopeDepths: number[] = []
         let depth = 0
         let functionScopeDepth = -1 // Track the depth at which function scope starts
+        let maxDepth = 0
+        let maxFunctionScopeDepth = 0
 
         for (const step of steps) {
             let inFunctionScope = functionScopeDepth >= 0 && depth >= functionScopeDepth
+            let currentFunctionScopeDepth = functionScopeDepth >= 0 ? depth - functionScopeDepth + 1 : 0
 
             if (step.type === EXEC_STEP_TYPE.PUSH_SCOPE) {
                 depth++
+                maxDepth = Math.max(maxDepth, depth)
+
                 // Check if this is a function scope
                 if (step.memoryChange.type === "push_scope" &&
                     step.memoryChange.kind === "function") {
                     functionScopeDepth = depth
                     inFunctionScope = true
+                    currentFunctionScopeDepth = 1
+                    maxFunctionScopeDepth = Math.max(maxFunctionScopeDepth, functionScopeDepth)
                 }
-                newSteps.push({ ...step, depth, inFunctionScope })
             } else if (step.type === EXEC_STEP_TYPE.POP_SCOPE) {
                 // Check if we're popping the function scope
                 if (functionScopeDepth >= 0 && depth === functionScopeDepth) {
                     functionScopeDepth = -1 // Reset function scope tracking
+                    currentFunctionScopeDepth = 0
                 }
-                newSteps.push({ ...step, depth, inFunctionScope })
                 depth--
-            } else {
-                newSteps.push({ ...step, depth, inFunctionScope })
             }
+
+            depths.push(depth)
+            inFunctionScopes.push(inFunctionScope)
+            functionScopeDepths.push(currentFunctionScopeDepth)
         }
-        return newSteps
+        return { depths, inFunctionScopes, functionScopeDepths, maxDepth, maxFunctionScopeDepth }
     }, [steps])
 
     // Unified function to get clientX from either mouse or touch events
@@ -135,13 +144,7 @@ const StepSlider: React.FC = () => {
         return e.clientX
     }, [])
 
-    // Unified function to get clientY from either mouse or touch events
-    const getClientY = useCallback((e: React.MouseEvent | React.TouchEvent | MouseEvent | TouchEvent) => {
-        if ('touches' in e) {
-            return e.touches[0]?.clientY || e.changedTouches[0]?.clientY || 0
-        }
-        return e.clientY
-    }, [])
+
 
     const getStepFromPosition = useCallback((clientX: number) => {
         if (!containerElement || !containerSize.width) return null
@@ -160,15 +163,7 @@ const StepSlider: React.FC = () => {
         return stepIndex * stepWidth
     }, [containerSize.width, steps.length])
 
-    const updateMousePosition = useCallback((e: React.MouseEvent | React.TouchEvent | MouseEvent | TouchEvent) => {
-        if (containerElement) {
-            const rect = containerElement.getBoundingClientRect()
-            setMousePosition({
-                x: getClientX(e) - rect.left,
-                y: getClientY(e) - rect.top
-            })
-        }
-    }, [getClientX, getClientY, containerElement])
+
 
     const handleMouseDown = useCallback((e: React.MouseEvent) => {
         e.preventDefault()
@@ -180,8 +175,7 @@ const StepSlider: React.FC = () => {
             changeStep(stepIndex)
             setHoveredStepIndex(stepIndex)
         }
-        updateMousePosition(e)
-    }, [getStepFromPosition, getClientX, changeStep, updateMousePosition])
+    }, [getStepFromPosition, getClientX, changeStep])
 
     const handleTouchStart = useCallback((e: React.TouchEvent) => {
         e.preventDefault()
@@ -193,8 +187,7 @@ const StepSlider: React.FC = () => {
             changeStep(stepIndex)
             setHoveredStepIndex(stepIndex)
         }
-        updateMousePosition(e)
-    }, [getStepFromPosition, getClientX, changeStep, updateMousePosition])
+    }, [getStepFromPosition, getClientX, changeStep])
 
     // Helper to get hovered step and half
     const getHoveredStepAndHalf = useCallback((clientX: number) => {
@@ -218,14 +211,12 @@ const StepSlider: React.FC = () => {
         if (stepIndex !== null) {
             setHoveredStepIndex(stepIndex)
         }
-        updateMousePosition(e)
         setIsTooltipOpen(true)
-    }, [getHoveredStepAndHalf, getClientX, updateMousePosition])
+    }, [getHoveredStepAndHalf, getClientX])
 
-    const handleContainerMouseEnter = useCallback((e: React.MouseEvent) => {
+    const handleContainerMouseEnter = useCallback(() => {
         setIsTooltipOpen(true)
-        updateMousePosition(e)
-    }, [updateMousePosition])
+    }, [])
 
     const handleContainerMouseLeave = useCallback(() => {
         // Only hide tooltip if not dragging
@@ -234,51 +225,6 @@ const StepSlider: React.FC = () => {
             setHoveredStepIndex(null)
         }
     }, [isDragging])
-
-    // Handlers for slider thumb interactions
-    const handleSliderMouseEnter = useCallback((e: React.MouseEvent) => {
-        if (!currentStep) return
-        setIsTooltipOpen(true)
-        updateMousePosition(e)
-        // Set hovered step to current step when hovering on thumb
-        setHoveredStepIndex(currentStep.index)
-    }, [updateMousePosition, currentStep])
-
-    const handleSliderMouseLeave = useCallback(() => {
-        // Don't hide tooltip immediately, let container handle it
-        if (!isDragging) {
-            setHoveredStepIndex(null)
-        }
-    }, [isDragging])
-
-    const handleSliderMouseMove = useCallback((e: React.MouseEvent) => {
-        if (!currentStep) return
-        setIsTooltipOpen(true)
-        updateMousePosition(e)
-        // Keep current step highlighted when moving on thumb
-        setHoveredStepIndex(currentStep.index)
-
-        // If we're dragging, make sure mouse position updates
-        if (isDragging) {
-            updateMousePosition(e)
-        }
-    }, [updateMousePosition, currentStep, isDragging])
-
-    const handleSliderMouseDown = useCallback((e: React.MouseEvent) => {
-        if (!currentStep) return
-        setIsTooltipOpen(true)
-        updateMousePosition(e)
-        setHoveredStepIndex(currentStep.index)
-        setIsDragging(true) // Set dragging state when starting drag from slider handle
-    }, [updateMousePosition, currentStep])
-
-    const handleSliderPointerDown = useCallback((e: React.PointerEvent) => {
-        if (!currentStep) return
-        setIsTooltipOpen(true)
-        updateMousePosition(e)
-        setHoveredStepIndex(currentStep.index)
-        setIsDragging(true) // Set dragging state when starting drag from slider handle
-    }, [updateMousePosition, currentStep])
 
     const handleSliderValueChange = useCallback(([value]: number[]) => {
         changeStep(value)
@@ -291,9 +237,6 @@ const StepSlider: React.FC = () => {
     const handleMouseMove = useCallback((e: MouseEvent) => {
         if (!isDragging) return
 
-        // Always update mouse position during dragging
-        updateMousePosition(e)
-
         const stepIndex = getStepFromPosition(getClientX(e))
         if (stepIndex !== null) {
             changeStep(stepIndex)
@@ -302,16 +245,13 @@ const StepSlider: React.FC = () => {
 
         // Ensure tooltip stays visible during dragging
         setIsTooltipOpen(true)
-    }, [isDragging, getStepFromPosition, getClientX, changeStep, updateMousePosition])
+    }, [isDragging, getStepFromPosition, getClientX, changeStep])
 
     const handleTouchMove = useCallback((e: TouchEvent) => {
         if (!isDragging) return
 
         e.preventDefault() // Prevent scrolling while dragging
 
-        // Always update mouse position during dragging
-        updateMousePosition(e)
-
         const stepIndex = getStepFromPosition(getClientX(e))
         if (stepIndex !== null) {
             changeStep(stepIndex)
@@ -320,7 +260,7 @@ const StepSlider: React.FC = () => {
 
         // Ensure tooltip stays visible during dragging
         setIsTooltipOpen(true)
-    }, [isDragging, getStepFromPosition, getClientX, changeStep, updateMousePosition])
+    }, [isDragging, getStepFromPosition, getClientX, changeStep])
 
     const isMouseInSliderArea = useCallback((clientX: number, clientY: number) => {
         if (!containerElement) return false
@@ -355,13 +295,6 @@ const StepSlider: React.FC = () => {
     React.useEffect(() => {
         if (isDragging) {
             const handlePointerMove = (e: PointerEvent) => {
-                if (containerElement) {
-                    const rect = containerElement.getBoundingClientRect()
-                    setMousePosition({
-                        x: e.clientX - rect.left,
-                        y: e.clientY - rect.top
-                    })
-                }
                 setIsTooltipOpen(true)
                 const { stepIndex } = getHoveredStepAndHalf(e.clientX)
                 if (stepIndex !== null) {
@@ -427,17 +360,35 @@ const StepSlider: React.FC = () => {
                         transform: 'translateY(-50%)',
                     }}
                 >
-                    {stepsWithDepth.map((step, index) => {
+                    {steps.map((step, index) => {
                         // For POP_SCOPE steps, use the next step's color
-                        const targetStep = step.type === EXEC_STEP_TYPE.POP_SCOPE && index < stepsWithDepth.length - 1
-                            ? stepsWithDepth[index + 1]
-                            : step
+                        const targetIndex = step.type === EXEC_STEP_TYPE.POP_SCOPE && index < steps.length - 1
+                            ? index + 1
+                            : index
 
-                        const lightness = Math.min(90, 20 + targetStep.depth * 10)
+                        // Calculate lightness based on percentage of max depth
+                        const baseLightness = 20
+                        const maxLightness = 90
+                        const lightnessRange = maxLightness - baseLightness
+
+                        let lightness: number
+                        if (depthInfo.inFunctionScopes[targetIndex]) {
+                            // Use function scope depth percentage
+                            const functionDepthPercentage = depthInfo.maxFunctionScopeDepth > 0
+                                ? depthInfo.functionScopeDepths[targetIndex] / depthInfo.maxFunctionScopeDepth
+                                : 0
+                            lightness = baseLightness + (functionDepthPercentage * lightnessRange)
+                        } else {
+                            // Use regular depth percentage
+                            const depthPercentage = depthInfo.maxDepth > 0
+                                ? depthInfo.depths[targetIndex] / depthInfo.maxDepth
+                                : 0
+                            lightness = baseLightness + (depthPercentage * lightnessRange)
+                        }
 
                         let backgroundColor: string
                         // Use blue color range when inside a function scope
-                        if (targetStep.inFunctionScope) {
+                        if (depthInfo.inFunctionScopes[targetIndex]) {
                             backgroundColor = `hsl(50, 50%, ${lightness}%)`
                         } else {
                             // Use default grayscale
@@ -450,7 +401,7 @@ const StepSlider: React.FC = () => {
                                     {index === 0 && (<div className='w-2.5 absolute left-0 top-0 bottom-0' style={{ backgroundColor }}></div>)}
                                     <div
                                         key={step.index}
-                                        data-depth={step.depth}
+                                        data-depth={depthInfo.depths[index]}
                                         className='flex-1 h-full'
                                         style={{ backgroundColor }}
                                     />
