@@ -190,7 +190,7 @@ const StepSlider: React.FC = () => {
         return baseX
     })()
 
-    const animatedTooltipX = useSpringFollower(tooltipTargetX, { lagMs: 200, snapEps: 10 })
+    const animatedTooltipX = useSpringFollower(tooltipTargetX, { lagMs: 150, snapEps: TOOLTIP_WIDTH })
 
     // Unified pointer event handler for element actions
     const handlePointer = useCallback((e: React.PointerEvent) => {
