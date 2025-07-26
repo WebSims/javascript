@@ -277,7 +277,7 @@ const StepSlider: React.FC = () => {
                 <div
                     ref={setRefs}
                     className={cn(
-                        "absolute left-0 right-0 top-3 lg:top-7 flex overflow-hidden rounded-full px-2.5 transition-all duration-75 ease-in-out",
+                        "absolute left-0 right-0 top-3 lg:top-7 flex overflow-hidden rounded-full px-2.5",
                         isTooltipOpen ? "h-2.5" : "h-2"
                     )}
                     style={{
@@ -413,7 +413,7 @@ const StepSlider: React.FC = () => {
                     }
                     return (
                         <div
-                            className="fixed rounded-md bg-gray-900 px-3 py-2 text-sm text-white shadow-lg pointer-events-none border border-gray-700 z-50 transition-[left] duration-75 ease-in-out"
+                            className="fixed rounded-md bg-gray-900 px-3 py-2 text-sm text-white shadow-lg pointer-events-none border border-gray-700 z-50"
                             style={{
                                 left,
                                 top: containerRect.top - 55,
@@ -432,7 +432,7 @@ const StepSlider: React.FC = () => {
                             </div>
                             {/* Arrow pointing down */}
                             <div
-                                className="absolute top-full border-l-[9px] border-r-[9px] border-t-[9px] border-l-transparent border-r-transparent border-t-gray-900 transition-transform duration-75 ease-in-out"
+                                className="absolute top-full border-l-[9px] border-r-[9px] border-t-[9px] border-l-transparent border-r-transparent border-t-gray-900"
                                 style={{
                                     left: arrowLeft,
                                     transform: arrowTransform,
@@ -451,9 +451,6 @@ const StepSlider: React.FC = () => {
                     className={cn(
                         'pointer-events-none w-full absolute left-0 right-0 top-3 lg:top-7',
                         isTooltipOpen ? '[&_[data-orientation=horizontal]]:h-2.5' : '[&_[data-orientation=horizontal]]:h-2',
-                        '[&_[data-orientation=horizontal]]:transition-all',
-                        '[&_[data-orientation=horizontal]]:duration-75',
-                        '[&_[data-orientation=horizontal]]:ease-in-out',
                         // Enable pointer events and add hover styles for the thumb
                         '[&_[role=slider]]:pointer-events-auto',
                         isDragging ? '[&_[role=slider]]:cursor-grabbing' : '[&_[role=slider]]:cursor-pointer',
