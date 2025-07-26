@@ -190,7 +190,7 @@ const CodeEditor: React.FC = () => {
                             value={file}
                             onClick={() => changeCurrentFile(file)}
                         >
-                            {file}
+                            {file.split('/')[0] === 'src' ? file.split('/')[1] : file.split('/')[0] + '.js'}
                             {!exampleId && (
                                 <span className="inline-block ml-2 w-2 h-2 bg-blue-500 rounded-full" />
                             )}

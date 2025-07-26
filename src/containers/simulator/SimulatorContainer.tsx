@@ -7,6 +7,7 @@ import ExecutionMode from './components/ExecutionMode'
 
 import { useSimulatorStore } from '@/hooks/useSimulatorStore'
 import useSimulatorHotkeys from '@/hooks/useSimulatorHotkeys'
+import { isEmpty } from 'lodash'
 
 const exampleFiles = import.meta.glob('/src/examples/**', { query: '?raw', import: 'default', eager: true })
 
@@ -35,16 +36,16 @@ const SimulatorContainer: React.FC = () => {
       if (exampleFiles) {
         initializeFiles(exampleFiles)
       } else {
-        initializeFiles({ 'main.js': '' })
+        initializeFiles({ 'src/main.js': '' })
       }
     } else {
       const savedFilesString = localStorage.getItem('simulatorFiles')
       const savedFiles = JSON.parse(savedFilesString || '{}')
 
-      if (savedFiles) {
+      if (savedFiles && !isEmpty(savedFiles)) {
         initializeFiles(savedFiles)
       } else {
-        initializeFiles({ 'main.js': '' })
+        initializeFiles({ 'src/main.js': '' })
       }
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
