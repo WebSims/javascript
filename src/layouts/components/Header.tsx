@@ -57,7 +57,7 @@ const Header: React.FC = () => {
                 >
                     WebSims.org/js
                 </div>
-                {isDesktop && mode === 'CODE' && (
+                {isDesktop && (
                     <nav className='flex items-center gap-2'>
                         <ExamplesMenu />
                     </nav>

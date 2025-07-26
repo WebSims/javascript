@@ -62,12 +62,6 @@ export const SimulatorProvider = ({ children }: { children: React.ReactNode }) =
         return cleanup
     }, [astOfCode])
 
-    useEffect(() => {
-        if (mode === 'EXECUTION') {
-            runSimulator()
-        }
-    }, [mode])
-
     const totalSteps = steps.length
 
     const parseAndSetAst = (code: string) => {
@@ -76,6 +70,9 @@ export const SimulatorProvider = ({ children }: { children: React.ReactNode }) =
             if (ast) {
                 setAstError(null)
                 setAstOfCode(ast)
+                if (mode === 'EXECUTION') {
+                    runSimulator(ast)
+                }
             }
         } catch (error) {
             setAstError(error instanceof Error ? error.message : 'Unknown error')
@@ -96,7 +93,7 @@ export const SimulatorProvider = ({ children }: { children: React.ReactNode }) =
         parseAndSetAst(newContent)
     }
 
-    const runSimulator = () => {
+    const runSimulator = (astOfCode: ESTree.Program) => {
         try {
             const simulator = new Simulator(astOfCode as ESTree.Program)
             const steps = simulator.run()
