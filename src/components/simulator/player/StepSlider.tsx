@@ -489,10 +489,10 @@ const StepSlider: React.FC = () => {
                         '[&_[role=slider]]:hover:scale-125',
                         '[&_[role=slider]]:hover:shadow-lg',
                         // Glass-like effect for filled portion with enhanced contrast
-                        '[&_[data-orientation=horizontal]_span[data-orientation=horizontal]]:bg-white/50',
+                        '[&_[data-orientation=horizontal]_span[data-orientation=horizontal]]:bg-transparent',
                         // current step is lest than 50%
-                        '[&_[data-orientation=horizontal]_span[data-orientation=horizontal]]:rounded-full',
-                        currentStep.index < steps.length / 2 ? '[&_[data-orientation=horizontal]_span[data-orientation=horizontal]]:-mr-[7px]' : '',
+                        // '[&_[data-orientation=horizontal]_span[data-orientation=horizontal]]:rounded-full',
+                        // currentStep.index < steps.length / 2 ? '[&_[data-orientation=horizontal]_span[data-orientation=horizontal]]:-mr-[7px]' : '',
                     )}
                     style={{
                         transform: 'translateY(-50%)',
