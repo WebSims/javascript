@@ -21,7 +21,6 @@ interface InternalMonacoModel extends MonacoEditor.ITextModel {
 const CodeEditor: React.FC = () => {
     const { files, updateFileContent, activeFile, changeCurrentFile, toggleMode, settings } = useSimulatorStore()
     const fileContent = files[activeFile]
-    const [unsavedFiles, setUnsavedFiles] = useState<Set<string>>(new Set())
     const navigate = useNavigate()
     const { exampleId } = useParams()
 
@@ -52,25 +51,7 @@ const CodeEditor: React.FC = () => {
             }
         })
 
-        setUnsavedFiles(newUnsavedFiles)
     }, [files])
-
-    // Listen for the custom filesaved event
-    useEffect(() => {
-        const handleFileSaved = (e: CustomEvent<{ file: string }>) => {
-            const { file } = e.detail
-            setUnsavedFiles(prev => {
-                const updated = new Set(prev)
-                updated.delete(file)
-                return updated
-            })
-        }
-
-        window.addEventListener('filesaved', handleFileSaved as EventListener)
-        return () => {
-            window.removeEventListener('filesaved', handleFileSaved as EventListener)
-        }
-    }, [])
 
     const saveModelSnapshot = () => {
         if (editorRef.current) {
@@ -114,13 +95,6 @@ const CodeEditor: React.FC = () => {
             disposablesRef.current.forEach(d => d.dispose())
             disposablesRef.current = []
 
-            const changeListener = model.onDidChangeContent(() => {
-                saveModelSnapshot()
-                // Mark current file as unsaved when content changes
-                setUnsavedFiles(prev => new Set(prev).add(activeFileRef.current))
-            })
-            disposablesRef.current.push(changeListener)
-
             // Add select all action
             editor.addAction({
                 id: 'selectAll',
@@ -152,13 +126,6 @@ const CodeEditor: React.FC = () => {
                     if (currentModel) {
                         const newFiles = { ...filesRef.current, [activeFileRef.current]: currentModel.getValue() }
                         localStorage.setItem('simulatorFiles', JSON.stringify(newFiles))
-
-                        // Remove current file from unsaved files after saving
-                        setUnsavedFiles(prev => {
-                            const updated = new Set(prev)
-                            updated.delete(activeFileRef.current)
-                            return updated
-                        })
                     }
                 },
             })
@@ -224,7 +191,7 @@ const CodeEditor: React.FC = () => {
                             onClick={() => changeCurrentFile(file)}
                         >
                             {file}
-                            {unsavedFiles.has(file) && (
+                            {!exampleId && (
                                 <span className="inline-block ml-2 w-2 h-2 bg-blue-500 rounded-full" />
                             )}
                         </TabsTrigger>
