@@ -290,7 +290,7 @@ const StepSlider: React.FC = () => {
     if (!currentStep) return null
 
     return (
-        <div className="lg:flex lg:flex-col h-8 lg:h-24  w-full">
+        <div className="lg:flex lg:flex-col h-8 lg:h-24 w-full">
             {/* Extended hover area */}
             <div className="relative h-full lg:pt-6 lg:ml-32">
                 <div
@@ -304,7 +304,7 @@ const StepSlider: React.FC = () => {
                 <div
                     ref={setRefs}
                     className={cn(
-                        "absolute left-0 right-0 top-3 lg:top-7 flex overflow-hidden rounded-full px-2.5",
+                        "absolute left-0 right-0 top-1/2 -translate-y-1/2 flex overflow-hidden rounded-full px-2.5",
                         isTooltipOpen ? "h-2.5" : "h-2"
                     )}
                     style={{
@@ -479,7 +479,7 @@ const StepSlider: React.FC = () => {
                     max={steps.length > 0 ? steps.length - 1 : 0}
                     step={1}
                     className={cn(
-                        'pointer-events-none w-full absolute left-0 right-0 top-3 lg:top-7',
+                        'pointer-events-none w-full absolute left-0 right-0 top-1/2 -translate-y-1/2',
                         isTooltipOpen ? '[&_[data-orientation=horizontal]]:h-2.5' : '[&_[data-orientation=horizontal]]:h-2',
                         // Enable pointer events and add hover styles for the thumb
                         '[&_[role=slider]]:pointer-events-auto',
