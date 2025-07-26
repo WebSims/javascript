@@ -97,54 +97,46 @@ const StepSlider: React.FC = () => {
     }, [stepsContainerRef])
 
     const depthInfo = useMemo(() => {
-        const normalDepths: number[] = []
-        const functionScopeDepths: number[] = []
+        const depths: number[] = []
         const inFunctionScopes: boolean[] = []
-        let normalDepth = 0
+        let depth = 0
         let functionDepth = 0
-        let maxNormalDepth = 0
-        let maxFunctionDepth = 0
+        let maxDepth = 0
 
         for (const step of steps) {
             if (step.type === EXEC_STEP_TYPE.PUSH_SCOPE) {
-                // Check if this is a function scope
+                depth++
+                maxDepth = Math.max(maxDepth, depth)
+
+                // Track if we're in a function scope
                 if (step.memoryChange.type === "push_scope" &&
                     step.memoryChange.kind === "function") {
                     functionDepth++
-                    maxFunctionDepth = Math.max(maxFunctionDepth, functionDepth)
-                } else {
-                    normalDepth++
-                    maxNormalDepth = Math.max(maxNormalDepth, normalDepth)
                 }
             } else if (step.type === EXEC_STEP_TYPE.POP_SCOPE) {
-                // Check if we're popping a function scope
+                depth = Math.max(0, depth - 1)
+
+                // Track if we're popping a function scope
                 if (step.memoryChange.type === "pop_scope" &&
                     step.memoryChange.kind === "function") {
                     functionDepth = Math.max(0, functionDepth - 1)
-                } else {
-                    normalDepth = Math.max(0, normalDepth - 1)
                 }
             }
 
-            normalDepths.push(normalDepth)
-            functionScopeDepths.push(functionDepth)
+            depths.push(depth)
             inFunctionScopes.push(functionDepth > 0)
         }
 
         console.log({
-            normalDepths,
-            functionScopeDepths,
+            depths,
             inFunctionScopes,
-            maxNormalDepth,
-            maxFunctionDepth
+            maxDepth
         })
 
         return {
-            normalDepths,
-            functionScopeDepths,
+            depths,
             inFunctionScopes,
-            maxNormalDepth,
-            maxFunctionDepth
+            maxDepth
         }
     }, [steps])
 
@@ -323,29 +315,15 @@ const StepSlider: React.FC = () => {
                         const maxLightness = 90
                         const lightnessRange = maxLightness - baseLightness
 
-                        let lightness: number
-                        if (depthInfo.inFunctionScopes[targetIndex]) {
-                            // Use function scope depth percentage
-                            const functionDepthPercentage = depthInfo.maxFunctionDepth > 0
-                                ? depthInfo.functionScopeDepths[targetIndex] / depthInfo.maxFunctionDepth
-                                : 0
-                            lightness = baseLightness + (functionDepthPercentage * lightnessRange)
-                        } else {
-                            // Use regular depth percentage
-                            const depthPercentage = depthInfo.maxNormalDepth > 0
-                                ? depthInfo.normalDepths[targetIndex] / depthInfo.maxNormalDepth
-                                : 0
-                            lightness = baseLightness + (depthPercentage * lightnessRange)
-                        }
+                        const depthPercentage = depthInfo.maxDepth > 0
+                            ? depthInfo.depths[targetIndex] / depthInfo.maxDepth
+                            : 0
+                        const lightness = baseLightness + (depthPercentage * lightnessRange)
 
-                        let backgroundColor: string
-                        // Use blue color range when inside a function scope
-                        if (depthInfo.inFunctionScopes[targetIndex]) {
-                            backgroundColor = `hsl(220, 100%, ${lightness}%)`
-                        } else {
-                            // Use default grayscale
-                            backgroundColor = `hsl(0, 0%, ${lightness}%)`
-                        }
+                        // Use blue color when inside a function scope, otherwise use grayscale
+                        const backgroundColor = depthInfo.inFunctionScopes[targetIndex]
+                            ? `hsl(220, 100%, ${lightness}%)`
+                            : `hsl(0, 0%, ${lightness}%)`
 
                         if (index !== steps.length - 1) {
                             return (
@@ -353,7 +331,7 @@ const StepSlider: React.FC = () => {
                                     {index === 0 && (<div className='w-2.5 absolute left-0 top-0 bottom-0' style={{ backgroundColor }}></div>)}
                                     <div
                                         key={step.index}
-                                        data-depth={depthInfo.inFunctionScopes[index] ? depthInfo.functionScopeDepths[index] : depthInfo.normalDepths[index]}
+                                        data-depth={depthInfo.depths[index]}
                                         className='flex-1 h-full'
                                         style={{ backgroundColor }}
                                     />
