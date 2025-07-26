@@ -6,6 +6,7 @@ import { useResponsive } from '@/hooks/useResponsive'
 
 import { Slider } from '@/components/ui/slider'
 import useElementSize from '@/hooks/useElementSize'
+import { useSpringFollower } from '@/hooks/useSpringFollower'
 
 const TOOLTIP_WIDTH = 260
 
@@ -174,6 +175,22 @@ const StepSlider: React.FC = () => {
         const stepWidth = containerSize.width / (steps.length - 1)
         return stepIndex * stepWidth
     }, [containerSize.width, steps.length])
+
+    // Spring follower for tooltip animation
+    // Calculate target position for spring follower
+    const tooltipTargetX = (() => {
+        if (!containerElement || !containerSize.width || !currentStep) return 0
+
+        const containerRect = containerElement.getBoundingClientRect()
+        const stepIndex = isDragging ? currentStep.index : (hoveredStepIndex !== null ? hoveredStepIndex : currentStep.index)
+        const baseX = isDragging
+            ? containerRect.left + getStepStartPosition(currentStep.index) + 10
+            : containerRect.left + getStepStartPosition(stepIndex) + 10
+
+        return baseX
+    })()
+
+    const animatedTooltipX = useSpringFollower(tooltipTargetX, { lagMs: 200, snapEps: 10 })
 
     // Unified pointer event handler for element actions
     const handlePointer = useCallback((e: React.PointerEvent) => {
@@ -368,10 +385,6 @@ const StepSlider: React.FC = () => {
                     const containerRect = containerElement?.getBoundingClientRect()
                     if (!containerRect) return null
                     const stepIndex = isDragging ? currentStep.index : (hoveredStepIndex !== null ? hoveredStepIndex : currentStep.index)
-                    // When dragging, use the thumb position, otherwise use mouse position
-                    const baseX = isDragging
-                        ? containerRect.left + getStepStartPosition(currentStep.index) + 10
-                        : containerRect.left + getStepStartPosition(stepIndex) + 10
                     // When dragging, always show current step index, otherwise show hovered step
                     const tooltipStep = isDragging ? currentStep : (hoveredStepIndex !== null && steps[hoveredStepIndex])
                         ? steps[hoveredStepIndex]
@@ -385,10 +398,15 @@ const StepSlider: React.FC = () => {
                     const stepClassName = typeof stepConfig.className === 'function'
                         ? stepConfig.className(tooltipStep)
                         : stepConfig.className
+
+                    // Use animated position from spring follower
+                    const baseX = animatedTooltipX
+
                     // Calculate boundaries
                     const leftBoundary = containerRect.left
                     const rightBoundary = containerRect.right
                     const halfTooltipWidth = TOOLTIP_WIDTH / 2
+
                     // Determine positioning
                     let left = baseX
                     let transform = 'translateX(-50%)'
@@ -399,6 +417,7 @@ const StepSlider: React.FC = () => {
                         left = rightBoundary
                         transform = 'translateX(-100%)'
                     }
+
                     // Calculate arrow position relative to tooltip
                     let arrowLeft = '50%'
                     let arrowTransform = 'translateX(-50%)'
@@ -411,6 +430,7 @@ const StepSlider: React.FC = () => {
                         arrowLeft = `${arrowOffset}px`
                         arrowTransform = 'translateX(0)'
                     }
+
                     return (
                         <div
                             className="fixed rounded-md bg-gray-900 px-3 py-2 text-sm text-white shadow-lg pointer-events-none border border-gray-700 z-50"
