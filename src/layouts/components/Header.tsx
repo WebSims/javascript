@@ -5,7 +5,7 @@ import { useNavigate } from 'react-router'
 import { useResponsive } from '@/hooks/useResponsive'
 import { useModeToggle } from '@/hooks/useModeToggle'
 import { MenuIcon, PlayIcon, CodeIcon } from 'lucide-react'
-import ExamplesMenu from '@/layouts/components/ExamplesMenu'
+import DesktopMenu from '@/layouts/components/DesktopMenu'
 import MobileMenu from '@/layouts/components/MobileMenu'
 
 const Header: React.FC = () => {
@@ -59,7 +59,7 @@ const Header: React.FC = () => {
                 </div>
                 {isDesktop && (
                     <nav className='flex items-center gap-2'>
-                        <ExamplesMenu />
+                        <DesktopMenu />
                     </nav>
                 )}
             </div>
