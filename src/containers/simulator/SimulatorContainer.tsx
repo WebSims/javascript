@@ -7,6 +7,7 @@ import ExecutionMode from './components/ExecutionMode'
 
 import { useSimulatorStore } from '@/hooks/useSimulatorStore'
 import useSimulatorHotkeys from '@/hooks/useSimulatorHotkeys'
+import { useModeToggle } from '@/hooks/useModeToggle'
 import { isEmpty } from 'lodash'
 
 const exampleFiles = import.meta.glob('/src/examples/**', { query: '?raw', import: 'default', eager: true })
@@ -28,7 +29,8 @@ const examplesMap = getExamplesMap()
 const SimulatorContainer: React.FC = () => {
   const navigate = useNavigate()
   const { exampleId } = useParams()
-  const { mode, files, initializeFiles, activeFile, toggleMode } = useSimulatorStore()
+  const { files, initializeFiles, activeFile } = useSimulatorStore()
+  const { currentMode, toggleMode } = useModeToggle()
 
   useEffect(() => {
     if (exampleId) {
@@ -49,12 +51,12 @@ const SimulatorContainer: React.FC = () => {
       }
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [mode, exampleId])
+  }, [currentMode, exampleId])
 
   useSimulatorHotkeys({
     files,
     activeFile,
-    mode,
+    mode: currentMode,
     toggleMode,
     exampleId,
     navigate
@@ -62,8 +64,8 @@ const SimulatorContainer: React.FC = () => {
 
   return (
     <MainLayout>
-      {mode === 'CODE' && <CodeMode />}
-      {mode === 'EXECUTION' && <ExecutionMode />}
+      {currentMode === 'CODE' && <CodeMode />}
+      {currentMode === 'RUN' && <ExecutionMode />}
     </MainLayout>
   )
 }

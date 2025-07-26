@@ -6,6 +6,7 @@ import type * as MonacoType from 'monaco-editor'
 import { Tabs, TabsList, TabsTrigger } from '@radix-ui/react-tabs'
 import { cn } from '@/lib/utils'
 import { useNavigate, useParams } from 'react-router'
+import { useModeToggle } from '@/hooks/useModeToggle'
 
 const MODEL_PATH = "file:///main-editor-content.js"
 
@@ -19,10 +20,11 @@ interface InternalMonacoModel extends MonacoEditor.ITextModel {
 }
 
 const CodeEditor: React.FC = () => {
-    const { files, updateFileContent, activeFile, changeCurrentFile, toggleMode, settings } = useSimulatorStore()
+    const { files, updateFileContent, activeFile, changeCurrentFile, settings } = useSimulatorStore()
     const fileContent = files[activeFile]
     const navigate = useNavigate()
     const { exampleId } = useParams()
+    const { toggleMode, currentMode } = useModeToggle()
 
     const editorRef = useRef<MonacoEditor.IStandaloneCodeEditor | null>(null)
     const monacoRef = useRef<typeof MonacoType | null>(null)
@@ -135,7 +137,7 @@ const CodeEditor: React.FC = () => {
                 id: 'toggleExecutionMode',
                 label: 'Change to Execution Mode',
                 keybindings: [
-                    monaco.KeyMod.CtrlCmd | monaco.KeyCode.KeyR,
+                    monaco.KeyMod.CtrlCmd | monaco.KeyMod.Shift | monaco.KeyCode.KeyR,
                 ],
                 run: () => {
                     toggleMode()
@@ -153,7 +155,8 @@ const CodeEditor: React.FC = () => {
 
         // Check if we're in example mode and haven't redirected yet
         if (exampleId) {
-            navigate('/', { replace: true })
+            const url = currentMode === 'RUN' ? '/?mode=run' : '/'
+            navigate(url, { replace: true })
         }
     }
 

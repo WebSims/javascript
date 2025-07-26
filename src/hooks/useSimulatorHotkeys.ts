@@ -21,7 +21,8 @@ const useSimulatorHotkeys = ({ files, activeFile, mode, toggleMode, exampleId, n
                     detail: { file: activeFile }
                 }))
                 if (exampleId) {
-                    navigate('/', { replace: true })
+                    const url = mode === 'RUN' ? '/?mode=run' : '/'
+                    navigate(url, { replace: true })
                 }
             }
         },
@@ -33,7 +34,7 @@ const useSimulatorHotkeys = ({ files, activeFile, mode, toggleMode, exampleId, n
         'mod+shift+r',
         (event) => {
             event.preventDefault()
-            if (mode !== 'EXECUTION') {
+            if (mode !== 'RUN') {
                 toggleMode()
             }
         },

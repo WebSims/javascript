@@ -12,16 +12,21 @@ import {
 import { EXAMPLES_CONFIG } from '@/examples/examples.config'
 import { type ExampleConfig, examplesCategories } from '@/types/examples'
 import { getExampleById } from '@/helpers/examples'
+import { useModeToggle } from '@/hooks/useModeToggle'
 
 const ExamplesMenu: React.FC = () => {
     const navigate = useNavigate()
     const { exampleId } = useParams()
     const [isOpen, setIsOpen] = useState(false)
+    const { currentMode } = useModeToggle()
 
     const handleExampleSelect = (exampleId: string) => {
         const example = getExampleById(exampleId)
         if (example && example.active) {
-            navigate(`/examples/${exampleId}`)
+            const url = currentMode === 'RUN'
+                ? `/examples/${exampleId}?mode=run`
+                : `/examples/${exampleId}`
+            navigate(url)
             setIsOpen(false)
         }
     }
@@ -63,7 +68,10 @@ const ExamplesMenu: React.FC = () => {
                                 onMouseDown={(event: React.MouseEvent<HTMLDivElement>) => {
                                     if (event.button === 1 && example.active) {
                                         event.preventDefault()
-                                        window.open(`/examples/${example.id}`, '_blank', 'noopener')
+                                        const url = currentMode === 'RUN'
+                                            ? `/examples/${example.id}?mode=run`
+                                            : `/examples/${example.id}`
+                                        window.open(url, '_blank', 'noopener')
                                     }
                                 }}
                             >

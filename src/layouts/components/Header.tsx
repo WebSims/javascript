@@ -3,14 +3,14 @@ import React, { useState } from 'react'
 import { useNavigate } from 'react-router'
 
 import { useResponsive } from '@/hooks/useResponsive'
-import { useSimulatorStore } from '@/hooks/useSimulatorStore'
+import { useModeToggle } from '@/hooks/useModeToggle'
 import { MenuIcon, PlayIcon, CodeIcon } from 'lucide-react'
 import ExamplesMenu from '@/layouts/components/ExamplesMenu'
 import MobileMenu from '@/layouts/components/MobileMenu'
 
 const Header: React.FC = () => {
     const { isDesktop } = useResponsive()
-    const { mode, toggleMode } = useSimulatorStore()
+    const { currentMode, toggleMode } = useModeToggle()
     const navigate = useNavigate()
     const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false)
 
@@ -70,18 +70,18 @@ const Header: React.FC = () => {
                         variant='default'
                         size="sm"
                         onClick={toggleMode}
-                        className={`w-20 text-white ${mode === 'EXECUTION'
+                        className={`w-20 text-white ${currentMode === 'RUN'
                             ? 'bg-blue-500 hover:bg-blue-600 border-blue-500'
                             : 'bg-green-500 hover:bg-green-600 border-green-500'
                             }`}
                     >
-                        {mode === 'EXECUTION' ? (
+                        {currentMode === 'RUN' ? (
                             <CodeIcon className="w-4 h-4 mr-1" />
                         ) : (
                             <PlayIcon className="w-4 h-4 mr-1" fill="currentColor" />
                         )}
                         <span>
-                            {mode === 'EXECUTION' ? 'Code' : 'Run'}
+                            {currentMode === 'RUN' ? 'Code' : 'Run'}
                         </span>
                     </Button>
                 </div>
@@ -89,7 +89,6 @@ const Header: React.FC = () => {
             <MobileMenu
                 isOpen={isMobileMenuOpen}
                 onClose={handleMobileMenuClose}
-                mode={mode}
             />
         </header>
     )

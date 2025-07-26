@@ -10,8 +10,7 @@ import Simulator from "@/core/simulator"
 // Values can be primitives or references to other objects/arrays/functions
 
 type SimulatorContextType = {
-    mode: 'CODE' | 'EXECUTION'
-    toggleMode: () => void
+    mode: 'CODE' | 'RUN'
     files: Record<string, string>
     activeFile: string
     changeCurrentFile: (filename: string) => void
@@ -39,8 +38,13 @@ type SimulatorContextType = {
 
 const SimulatorContext = createContext<SimulatorContextType | undefined>(undefined)
 
-export const SimulatorProvider = ({ children }: { children: React.ReactNode }) => {
-    const [mode, setMode] = useState<'CODE' | 'EXECUTION'>('CODE')
+export const SimulatorProvider = ({
+    children,
+    mode
+}: {
+    children: React.ReactNode
+    mode: 'CODE' | 'RUN'
+}) => {
     const [files, setFiles] = useState<Record<string, string>>({ "main.js": "" })
     const [activeFile, setActiveFile] = useState("main.js")
     const [astOfCode, setAstOfCode] = useState<ESTree.Program | ts.SourceFile | null>(null)
@@ -70,7 +74,7 @@ export const SimulatorProvider = ({ children }: { children: React.ReactNode }) =
             if (ast) {
                 setAstError(null)
                 setAstOfCode(ast)
-                if (mode === 'EXECUTION') {
+                if (mode === 'RUN') {
                     runSimulator(ast)
                 }
             }
@@ -103,12 +107,6 @@ export const SimulatorProvider = ({ children }: { children: React.ReactNode }) =
             setCurrentExecStep(steps[0])
         } catch (error) {
             console.error(error)
-        }
-    }
-
-    const toggleMode = () => {
-        if (!astError) {
-            setMode(mode === 'CODE' ? 'EXECUTION' : 'CODE')
         }
     }
 
@@ -177,7 +175,6 @@ export const SimulatorProvider = ({ children }: { children: React.ReactNode }) =
         <SimulatorContext.Provider
             value={{
                 mode,
-                toggleMode,
                 files,
                 activeFile,
                 changeCurrentFile,

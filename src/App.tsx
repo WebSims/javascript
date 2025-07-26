@@ -1,23 +1,26 @@
 import { Routes, Route } from 'react-router'
 import SimulatorContainer from './containers/simulator/SimulatorContainer'
 import { SimulatorProvider } from './contexts/SimulatorContext'
+import { useModeToggle } from './hooks/useModeToggle'
+
+const SimulatorWrapper = () => {
+  const { currentMode } = useModeToggle()
+
+  return (
+    <SimulatorProvider mode={currentMode}>
+      <SimulatorContainer />
+    </SimulatorProvider>
+  )
+}
 
 const routes = [
   {
     path: "/",
-    element: (
-      <SimulatorProvider>
-        <SimulatorContainer />
-      </SimulatorProvider>
-    )
+    element: <SimulatorWrapper />
   },
   {
     path: "/examples/:exampleId",
-    element: (
-      <SimulatorProvider>
-        <SimulatorContainer />
-      </SimulatorProvider>
-    )
+    element: <SimulatorWrapper />
   },
   // Add more routes here as needed, with or without providers
 ]
