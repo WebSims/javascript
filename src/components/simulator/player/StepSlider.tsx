@@ -1,5 +1,5 @@
 import React, { useMemo, useState, useCallback } from 'react'
-import { EXEC_STEP_TYPE, ExecStep, ExecStepType } from '@/types/simulator'
+import { EXEC_STEP_TYPE } from '@/types/simulator'
 import { cn } from '@/lib/utils'
 import { useSimulatorStore } from '@/hooks/useSimulatorStore'
 import { useResponsive } from '@/hooks/useResponsive'
@@ -7,75 +7,8 @@ import { useResponsive } from '@/hooks/useResponsive'
 import { Slider } from '@/components/ui/slider'
 import useElementSize from '@/hooks/useElementSize'
 import { useSpringFollower } from '@/hooks/useSpringFollower'
-
-const TOOLTIP_WIDTH = 260
-
-const STEP_CONFIG: Record<ExecStepType, {
-    label: string | ((step: ExecStep) => string)
-    className: string | ((step: ExecStep) => string)
-    tooltip: string
-}> = {
-    [EXEC_STEP_TYPE.INITIAL]: {
-        label: 'S',
-        className: 'bg-white',
-        tooltip: 'Executing Script',
-    },
-    [EXEC_STEP_TYPE.PUSH_SCOPE]: {
-        label: (step: ExecStep) => {
-            if (step.memoryChange?.type === 'push_scope' && step.memoryChange.kind === 'program') {
-                return 'G'
-            }
-            return '{'
-        },
-        className: (step: ExecStep) => {
-            if (step.memoryChange?.type === 'push_scope' && step.memoryChange.kind === 'function') {
-                return 'bg-blue-100'
-            }
-            return 'bg-gray-100'
-        },
-        tooltip: 'Create Scope',
-    },
-    [EXEC_STEP_TYPE.HOISTING]: {
-        label: 'H',
-        className: 'bg-orange-200',
-        tooltip: 'Hoisting',
-    },
-    [EXEC_STEP_TYPE.POP_SCOPE]: {
-        label: '}',
-        className: (step: ExecStep) => {
-            if (step.memoryChange?.type === 'pop_scope' && step.memoryChange.kind === 'function') {
-                return 'bg-blue-100'
-            }
-            return 'bg-gray-100'
-        },
-        tooltip: 'Remove Scope',
-    },
-    [EXEC_STEP_TYPE.EXECUTING]: {
-        label: 'S',
-        className: 'bg-yellow-200',
-        tooltip: 'Executing Statement',
-    },
-    [EXEC_STEP_TYPE.EXECUTED]: {
-        label: ';',
-        className: 'bg-yellow-200',
-        tooltip: 'Statement Executed',
-    },
-    [EXEC_STEP_TYPE.EVALUATING]: {
-        label: '(',
-        className: 'bg-green-100',
-        tooltip: 'Evaluating Expression',
-    },
-    [EXEC_STEP_TYPE.EVALUATED]: {
-        label: ')',
-        className: 'bg-green-100',
-        tooltip: 'Expression Evaluated',
-    },
-    [EXEC_STEP_TYPE.FUNCTION_CALL]: {
-        label: 'F',
-        className: 'bg-purple-100',
-        tooltip: 'Function Call',
-    },
-}
+import { TOOLTIP_WIDTH } from './player.config'
+import { getStepTag, getStepClassName, getStepTooltip } from '@/helpers/player'
 
 const StepSlider: React.FC = () => {
     const {
@@ -345,21 +278,16 @@ const StepSlider: React.FC = () => {
 
                 {/* Mobile Tooltip */}
                 {isMobile && currentStep && (() => {
-                    const stepConfig = STEP_CONFIG[currentStep.type]
-                    const stepLabel = typeof stepConfig.label === 'function'
-                        ? stepConfig.label(currentStep)
-                        : stepConfig.label
-                    const stepType = stepConfig.tooltip
-                    const stepClassName = typeof stepConfig.className === 'function'
-                        ? stepConfig.className(currentStep)
-                        : stepConfig.className
+                    const stepTag = getStepTag(currentStep.type, currentStep)
+                    const stepType = getStepTooltip(currentStep.type)
+                    const stepClassName = getStepClassName(currentStep.type, currentStep)
                     const stepNumber = `${currentStep.index + 1}/${steps.length}`
 
                     return (
                         <div className="absolute top-8 left-1/4 p-0.5 pl-3 text-sm w-3/4 flex items-center gap-1">
-                            {stepLabel && stepLabel.trim() && (
+                            {stepTag && stepTag.trim() && (
                                 <span className={cn("inline-flex items-center justify-center w-6 h-6 text-gray-800 text-xs font-bold rounded-full", stepClassName)}>
-                                    {stepLabel}
+                                    {stepTag}
                                 </span>
                             )}
                             <span className="flex-1 text-gray-700">{stepType}</span>
@@ -377,15 +305,10 @@ const StepSlider: React.FC = () => {
                     const tooltipStep = isDragging ? currentStep : (hoveredStepIndex !== null && steps[hoveredStepIndex])
                         ? steps[hoveredStepIndex]
                         : currentStep
-                    const stepConfig = STEP_CONFIG[tooltipStep.type]
-                    const stepLabel = typeof stepConfig.label === 'function'
-                        ? stepConfig.label(tooltipStep)
-                        : stepConfig.label
-                    const stepType = stepConfig.tooltip
+                    const stepTag = getStepTag(tooltipStep.type, tooltipStep)
+                    const stepType = getStepTooltip(tooltipStep.type)
                     const stepNumber = `${stepIndex + 1}/${steps.length}`
-                    const stepClassName = typeof stepConfig.className === 'function'
-                        ? stepConfig.className(tooltipStep)
-                        : stepConfig.className
+                    const stepClassName = getStepClassName(tooltipStep.type, tooltipStep)
 
                     // Use animated position from spring follower
                     const baseX = animatedTooltipX
@@ -430,9 +353,9 @@ const StepSlider: React.FC = () => {
                             }}
                         >
                             <div className="flex items-center gap-2 text-nowrap">
-                                {stepLabel && stepLabel.trim() && (
+                                {stepTag && stepTag.trim() && (
                                     <span className={cn("inline-flex items-center justify-center w-6 h-6 text-gray-800 text-xs font-bold rounded-full", stepClassName)}>
-                                        {stepLabel}
+                                        {stepTag}
                                     </span>
                                 )}
                                 <span className="flex-1 text-white">{stepType}</span>
