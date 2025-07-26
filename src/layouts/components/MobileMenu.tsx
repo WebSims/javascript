@@ -2,7 +2,9 @@ import React from 'react'
 import { useNavigate, useParams } from 'react-router'
 import { XIcon, BookOpenIcon } from 'lucide-react'
 import { Button } from '@/components/ui/button'
-import { examplesConfig, type ExampleConfig, getExampleById, examplesCategories } from '@/examples/examples.config'
+import { EXAMPLES_CONFIG } from '@/examples/examples.config'
+import { type ExampleConfig, examplesCategories } from '@/types/examples'
+import { getExampleById } from '@/helpers/examples'
 
 interface MobileMenuProps {
     isOpen: boolean
@@ -36,7 +38,7 @@ const MobileMenu: React.FC<MobileMenuProps> = ({ isOpen, onClose, mode }) => {
 
     const currentExample = exampleId ? getExampleById(exampleId) : null
 
-    const groupedExamples = examplesConfig.reduce((acc, example) => {
+    const groupedExamples = EXAMPLES_CONFIG.reduce((acc, example) => {
         if (!acc[example.category]) {
             acc[example.category] = []
         }

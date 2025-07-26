@@ -1,19 +1,6 @@
-export const examplesCategories = [
-    'basics',
-    'functions',
-    'classes',
-    'advanced'
-] as const
+import { ExampleConfig } from '../types/examples'
 
-export interface ExampleConfig {
-    id: string
-    title: string
-    description: string
-    category: (typeof examplesCategories)[number]
-    active: boolean
-}
-
-export const examplesConfig: ExampleConfig[] = [
+export const EXAMPLES_CONFIG: ExampleConfig[] = [
     {
         id: 'binary',
         title: 'Binary Operations',
@@ -65,10 +52,3 @@ export const examplesConfig: ExampleConfig[] = [
     }
 ]
 
-export const getExampleById = (id: string): ExampleConfig | undefined => {
-    return examplesConfig.find(example => example.id === id)
-}
-
-export const getExamplesByCategory = (category: ExampleConfig['category']) => {
-    return examplesConfig.filter(example => example.category === category)
-} 

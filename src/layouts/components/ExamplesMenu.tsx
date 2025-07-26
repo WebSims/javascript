@@ -9,7 +9,9 @@ import {
     SelectLabel,
     SelectTrigger,
 } from '@/components/ui/select'
-import { examplesConfig, type ExampleConfig, getExampleById, examplesCategories } from '@/examples/examples.config'
+import { EXAMPLES_CONFIG } from '@/examples/examples.config'
+import { type ExampleConfig, examplesCategories } from '@/types/examples'
+import { getExampleById } from '@/helpers/examples'
 
 const ExamplesMenu: React.FC = () => {
     const navigate = useNavigate()
@@ -27,7 +29,7 @@ const ExamplesMenu: React.FC = () => {
     const currentExample = exampleId ? getExampleById(exampleId) : null
     const displayText = currentExample ? currentExample.title : 'Examples'
 
-    const groupedExamples = examplesConfig.reduce((acc, example) => {
+    const groupedExamples = EXAMPLES_CONFIG.reduce((acc, example) => {
         if (!acc[example.category]) {
             acc[example.category] = []
         }
