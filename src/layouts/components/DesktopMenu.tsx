@@ -24,14 +24,26 @@ const DesktopMenu: React.FC = () => {
         const example = getExampleById(exampleId)
         if (example && example.active) {
             return currentMode === 'RUN'
-                ? `/examples/${exampleId}?mode=run`
-                : `/examples/${exampleId}`
+                ? {
+                    pathname: `/examples/${exampleId}`,
+                    search: "?mode=run"
+                }
+                : {
+                    pathname: `/examples/${exampleId}`
+                }
         }
         return '#'
     }
 
     const getHomeUrl = () => {
-        return currentMode === 'RUN' ? '/?mode=run' : '/'
+        return currentMode === 'RUN'
+            ? {
+                pathname: '/',
+                search: "?mode=run"
+            }
+            : {
+                pathname: '/'
+            }
     }
 
     const currentExample = exampleId ? getExampleById(exampleId) : null
