@@ -9,7 +9,7 @@ interface ConsoleProps {
 const ConsoleOutput: React.FC<ConsoleProps> = () => {
     const { currentStep, astError } = useSimulatorStore()
 
-    const formatJSValue = (value: JSValue): React.ReactNode => {
+    const formatJSValue = (value: JSValue, entryType?: string): React.ReactNode => {
         if (value.type === 'primitive') {
             if (value.value === undefined) {
                 return <span className="text-gray-500 italic">undefined</span>
@@ -18,7 +18,9 @@ const ConsoleOutput: React.FC<ConsoleProps> = () => {
                 return <span className="text-gray-500 italic">null</span>
             }
             if (typeof value.value === 'string') {
-                return <span className="text-green-600">"{value.value}"</span>
+                // Use red color for error messages, green for regular strings
+                const textColor = entryType === 'error' ? 'text-red-600' : 'text-green-600'
+                return <span className={textColor}>"{value.value}"</span>
             }
             if (typeof value.value === 'number') {
                 return <span className="text-blue-600">{value.value}</span>
@@ -127,7 +129,7 @@ const ConsoleOutput: React.FC<ConsoleProps> = () => {
                                 <div className="flex-1 font-mono text-sm leading-relaxed">
                                     {entry.values.map((value, valueIndex) => (
                                         <span key={valueIndex}>
-                                            {formatJSValue(value)}
+                                            {formatJSValue(value, entry.type)}
                                             {valueIndex < entry.values.length - 1 ? ' ' : ''}
                                         </span>
                                     ))}
