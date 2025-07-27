@@ -7,7 +7,7 @@ interface ConsoleProps {
 }
 
 const ConsoleOutput: React.FC<ConsoleProps> = () => {
-    const { currentStep } = useSimulatorStore()
+    const { currentStep, astError } = useSimulatorStore()
 
     const formatJSValue = (value: JSValue): React.ReactNode => {
         if (value.type === 'primitive') {
@@ -34,8 +34,22 @@ const ConsoleOutput: React.FC<ConsoleProps> = () => {
     }
 
     const getConsoleOutput = () => {
-        if (!currentStep?.consoleSnapshot) return []
-        return currentStep.consoleSnapshot
+        const output = []
+
+        // Add AST error if present
+        if (astError) {
+            output.push({
+                type: 'error' as const,
+                values: [{ type: 'primitive' as const, value: astError }]
+            })
+        }
+
+        // Add regular console output
+        if (currentStep?.consoleSnapshot) {
+            output.push(...currentStep.consoleSnapshot)
+        }
+
+        return output
     }
 
     const getConsoleIcon = (type: string) => {
