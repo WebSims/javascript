@@ -44,7 +44,7 @@ const CodeMode: React.FC = () => {
               <CodeEditor />
             </ResizablePanel>
             <ResizableHandle withHandle className="bg-slate-100 hover:bg-slate-200 transition-colors" />
-            <ResizablePanel className='p-2'>
+            <ResizablePanel>
               <CodeArea />
             </ResizablePanel>
           </ResizablePanelGroup >

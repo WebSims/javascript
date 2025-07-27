@@ -24,7 +24,7 @@ const ExecutionMode: React.FC = () => {
                     <ResizableHandle withHandle className="bg-slate-100 hover:bg-slate-200 transition-colors" />
                     <ResizablePanel>
                         <ResizablePanelGroup direction="vertical">
-                            <ResizablePanel className='p-2'>
+                            <ResizablePanel>
                                 <CodeArea />
                             </ResizablePanel>
                             <ResizableHandle withHandle className="bg-slate-100 hover:bg-slate-200 transition-colors" />
