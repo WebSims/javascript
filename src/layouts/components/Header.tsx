@@ -46,7 +46,7 @@ const Header: React.FC = () => {
                 </Button>
             </div>
 
-            <div className='flex w-full items-center gap-4 overflow-hidden'>
+            <div className='flex w-full items-center gap-4'>
                 <div
                     className='font-bold lg:text-lg cursor-pointer hover:text-blue-600 transition-colors'
                     onClick={handleHomeClick}
