@@ -98,16 +98,12 @@ export const SimulatorProvider = ({
     }
 
     const runSimulator = (astOfCode: ESTree.Program) => {
-        try {
-            const simulator = new Simulator(astOfCode as ESTree.Program)
-            const steps = simulator.run()
-            console.log(steps)
-            setSteps(steps)
-            changeStep(0)
-            setCurrentExecStep(steps[0])
-        } catch (error) {
-            console.error(error)
-        }
+        const simulator = new Simulator(astOfCode as ESTree.Program)
+        const steps = simulator.run()
+        console.log(steps)
+        setSteps(steps)
+        changeStep(0)
+        setCurrentExecStep(steps[0])
     }
 
     const togglePlaying = (state?: boolean) => {

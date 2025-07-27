@@ -83,7 +83,11 @@ class Simulator {
 
     /* Run */
     run(): ExecStep[] {
-        this.traverseExec(this.ast, { parentScopeIndex: 0 })
+        try {
+            this.traverseExec(this.ast, { parentScopeIndex: 0 })
+        } catch (error) {
+            console.error(error)
+        }
         return this.steps
     }
 
