@@ -80,6 +80,8 @@ export const SimulatorProvider = ({
             }
         } catch (error) {
             setAstError(error instanceof Error ? error.message : 'Unknown error')
+            setSteps([])
+            setCurrentExecStep(null)
         }
     }
 

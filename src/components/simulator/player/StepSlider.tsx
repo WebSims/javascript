@@ -15,6 +15,7 @@ const StepSlider: React.FC = () => {
         steps,
         currentStep,
         changeStep,
+        astError,
     } = useSimulatorStore()
 
     const { isMobile } = useResponsive()
@@ -212,7 +213,27 @@ const StepSlider: React.FC = () => {
         }
     }, [isDragging, getHoveredStepAndHalf, isPointerInSliderArea, changeStep])
 
-    if (!currentStep) return null
+    // Show error state when there's an AST error or no current step
+    if (astError || !currentStep) {
+        return (
+            <div className="lg:flex lg:flex-col h-8 lg:h-24 w-full">
+                <div className="relative h-full lg:pt-6 lg:ml-32">
+                    <div className="absolute left-0 right-0 top-3 lg:top-1/2 -translate-y-1/2 flex items-center justify-center h-2.5 lg:h-2">
+                        <div className="w-full h-full bg-gray-200 rounded-full flex items-center justify-center"></div>
+                    </div>
+                </div>
+
+                {/* Desktop Description */}
+                {!isMobile && (
+                    <div className="px-0.5 pb-2 text-sm flex items-center gap-1">
+                        <span className="flex-1 text-gray-500">
+                            {astError ? "Fix the syntax error to run simulation" : "No execution steps available"}
+                        </span>
+                    </div>
+                )}
+            </div>
+        )
+    }
 
     return (
         <div className="lg:flex lg:flex-col h-8 lg:h-24 w-full">
