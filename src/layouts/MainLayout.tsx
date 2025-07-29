@@ -9,7 +9,7 @@ interface MainLayoutProps {
 const MainLayout: React.FC<MainLayoutProps> = ({ children }) => {
     // All header logic is now in Header
     return (
-        <div className='h-lvh'>
+        <div className='h-dvh'>
             <Header />
             <div className='h-[calc(100dvh-56px)]'>
                 {children}
