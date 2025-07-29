@@ -904,7 +904,8 @@ const MemoryModelVisualizer = () => {
                         // Add memval value with type at the bottom
                         const displayValue = isReference ? `ref: ${memvalData.ref}` : String(memvalData.value)
                         const typeText = isReference ? "ref" : typeof memvalData.value
-                        const valueWithType = `${displayValue}: (${typeText})`
+                        const formattedValue = typeText === "string" ? `"${displayValue}"` : displayValue
+                        const valueWithType = `${formattedValue} (${typeText})`
 
                         memvalGroup
                             .append("text")
