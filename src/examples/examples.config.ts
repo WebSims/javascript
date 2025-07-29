@@ -49,6 +49,13 @@ export const EXAMPLES_CONFIG: ExampleConfig[] = [
         description: 'Error handling with try-catch and default parameters',
         category: 'advanced',
         active: true
+    },
+    {
+        id: 'wtf',
+        title: 'JavaScript WTF',
+        description: 'Unexpected JavaScript behaviors and type coercion quirks',
+        category: 'advanced',
+        active: true
     }
 ]
 
