@@ -95,7 +95,7 @@ const DesktopMenu: React.FC = () => {
     ListItem.displayName = "ListItem"
 
     return (
-        <NavigationMenu>
+        <NavigationMenu delayDuration={100} >
             <NavigationMenuList>
                 <NavigationMenuItem>
                     <NavigationMenuLink asChild className=''>
@@ -115,6 +115,7 @@ const DesktopMenu: React.FC = () => {
 
                 <NavigationMenuItem>
                     <NavigationMenuTrigger
+                        onClick={(e) => e.preventDefault()}
                         className={cn(
                             navigationMenuTriggerStyle(),
                             currentExample ? "text-blue-600 focus:text-blue-600" : ""
