@@ -95,7 +95,7 @@ const DesktopMenu: React.FC = () => {
     ListItem.displayName = "ListItem"
 
     return (
-        <NavigationMenu delayDuration={100} >
+        <NavigationMenu delayDuration={100} className='z-50'>
             <NavigationMenuList>
                 <NavigationMenuItem>
                     <NavigationMenuLink asChild className=''>
