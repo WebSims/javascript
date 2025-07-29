@@ -41,7 +41,7 @@ export const simulateExecution = (astNode: ESTree.Program | null): ExecStep[] =>
         {
             index: 0,
             node: astNode,
-            type: EXEC_STEP_TYPE.INITIAL,
+            type: EXEC_STEP_TYPE.SCRIPT_EXECUTION,
             memorySnapshot: { scopes: [], heap: {}, memval: [] },
             scopeIndex: 0,
             memoryChange: { type: "none" },

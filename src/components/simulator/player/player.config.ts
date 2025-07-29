@@ -7,7 +7,7 @@ export interface StepConfigItem {
 }
 
 export const STEP_CONFIG: Record<ExecStepType, StepConfigItem> = {
-    [EXEC_STEP_TYPE.INITIAL]: {
+    [EXEC_STEP_TYPE.SCRIPT_EXECUTION]: {
         tag: 'S',
         className: 'bg-white',
         tooltip: 'Script Execution',
@@ -61,6 +61,11 @@ export const STEP_CONFIG: Record<ExecStepType, StepConfigItem> = {
         tag: 'F',
         className: 'bg-purple-100',
         tooltip: 'Function Call',
+    },
+    [EXEC_STEP_TYPE.SCRIPT_EXECUTED]: {
+        tag: 'S',
+        className: 'bg-white',
+        tooltip: 'Script Executed',
     },
 }
 

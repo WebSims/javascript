@@ -158,7 +158,7 @@ export type BubbleUp = 'return' | 'throw' | 'break' | 'continue'
 
 // ----- Execution Step -----
 export const EXEC_STEP_TYPE = {
-    INITIAL: 'initial',
+    SCRIPT_EXECUTION: 'script_execution',
     PUSH_SCOPE: 'push_scope',
     POP_SCOPE: 'pop_scope',
     FUNCTION_CALL: 'function_call',
@@ -167,9 +167,10 @@ export const EXEC_STEP_TYPE = {
     EXECUTED: 'executed',
     EVALUATING: 'evaluating',
     EVALUATED: 'evaluated',
+    SCRIPT_EXECUTED: 'script_executed',
 } as const
 export type ExecStepType =
-    | 'initial'
+    | 'script_execution'
     | 'push_scope'
     | 'pop_scope'
     | 'function_call'
@@ -178,6 +179,7 @@ export type ExecStepType =
     | 'executed'
     | 'evaluating'
     | 'evaluated'
+    | 'script_executed'
 
 // Represents a single step in the code execution simulation
 export type ExecStep = {

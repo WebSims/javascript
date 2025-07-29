@@ -55,24 +55,13 @@ class Simulator {
         }
 
         this.ast = ast
-        this.steps = [
-            {
-                index: 0,
-                node: ast,
-                type: EXEC_STEP_TYPE.INITIAL,
-                memorySnapshot: { scopes: [], heap: {}, memval: [] },
-                scopeIndex: 0,
-                memoryChange: { type: "none" },
-                memvalChanges: [],
-                consoleSnapshot: [],
-            }
-        ]
+        this.steps = []
         this.scopes = []
         this.heap = {}
         this.memval = []
         this.lastScopeIndex = -1
         this.lastRef = -1
-        this.stepCounter = 1
+        this.stepCounter = 0
         this.stepMemoryChange = { type: 'none' }
         this.stepMemvalChanges = []
         this.declarations = []
@@ -84,7 +73,9 @@ class Simulator {
     /* Run */
     run(): ExecStep[] {
         try {
+            this.addScriptExecutionStep(this.ast)
             this.traverseExec(this.ast, { parentScopeIndex: 0 })
+            this.addScriptExecutedStep(this.ast)
         } catch (error) {
             console.error(error)
         }
@@ -159,6 +150,14 @@ class Simulator {
         this.stepMemoryChange = { type: "pop_scope", kind, scopeIndex: this.lastScopeIndex }
         this.addStep(astNode, EXEC_STEP_TYPE.POP_SCOPE, bubbleUp)
         this.lastScopeIndex--
+    }
+
+    addScriptExecutionStep(astNode: ESTree.BaseNode) {
+        this.addStep(astNode, EXEC_STEP_TYPE.SCRIPT_EXECUTION)
+    }
+
+    addScriptExecutedStep(astNode: ESTree.BaseNode) {
+        this.addStep(astNode, EXEC_STEP_TYPE.SCRIPT_EXECUTED)
     }
 
     /* Scope */
