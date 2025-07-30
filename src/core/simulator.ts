@@ -349,7 +349,7 @@ class Simulator {
         astNode: ESTree.Node,
         options: TraverseASTOptions
     ) {
-        if (this.isBlock(astNode) || options.callee || options.forInit) {
+        if (this.isBlock(astNode) || options.callee || options.for) {
             const scopeKind = this.getScopeKind(astNode, options)
             try {
                 options.strict = this.isStrict(astNode, options)
@@ -364,9 +364,8 @@ class Simulator {
                 this.addHoistingStep(astNode)
 
                 if (options.forInit) {
-                    const forInitNode = options.forInit
-                    delete options.forInit
-                    this.traverseExec(forInitNode, options)
+                    delete options.for
+                    this.traverseExec(options.forInit, options)
                 }
 
                 const handler = this.execHandlers[astNode.type] as NodeHandler<typeof astNode>

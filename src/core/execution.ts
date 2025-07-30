@@ -662,11 +662,9 @@ execHandlers["EmptyStatement"] = function (astNode) {
 }
 
 execHandlers["ForStatement"] = function (astNode, options) {
-    if (!options.for) {
-        this.addExecutingStep(astNode)
-        this.traverseExec(astNode, { ...options, forInit: astNode.init, for: astNode })
-        this.addExecutedStep(astNode)
-    } else {
+    if (options.forInit) {
+        delete options.forInit
+
         let evaluatedTest: JSValue = { type: "primitive", value: true }
         do {
             if (astNode.test) {
@@ -682,5 +680,9 @@ execHandlers["ForStatement"] = function (astNode, options) {
                 }
             }
         } while (evaluatedTest.value)
+    } else {
+        this.addExecutingStep(astNode)
+        this.traverseExec(astNode, { ...options, forInit: astNode.init, for: astNode })
+        this.addExecutedStep(astNode)
     }
 }
