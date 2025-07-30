@@ -56,6 +56,13 @@ export const EXAMPLES_CONFIG: ExampleConfig[] = [
         description: 'Unexpected JavaScript behaviors and type coercion quirks',
         category: 'advanced',
         active: true
+    },
+    {
+        id: 'if-statement',
+        title: 'If Statements',
+        description: 'Conditional statements and control flow examples',
+        category: 'basics',
+        active: true
     }
 ]
 
