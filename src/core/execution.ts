@@ -34,11 +34,10 @@ execHandlers["VariableDeclaration"] = function (astNode, options) {
     for (const declarator of astNode.declarations) {
         this.addExecutingStep(astNode)
 
-        let evaluatedValue: JSValue = JS_VALUE_UNDEFINED
         if (declarator.init) {
             this.traverseExec(declarator.init, options)
-            evaluatedValue = this.popMemval()
         }
+        const evaluatedValue = this.popMemval() || JS_VALUE_UNDEFINED
 
         const identifier = this.getIdentifierFromPattern(declarator.id)
         if (identifier) {
@@ -425,7 +424,6 @@ execHandlers["ConditionalExpression"] = function (astNode, options) {
         this.traverseExec(astNode.alternate, options)
     }
 
-    this.popMemval()
     this.addEvaluatedStep(astNode)
 }
 
