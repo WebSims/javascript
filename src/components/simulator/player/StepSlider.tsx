@@ -61,12 +61,6 @@ const StepSlider: React.FC = () => {
             inFunctionScopes.push(functionDepth > 0)
         }
 
-        console.log({
-            depths,
-            inFunctionScopes,
-            maxDepth
-        })
-
         return {
             depths,
             inFunctionScopes,

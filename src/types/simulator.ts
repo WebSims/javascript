@@ -208,6 +208,7 @@ export type TraverseASTOptions = {
     typeof?: boolean
     isRoot?: boolean
     for?: ESTree.ForStatement
+    forInit?: ESTree.ForStatement['init']
 }
 
 export type NodeHandler<T extends ESTree.Node> = (this: Simulator, node: T, options: TraverseASTOptions) => void

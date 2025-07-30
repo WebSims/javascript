@@ -662,29 +662,25 @@ execHandlers["EmptyStatement"] = function (astNode) {
 }
 
 execHandlers["ForStatement"] = function (astNode, options) {
-    this.addExecutingStep(astNode)
-
-    if (astNode.init && !options.for) {
-        this.traverseExec(astNode.init, { ...options, for: astNode })
-    }
-
-    let evaluatedTest: JSValue = { type: "primitive", value: true }
-    do {
-        if (astNode.test) {
-            this.traverseExec(astNode.test, options)
-            evaluatedTest = this.popMemval()
-        }
-
-        if (evaluatedTest.value) {
-            this.traverseExec(astNode.body, options)
-
-            if (astNode.update) {
-                this.traverseExec(astNode.update, options)
-                this.popMemval()
+    if (!options.for) {
+        this.addExecutingStep(astNode)
+        this.traverseExec(astNode, { ...options, forInit: astNode.init, for: astNode })
+        this.addExecutedStep(astNode)
+    } else {
+        let evaluatedTest: JSValue = { type: "primitive", value: true }
+        do {
+            if (astNode.test) {
+                this.traverseExec(astNode.test, options)
+                evaluatedTest = this.popMemval()
             }
-        }
-    } while (evaluatedTest.value)
 
-    this.addPopScopeStep(astNode, 'loop')
-    this.addExecutedStep(astNode)
+            if (evaluatedTest.value) {
+                this.traverseExec(astNode.body, options)
+                if (astNode.update) {
+                    this.traverseExec(astNode.update, options)
+                    this.popMemval()
+                }
+            }
+        } while (evaluatedTest.value)
+    }
 }

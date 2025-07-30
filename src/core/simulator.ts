@@ -72,13 +72,9 @@ class Simulator {
 
     /* Run */
     run(): ExecStep[] {
-        try {
-            this.addScriptExecutionStep(this.ast)
-            this.traverseExec(this.ast, { parentScopeIndex: 0 })
-            this.addScriptExecutedStep(this.ast)
-        } catch (error) {
-            console.error(error)
-        }
+        this.addScriptExecutionStep(this.ast)
+        this.traverseExec(this.ast, { parentScopeIndex: 0 })
+        this.addScriptExecutedStep(this.ast)
         return this.steps
     }
 
@@ -342,6 +338,7 @@ class Simulator {
             }
         }
 
+
         const handler = this.hoistingHandlers[astNode.type] as NodeHandler<typeof astNode>
         if (handler) {
             handler.call(this, astNode, { ...options, isRoot })
@@ -352,11 +349,9 @@ class Simulator {
         astNode: ESTree.Node,
         options: TraverseASTOptions
     ) {
-        if (this.isBlock(astNode) || options.callee || options.for) {
+        if (this.isBlock(astNode) || options.callee || options.forInit) {
             const scopeKind = this.getScopeKind(astNode, options)
             try {
-                const isForInit = Boolean(options.for)
-                delete options.for
                 options.strict = this.isStrict(astNode, options)
 
                 this.lastScopeIndex++
@@ -365,8 +360,14 @@ class Simulator {
                 }
 
                 this.addPushScopeStep(astNode, scopeKind)
-                this.traverseHoisting(astNode, options)
+                this.traverseHoisting(options.forInit ? options.forInit : astNode, options)
                 this.addHoistingStep(astNode)
+
+                if (options.forInit) {
+                    const forInitNode = options.forInit
+                    delete options.forInit
+                    this.traverseExec(forInitNode, options)
+                }
 
                 const handler = this.execHandlers[astNode.type] as NodeHandler<typeof astNode>
                 if (handler) {
@@ -375,7 +376,7 @@ class Simulator {
                     console.warn(`Execution Pass: Unhandled node type - ${astNode.type}`)
                 }
 
-                if (this.lastScopeIndex !== 0 && !isForInit) {
+                if (this.lastScopeIndex !== 0) {
                     this.addPopScopeStep(astNode, scopeKind)
                 }
             } catch (bubbleUp) {
@@ -385,12 +386,16 @@ class Simulator {
                 }
             }
         } else {
+            // try {
             const handler = this.execHandlers[astNode.type] as NodeHandler<typeof astNode>
             if (handler) {
                 handler.call(this, astNode, options)
             } else {
                 console.warn(`Execution Pass: Unhandled node type - ${astNode.type}`)
             }
+            // } catch (bubbleUp) {
+            //     console.log(bubbleUp)
+            // }
         }
     }
 
