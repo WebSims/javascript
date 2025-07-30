@@ -386,7 +386,7 @@ const Expression = ({ expr, parent, parens }: { expr: any, parent: any, parens: 
         // console.log('exp has paren:', {expr, parent: expr.parent })
         // console.log('exp has paren:', { isOp: expr.category.includes("operator"),
         // mainExp: !expr.parent.category.includes("statement") })
-        if (expr.category.includes("operator") && !parent.category.includes("statement")) {
+        if (expr.category?.includes("operator") && !parent.category?.includes("statement")) {
             expr.parenthized = true
         }
         parens.delete(expr.range[0])
