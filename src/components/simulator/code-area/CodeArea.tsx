@@ -921,7 +921,7 @@ const TryCatchFinallyStatement = ({ st, parent, parens }: { st: any, parent: any
 const IfStatement = ({ st, parent, parens }: { st: any, parent: any, parens: any }) => {
     return (
         <>
-            <span className="keyword keyword-if text-blue-700 font-bold mr-2">if</span>
+            <span className="keyword keyword-if text-blue-700 mr-2">if</span>
             <span className="text-slate-500 font-bold">(</span>
             <Expression expr={st.test} parens={parens} parent={parent} />
             <span className="text-slate-500 font-bold">)</span>
@@ -931,7 +931,7 @@ const IfStatement = ({ st, parent, parens }: { st: any, parent: any, parens: any
             {
                 st.alternate && (
                     <span className={`${st.consequent.body === undefined ? 'block' : ''}`}>
-                        <span className="keyword keyword-else text-red-700 font-bold mr-2">else</span>
+                        <span className="keyword keyword-else text-red-700 mr-2">else</span>
                         <span className="[&>*:first-child]:inline">
                             <Statement st={st.alternate} parent={st} parens={parens} />
                         </span>
@@ -945,7 +945,7 @@ const IfStatement = ({ st, parent, parens }: { st: any, parent: any, parens: any
 const ForStatement = ({ st, parent, parens }: { st: any, parent: any, parens: any }) => {
     return (
         <>
-            <span className="keyword keyword-for text-green-700 font-bold mr-2">for</span>
+            <span className="keyword keyword-for text-green-700 mr-2">for</span>
             <span className="text-slate-500 font-bold">(</span>
             {st.init.type === "VariableDeclaration" ? (
                 <span className="[&>*:first-child]:inline">
