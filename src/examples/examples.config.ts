@@ -63,6 +63,13 @@ export const EXAMPLES_CONFIG: ExampleConfig[] = [
         description: 'Conditional statements and control flow examples',
         category: 'basics',
         active: true
+    },
+    {
+        id: 'object',
+        title: 'Object Relationships',
+        description: 'Complex object relationships with circular references',
+        category: 'basics',
+        active: true
     }
 ]
 
