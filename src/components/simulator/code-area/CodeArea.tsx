@@ -1002,13 +1002,23 @@ const UpdateExpression = ({ prefix, operator, argument, parent, parens }: {
 }
 
 const CodeArea: React.FC<CodeAreaProps> = ({ parent, parens, debug }) => {
-    const { astOfCode, codeAreaRef, astError } = useSimulatorStore()
+    const { astOfCode, codeAreaRef, astError, simulatorError } = useSimulatorStore()
 
     if (!astOfCode || astError) {
         return (
             <div className="relative w-full h-full bg-slate-50 p-4">
                 <pre className="text-red-500 font-mono text-sm">
                     {astError || "Code is not valid"}
+                </pre>
+            </div>
+        )
+    }
+
+    if (astOfCode && simulatorError) {
+        return (
+            <div className="relative w-full h-full bg-slate-50 p-4">
+                <pre className="text-red-500 font-mono text-sm">
+                    {simulatorError}
                 </pre>
             </div>
         )

@@ -72,10 +72,14 @@ class Simulator {
 
     /* Run */
     run(): ExecStep[] {
-        this.addScriptExecutionStep(this.ast)
-        this.traverseExec(this.ast, { parentScopeIndex: 0 })
-        this.addScriptExecutedStep(this.ast)
-        return this.steps
+        try {
+            this.addScriptExecutionStep(this.ast)
+            this.traverseExec(this.ast, { parentScopeIndex: 0 })
+            this.addScriptExecutedStep(this.ast)
+            return this.steps
+        } catch (error) {
+            throw error instanceof Error ? error : new Error("This code has something that we are not supporting yet.")
+        }
     }
 
     /* Memory */

@@ -19,6 +19,7 @@ type SimulatorContextType = {
     initializeFiles: (files: Record<string, string>) => void
     astOfCode: ESTree.Program | ts.SourceFile | null
     astError: string | null
+    simulatorError: string | null
     steps: ExecStep[]
     currentStep: ExecStep | null
     isPlaying: boolean
@@ -49,6 +50,7 @@ export const SimulatorProvider = ({
     const [activeFile, setActiveFile] = useState("main.js")
     const [astOfCode, setAstOfCode] = useState<ESTree.Program | ts.SourceFile | null>(null)
     const [astError, setAstError] = useState<string | null>(null)
+    const [simulatorError, setSimulatorError] = useState<string | null>(null)
     const [steps, setSteps] = useState<ExecStep[]>([])
     const [currentStep, setCurrentExecStep] = useState<ExecStep | null>(null)
     const [isPlaying, setIsPlaying] = useState(false)
@@ -101,11 +103,16 @@ export const SimulatorProvider = ({
 
     const runSimulator = (astOfCode: ESTree.Program) => {
         const simulator = new Simulator(astOfCode as ESTree.Program)
-        const steps = simulator.run()
-        console.log(steps)
-        setSteps(steps)
-        changeStep(0)
-        setCurrentExecStep(steps[0])
+        try {
+            const steps = simulator.run()
+            console.log(steps)
+            setSteps(steps)
+            setCurrentExecStep(steps[0])
+        } catch (error) {
+            setSimulatorError(error instanceof Error ? error.message : 'Unknown error')
+            setSteps([])
+            setCurrentExecStep(null)
+        }
     }
 
     const togglePlaying = (state?: boolean) => {
@@ -181,6 +188,7 @@ export const SimulatorProvider = ({
                 initializeFiles,
                 astOfCode,
                 astError,
+                simulatorError,
                 steps,
                 currentStep,
                 isPlaying,
