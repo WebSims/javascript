@@ -18,10 +18,6 @@ const ExecutionMode: React.FC = () => {
         return (
             <div className='flex flex-col h-full'>
                 <ResizablePanelGroup direction="horizontal">
-                    <ResizablePanel className='p-2'>
-                        <MemoryModelVisualizer />
-                    </ResizablePanel>
-                    <ResizableHandle withHandle className="bg-slate-100 hover:bg-slate-200 transition-colors" />
                     <ResizablePanel>
                         <ResizablePanelGroup direction="vertical">
                             <ResizablePanel>
@@ -35,6 +31,10 @@ const ExecutionMode: React.FC = () => {
                                 <ConsoleOutput code={`console.log("Hello, world!");`} />
                             </ResizablePanel>
                         </ResizablePanelGroup>
+                    </ResizablePanel>
+                    <ResizableHandle withHandle className="bg-slate-100 hover:bg-slate-200 transition-colors" />
+                    <ResizablePanel className='p-2'>
+                        <MemoryModelVisualizer />
                     </ResizablePanel>
                 </ResizablePanelGroup>
                 <PlayerBar />
