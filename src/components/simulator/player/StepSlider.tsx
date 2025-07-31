@@ -57,7 +57,7 @@ const StepSlider: React.FC = () => {
                 }
             }
 
-            depths.push(step.type === EXEC_STEP_TYPE.SCRIPT_EXECUTED ? 0 : depth)
+            depths.push(depth)
             inFunctionScopes.push(functionDepth > 0)
         }
 
