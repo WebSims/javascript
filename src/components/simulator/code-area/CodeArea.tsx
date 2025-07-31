@@ -110,7 +110,7 @@ export const decorations = {
         UNKNOWN: { tooltip: "UNKNOWN Expression", classN: "bg-orange-400 hover:bg-orange-500" },
     },
     class: {
-        classN: "bg-slate-50 rounded-md p-2 [&:has(div:hover)]:bg-slate-50 hover:bg-blue-50 transition-colors duration-150",
+        classN: "bg-slate-50 rounded-md p-2 [&:has(div:hover)]:bg-slate-50 hover:bg-blue-50 hover:[&>*:last-child]:text-blue-600 transition-colors duration-150",
         property: { tooltip: "Class Property", cheatSheetId: "class-property", classN: "" },
         method: { tooltip: "Class Method", cheatSheetId: "class-method", classN: "" },
         UNKNOWN: { tooltip: "UNKNOWN Class", classN: "bg-orange-400 hover:bg-orange-500" },
@@ -140,7 +140,7 @@ const Statement = ({ st, parent, parens }) => {
     let cheatSheetId
 
     if (st.type == "BlockStatement") {
-        st.category = parent.category
+        st.category = "statement.block"
         component = <BlockStatement st={st} parent={parent} parens={parens} />
     } else if (parent.type == "ArrowFunctionExpression") {
         st.category = "expression.data.fnArrImplicit"
@@ -228,11 +228,12 @@ const Statement = ({ st, parent, parens }) => {
         _.get(decorations, all.slice(0, i + 1).join('.')).classN || ''
     ).join(' ') + (isExecuting ? ' executing' : '') + (isExecuted ? ' executed' : '') + (isErrorThrown ? ' error-thrown' : '')
 
-    if (st.type === "BlockStatement") {
+    const excludedParentTypes = ["BlockStatement", "Program"]
+    if (st.type === "BlockStatement" && !excludedParentTypes.includes(parent.type)) {
         return <span
             ref={stRef}
             data-cheat-sheet-id={cheatSheetId}
-            className={className}
+            className={className + " contents"}
             title={title}
         >{component}</span>
     }
@@ -970,13 +971,15 @@ const ForStatement = ({ st, parent, parens }: { st: any, parent: any, parens: an
 const BlockStatement = ({ st, parent, parens }: { st: any, parent: any, parens: any }) => {
     return (
         <>
-            <span className="text-slate-500 font-bold">&#123;</span>
-            <div className="ml-6 border-l-2 border-blue-200 pl-4 my-1">
-                {st && st.body && st.body.length > 0 && st.body.map((statement: any, i: number) => (
-                    <Statement key={i} st={statement} parent={st} parens={parens} />
-                ))}
+            <span className="inline-block w-full text-slate-500 font-bold">&#123;</span>
+            <div className="">
+                <div className="ml-4 my-1">
+                    {st && st.body && st.body.length > 0 && st.body.map((statement: any, i: number) => (
+                        <Statement key={i} st={statement} parent={st} parens={parens} />
+                    ))}
+                </div>
             </div>
-            <span className="text-slate-500 font-bold">&#125;</span>
+            <span className="inline-block text-slate-500 font-bold">&#125;</span>
         </>
     )
 }
