@@ -28,6 +28,7 @@ type SimulatorContextType = {
     stepBackward: () => void
     changeStep: (index: number) => void
     resetSimulation: () => void
+    resetScrollPosition: () => void
     totalSteps: number
     codeAreaRef: React.RefObject<HTMLDivElement>
     cheatSheetRef: React.RefObject<HTMLDivElement>
@@ -75,6 +76,7 @@ export const SimulatorProvider = ({
             const shouldRun = astOfCodeChanged.current
             if (shouldRun) {
                 runSimulator(astOfCode as ESTree.Program)
+                resetScrollPosition()
                 astOfCodeChanged.current = false
             }
         }
@@ -157,6 +159,17 @@ export const SimulatorProvider = ({
         }
     }
 
+    const resetScrollPosition = () => {
+        // Reset scroll only for code area
+        if (codeAreaRef?.current) {
+            const scrollableContainer = codeAreaRef.current.closest('div.w-full.h-full.overflow-auto')
+            if (scrollableContainer) {
+                scrollableContainer.scrollTop = 0
+                scrollableContainer.scrollLeft = 0
+            }
+        }
+    }
+
     const resetSimulation = () => {
         changeStep(0)
         togglePlaying(false)
@@ -207,6 +220,7 @@ export const SimulatorProvider = ({
                 stepBackward,
                 changeStep,
                 resetSimulation,
+                resetScrollPosition,
                 totalSteps,
                 codeAreaRef,
                 cheatSheetRef,
