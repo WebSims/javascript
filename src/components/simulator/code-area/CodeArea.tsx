@@ -988,7 +988,7 @@ const ForStatement = ({ st, parent, parens }: { st: any, parent: any, parens: an
 const BlockStatement = ({ st, parent, parens }: { st: any, parent: any, parens: any }) => {
     return (
         <>
-            <span className="inline-block w-full text-slate-500 font-bold">&#123;</span>
+            <span className="inline-block text-slate-500 font-bold">&#123;</span>
             <div className="">
                 <div className="ml-4 my-1">
                     {st && st.body && st.body.length > 0 && st.body.map((statement: any, i: number) => (
