@@ -50,14 +50,14 @@ export const getStepColorByDepth = (depth: number, maxDepth: number, isFunctionS
         // Blue color scheme for function scopes
         return {
             backgroundColor: `hsl(220, 100%, ${lightness}%)`,
-            borderColor: `hsl(220, 100%, ${Math.max(lightness - 20, 10)}%)`,
+            borderColor: `hsl(220, 100%, ${lightness - 5}%)`,
             textColor: lightness > 50 ? '#1e293b' : '#ffffff'
         }
     } else {
         // Grayscale for regular scopes
         return {
             backgroundColor: `hsl(0, 0%, ${lightness}%)`,
-            borderColor: `hsl(0, 0%, ${Math.max(lightness - 20, 10)}%)`,
+            borderColor: `hsl(0, 0%, ${lightness - 5}%)`,
             textColor: lightness > 50 ? '#1e293b' : '#ffffff'
         }
     }
