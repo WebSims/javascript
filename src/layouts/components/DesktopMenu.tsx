@@ -35,17 +35,6 @@ const DesktopMenu: React.FC = () => {
         return '#'
     }
 
-    const getHomeUrl = () => {
-        return currentMode === 'RUN'
-            ? {
-                pathname: '/',
-                search: "?mode=run"
-            }
-            : {
-                pathname: '/'
-            }
-    }
-
     const currentExample = exampleId ? getExampleById(exampleId) : null
 
     const groupedExamples = EXAMPLES_CONFIG.reduce((acc, example) => {
@@ -108,18 +97,18 @@ const DesktopMenu: React.FC = () => {
                         Examples
                     </NavigationMenuTrigger>
                     <NavigationMenuContent>
-                        <div className="grid w-[800px] grid-cols-2 gap-3 p-6">
+                        <div className="grid w-[800px] grid-cols-2 gap-6 p-6">
                             {Object.entries(groupedExamples).map(([category, examples]) => {
                                 const IconComponent = categoryIcons[category as keyof typeof categoryIcons]
                                 return (
                                     <div key={category} className="space-y-3">
                                         <div className="flex items-center gap-2">
                                             <IconComponent className="w-4 h-4 text-muted-foreground" />
-                                            <h3 className="text-sm font-semibold text-foreground">
+                                            <h3 className="text-md font-semibold text-foreground">
                                                 {categoryLabels[category as keyof typeof categoryLabels]}
                                             </h3>
                                         </div>
-                                        <ul className="grid w-full grid-cols-1 gap-1">
+                                        <ul className="grid w-full grid-cols-1 gap-1 ml-3">
                                             {examples.map((example) => (
                                                 <ListItem
                                                     key={example.id}

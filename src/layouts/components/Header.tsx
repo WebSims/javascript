@@ -34,7 +34,7 @@ const Header: React.FC = () => {
                 </Button>
             </div>
 
-            <div className='flex w-full items-center gap-4'>
+            <div className='flex w-full items-center gap-6'>
                 <div
                     className='font-bold lg:text-lg cursor-pointer hover:text-blue-600 transition-colors'
                     tabIndex={0}
@@ -45,11 +45,7 @@ const Header: React.FC = () => {
                         WebSims.org/js
                     </Link>
                 </div>
-                {isDesktop && (
-                    <nav className='flex items-center gap-2'>
-                        <DesktopMenu />
-                    </nav>
-                )}
+                {isDesktop && <DesktopMenu />}
             </div>
 
             <div className='flex items-center gap-2'>
