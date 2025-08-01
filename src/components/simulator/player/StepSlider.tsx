@@ -221,7 +221,7 @@ const StepSlider: React.FC = () => {
                     ref={setRefs}
                     className={cn(
                         "absolute left-0 right-0 top-3 lg:top-1/2 -translate-y-1/2 flex overflow-hidden rounded-full px-2.5",
-                        isTooltipOpen ? "h-2.5" : "h-2"
+                        isTooltipOpen ? "h-3" : "h-2"
                     )}
                     style={{
                         pointerEvents: 'none',
@@ -363,7 +363,7 @@ const StepSlider: React.FC = () => {
                     step={1}
                     className={cn(
                         'pointer-events-none w-full absolute left-0 right-0 top-3 lg:top-1/2 -translate-y-1/2',
-                        isTooltipOpen ? '[&_[data-orientation=horizontal]]:h-2.5' : '[&_[data-orientation=horizontal]]:h-2',
+                        isTooltipOpen ? '[&_[data-orientation=horizontal]]:h-3' : '[&_[data-orientation=horizontal]]:h-2',
                         // Enable pointer events and add hover styles for the thumb
                         '[&_[role=slider]]:pointer-events-auto',
                         isDragging ? '[&_[role=slider]]:cursor-grabbing' : '[&_[role=slider]]:cursor-pointer',
