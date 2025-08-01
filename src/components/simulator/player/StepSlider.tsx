@@ -7,7 +7,7 @@ import { useResponsive } from '@/hooks/useResponsive'
 import { Slider } from '@/components/ui/slider'
 import useElementSize from '@/hooks/useElementSize'
 import { useSpringFollower } from '@/hooks/useSpringFollower'
-import { TOOLTIP_WIDTH } from './player.config'
+import { TOOLTIP_WIDTH, getScopeColorsByDepth } from './player.config'
 import { getStepTag, getStepClassName, getStepTooltip } from '@/helpers/player'
 
 const StepSlider: React.FC = () => {
@@ -30,42 +30,17 @@ const StepSlider: React.FC = () => {
         setContainerElement(el)
     }, [stepsContainerRef])
 
-    const depthInfo = useMemo(() => {
-        const depths: number[] = []
-        const inFunctionScopes: boolean[] = []
-        let depth = 0
-        let functionDepth = 0
-        let maxDepth = 0
+    const getMaxDepth = useMemo(() => {
+        return Math.max(...steps.map(step => step.scopeIndex))
+    }, [steps])
 
-        for (const step of steps) {
-            if (step.type === EXEC_STEP_TYPE.PUSH_SCOPE) {
-                depth++
-                maxDepth = Math.max(maxDepth, depth)
+    const isInFunctionScope = useCallback((stepIndex: number) => {
+        const step = steps[stepIndex]
+        if (!step) return false
 
-                // Track if we're in a function scope
-                if (step.memoryChange.type === "push_scope" &&
-                    step.memoryChange.kind === "function") {
-                    functionDepth++
-                }
-            } else if (step.type === EXEC_STEP_TYPE.POP_SCOPE) {
-                depth = Math.max(0, depth - 1)
-
-                // Track if we're popping a function scope
-                if (step.memoryChange.type === "pop_scope" &&
-                    step.memoryChange.kind === "function") {
-                    functionDepth = Math.max(0, functionDepth - 1)
-                }
-            }
-
-            depths.push(depth)
-            inFunctionScopes.push(functionDepth > 0)
-        }
-
-        return {
-            depths,
-            inFunctionScopes,
-            maxDepth
-        }
+        // Check if current scope is a function scope
+        const currentScope = step.memorySnapshot.scopes[step.scopeIndex]
+        return currentScope?.type === 'function'
     }, [steps])
 
     // Unified function to get clientX from pointer event
@@ -253,40 +228,31 @@ const StepSlider: React.FC = () => {
                     }}
                 >
                     {steps.map((step, index) => {
-                        // For POP_SCOPE steps, use the next step's color
-                        const targetIndex = step.type === EXEC_STEP_TYPE.POP_SCOPE && index < steps.length - 1
-                            ? index + 1
-                            : index
+                        // For POP_SCOPE steps, use the next step's values
+                        const shouldUseNextStep = step.type === EXEC_STEP_TYPE.POP_SCOPE && index < steps.length - 1
+                        const targetIndex = shouldUseNextStep ? index + 1 : index
+                        const targetScopeIndex = shouldUseNextStep ? steps[index + 1].scopeIndex : step.scopeIndex
 
-                        // Calculate lightness based on percentage of max depth
-                        const baseLightness = 10
-                        const maxLightness = 90
-                        const lightnessRange = maxLightness - baseLightness
-
-                        const depthPercentage = depthInfo.maxDepth > 0
-                            ? depthInfo.depths[targetIndex] / depthInfo.maxDepth
-                            : 0
-                        const lightness = baseLightness + (depthPercentage * lightnessRange)
-
-                        // Use blue color when inside a function scope, otherwise use grayscale
-                        const backgroundColor = depthInfo.inFunctionScopes[targetIndex]
-                            ? `hsl(220, 100%, ${lightness}%)`
-                            : `hsl(0, 0%, ${lightness}%)`
+                        // Get depth-based colors using the shared configuration
+                        const scopeColors = getScopeColorsByDepth(
+                            targetScopeIndex,
+                            getMaxDepth,
+                            isInFunctionScope(targetIndex)
+                        )
 
                         if (index !== steps.length - 1) {
                             return (
                                 <>
-                                    {index === 0 && (<div className='w-2.5 absolute left-0 top-0 bottom-0' style={{ backgroundColor }}></div>)}
+                                    {index === 0 && (<div className='w-2.5 absolute left-0 top-0 bottom-0' style={{ backgroundColor: scopeColors.backgroundColor }}></div>)}
                                     <div
                                         key={step.index}
-                                        data-depth={depthInfo.depths[index]}
                                         className='flex-1 h-full'
-                                        style={{ backgroundColor }}
+                                        style={{ backgroundColor: scopeColors.backgroundColor }}
                                     />
                                 </>
                             )
                         } else {
-                            return (<div className='w-2.5 absolute right-0 top-0 bottom-0' style={{ backgroundColor }}></div>)
+                            return (<div className='w-2.5 absolute right-0 top-0 bottom-0' style={{ backgroundColor: scopeColors.backgroundColor }}></div>)
                         }
                     })}
                 </div>
