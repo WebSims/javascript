@@ -157,6 +157,7 @@ class Simulator {
     }
 
     addScriptExecutedStep(astNode: ESTree.BaseNode) {
+        this.lastScopeIndex = 0
         this.addStep(astNode, EXEC_STEP_TYPE.SCRIPT_EXECUTED)
     }
 
