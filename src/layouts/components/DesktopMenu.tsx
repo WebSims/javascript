@@ -98,22 +98,6 @@ const DesktopMenu: React.FC = () => {
         <NavigationMenu delayDuration={100} className='z-50'>
             <NavigationMenuList>
                 <NavigationMenuItem>
-                    <NavigationMenuLink asChild className=''>
-                        <Link
-                            to={getHomeUrl()}
-                            className={cn(
-                                navigationMenuTriggerStyle(),
-                                "cursor-pointer",
-                                !currentExample ? "text-blue-600 focus:text-blue-600" : ""
-                            )}
-                            aria-label="Go to home page"
-                        >
-                            Home
-                        </Link>
-                    </NavigationMenuLink>
-                </NavigationMenuItem>
-
-                <NavigationMenuItem>
                     <NavigationMenuTrigger
                         onClick={(e) => e.preventDefault()}
                         className={cn(
