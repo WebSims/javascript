@@ -13,7 +13,7 @@ export const useModeToggle = () => {
             newSearchParams.set('mode', 'run')
         }
 
-        setSearchParams(newSearchParams, { replace: true })
+        setSearchParams(newSearchParams)
     }
 
     const currentMode: 'CODE' | 'RUN' = searchParams.get('mode') === 'run' ? 'RUN' : 'CODE'

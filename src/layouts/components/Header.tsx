@@ -1,6 +1,6 @@
 import { Button } from '@/components/ui/button'
 import React, { useState } from 'react'
-import { useNavigate } from 'react-router'
+import { Link } from 'react-router'
 
 import { useResponsive } from '@/hooks/useResponsive'
 import { useModeToggle } from '@/hooks/useModeToggle'
@@ -11,19 +11,7 @@ import MobileMenu from '@/layouts/components/MobileMenu'
 const Header: React.FC = () => {
     const { isDesktop } = useResponsive()
     const { currentMode, toggleMode } = useModeToggle()
-    const navigate = useNavigate()
     const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false)
-
-    const handleHomeClick = () => {
-        navigate('/')
-    }
-
-    const handleHomeKeyDown = (e: React.KeyboardEvent) => {
-        if (e.key === 'Enter' || e.key === ' ') {
-            e.preventDefault()
-            handleHomeClick()
-        }
-    }
 
     const handleMobileMenuToggle = () => {
         setIsMobileMenuOpen(!isMobileMenuOpen)
@@ -49,13 +37,13 @@ const Header: React.FC = () => {
             <div className='flex w-full items-center gap-4'>
                 <div
                     className='font-bold lg:text-lg cursor-pointer hover:text-blue-600 transition-colors'
-                    onClick={handleHomeClick}
-                    onKeyDown={handleHomeKeyDown}
                     tabIndex={0}
                     aria-label="Go to home page"
                     role="button"
                 >
-                    WebSims.org/js
+                    <Link to="/">
+                        WebSims.org/js
+                    </Link>
                 </div>
                 {isDesktop && (
                     <nav className='flex items-center gap-2'>
