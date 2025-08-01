@@ -7,8 +7,9 @@ import { useResponsive } from '@/hooks/useResponsive'
 import { Slider } from '@/components/ui/slider'
 import useElementSize from '@/hooks/useElementSize'
 import { useSpringFollower } from '@/hooks/useSpringFollower'
-import { TOOLTIP_WIDTH, getScopeColorsByDepth } from './player.config'
-import { getStepTag, getStepClassName, getStepTooltip } from '@/helpers/player'
+import { TOOLTIP_WIDTH } from '@/configs/steps.config'
+import { getStepColorByDepth } from '@/helpers/steps'
+import { getStepTag, getStepClassName, getStepTooltip } from '@/helpers/steps'
 
 const StepSlider: React.FC = () => {
     const {
@@ -234,7 +235,7 @@ const StepSlider: React.FC = () => {
                         const targetScopeIndex = shouldUseNextStep ? steps[index + 1].scopeIndex : step.scopeIndex
 
                         // Get depth-based colors using the shared configuration
-                        const scopeColors = getScopeColorsByDepth(
+                        const stepColor = getStepColorByDepth(
                             targetScopeIndex,
                             getMaxDepth,
                             isInFunctionScope(targetIndex)
@@ -243,16 +244,16 @@ const StepSlider: React.FC = () => {
                         if (index !== steps.length - 1) {
                             return (
                                 <>
-                                    {index === 0 && (<div className='w-2.5 absolute left-0 top-0 bottom-0' style={{ backgroundColor: scopeColors.backgroundColor }}></div>)}
+                                    {index === 0 && (<div className='w-2.5 absolute left-0 top-0 bottom-0' style={{ backgroundColor: stepColor.backgroundColor }}></div>)}
                                     <div
                                         key={step.index}
                                         className='flex-1 h-full'
-                                        style={{ backgroundColor: scopeColors.backgroundColor }}
+                                        style={{ backgroundColor: stepColor.backgroundColor }}
                                     />
                                 </>
                             )
                         } else {
-                            return (<div className='w-2.5 absolute right-0 top-0 bottom-0' style={{ backgroundColor: scopeColors.backgroundColor }}></div>)
+                            return (<div className='w-2.5 absolute right-0 top-0 bottom-0' style={{ backgroundColor: stepColor.backgroundColor }}></div>)
                         }
                     })}
                 </div>

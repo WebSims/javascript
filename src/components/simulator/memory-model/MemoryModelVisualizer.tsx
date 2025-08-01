@@ -1,9 +1,10 @@
-import { useEffect, useRef, useState } from "react"
+import { useEffect, useMemo, useRef, useState } from "react"
 import * as d3 from "d3"
 import ELK from "elkjs/lib/elk.bundled.js"
 import type { ElkNode as ElkLayoutNode, ElkEdge as ElkLayoutEdge } from "elkjs/lib/elk-api"
 import { JSValue, HEAP_OBJECT_TYPE } from "@/types/simulator"
 import { useSimulatorStore } from "@/hooks/useSimulatorStore"
+import { getStepColorByDepth } from "@/helpers/steps"
 
 type HeapObjectData = {
     id: string
@@ -18,6 +19,7 @@ type ScopeData = {
     name: string
     color: string
     borderColor: string
+    textColor: string
     variables: { id: string; name: string; type: string; target?: string; value?: string }[]
 }
 
@@ -48,37 +50,40 @@ type ElkGraph = ElkNode & {
 }
 
 const MemoryModelVisualizer = () => {
-    const { currentStep } = useSimulatorStore()
+    const { currentStep, steps } = useSimulatorStore()
     const svgRef = useRef<SVGSVGElement>(null)
     const [isDragging, setIsDragging] = useState(false)
     // eslint-disable-next-line @typescript-eslint/no-unused-vars
     const [draggedItem, setDraggedItem] = useState<{ id: string; type: 'scope' | 'heap'; x: number; y: number } | null>(null)
+
+    const getMaxDepth = useMemo(() => {
+        return Math.max(...steps.map(step => step.scopeIndex))
+    }, [steps])
 
     // Transform snapshot data into visualization format
     const transformData = () => {
         const scopesData: ScopeData[] = []
         const heapData: HeapObjectData[] = []
 
-        // Categorize scopes with meaningful names and colors
+        // Categorize scopes with depth-based colors
         currentStep?.memorySnapshot.scopes.forEach((scope, index) => {
             const scopeId = `scope-${index}`
             let scopeName = "Unknown Scope"
-            let scopeColor = "#e2e8f0"
-            let scopeBorderColor = "#a0aec0"
+
+            // Get depth-based colors using current depth and max depth
+            const stepColor = getStepColorByDepth(
+                index,
+                getMaxDepth,
+                scope.type === "function"
+            )
 
             // Identify scope type
             if (scope.type === "global") {
                 scopeName = "Global Scope"
-                scopeColor = "#e9d8fd"
-                scopeBorderColor = "#9f7aea"
             } else if (scope.type === "function") {
                 scopeName = `Function Scope ${index}`
-                scopeColor = "#c6f6d5"
-                scopeBorderColor = "#68d391"
             } else if (scope.type === "block") {
                 scopeName = `Block Scope ${index}`
-                scopeColor = "#fee2e2"
-                scopeBorderColor = "#f87171"
             }
 
             // Process variables in scope
@@ -121,8 +126,9 @@ const MemoryModelVisualizer = () => {
             scopesData.push({
                 id: scopeId,
                 name: scopeName,
-                color: scopeColor,
-                borderColor: scopeBorderColor,
+                color: stepColor.backgroundColor,
+                borderColor: stepColor.borderColor,
+                textColor: stepColor.textColor,
                 variables
             })
         })
@@ -1055,7 +1061,13 @@ const MemoryModelVisualizer = () => {
                             })
 
                         // Add scope name
-                        scopeGroup.append("text").attr("x", 10).attr("y", 20).attr("font-weight", "bold").text(scopeData.name)
+                        scopeGroup
+                            .append("text")
+                            .attr("x", 10)
+                            .attr("y", 20)
+                            .attr("font-weight", "bold")
+                            .attr("fill", scopeData.textColor)
+                            .text(scopeData.name)
 
                         // Draw variables - ensure all variables are drawn regardless of ELK positioning
                         scopeData.variables.forEach((varData, varIndex: number) => {
@@ -1089,6 +1101,7 @@ const MemoryModelVisualizer = () => {
                                 .attr("x", 21)
                                 .attr("y", 15)
                                 .attr("font-size", "12px")
+                                .attr("fill", scopeData.textColor)
                                 .text(`${varData.name}: ${varData.value || ""}`)
 
                             // Store variable position for connections - position at the right side of the variable

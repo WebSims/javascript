@@ -1,5 +1,5 @@
-import { ExampleConfig } from '../types/examples'
-import { EXAMPLES_CONFIG } from '../examples/examples.config'
+import { ExampleConfig } from '@/types/examples'
+import { EXAMPLES_CONFIG } from '@/configs/examples.config'
 
 export const getExampleById = (id: string): ExampleConfig | undefined => {
     return EXAMPLES_CONFIG.find(example => example.id === id)

@@ -9,7 +9,7 @@ import {
     NavigationMenuTrigger,
     navigationMenuTriggerStyle,
 } from '@/components/ui/navigation-menu'
-import { EXAMPLES_CONFIG } from '@/examples/examples.config'
+import { EXAMPLES_CONFIG } from '@/configs/examples.config'
 import { type ExampleConfig, examplesCategories } from '@/types/examples'
 import { getExampleById } from '@/helpers/examples'
 import { useModeToggle } from '@/hooks/useModeToggle'
