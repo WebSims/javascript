@@ -1,6 +1,6 @@
 /* eslint-disable */
 
-import React, { useRef } from "react"
+import React, { useRef, useEffect, RefObject } from "react"
 import * as _ from 'lodash'
 import { useSimulatorStore } from "@/hooks/useSimulatorStore"
 import { useExecStep } from "@/hooks/useExecStep"
@@ -136,6 +136,23 @@ const Statement = ({ st, parent, parens }) => {
     const isExecuted = isExecutedParent || isExecutedStatement
     const isErrorThrown = isErrorThrownParent || isErrorThrownStatement
 
+    // Apply executing/executed classes to parent DOM element when condition is true
+    useEffect(() => {
+        const excludedParentTypes = ["BlockStatement", "Program"]
+        if (st.type === "BlockStatement" && !excludedParentTypes.includes(parent.type)) {
+            const parentElement = stRef.current?.parentElement
+            if (parentElement) {
+                // Remove existing classes first
+                parentElement.classList.remove('executing', 'executed', 'error-thrown')
+
+                // Add current classes
+                if (isExecuting) parentElement.classList.add('executing')
+                if (isExecuted) parentElement.classList.add('executed')
+                if (isErrorThrown) parentElement.classList.add('error-thrown')
+            }
+        }
+    }, [isExecuting, isExecuted, isErrorThrown, st.type, parent.type])
+
     let component = <>UNKNWON STATEMENT</>;
     let cheatSheetId
 
@@ -231,15 +248,15 @@ const Statement = ({ st, parent, parens }) => {
     const excludedParentTypes = ["BlockStatement", "Program"]
     if (st.type === "BlockStatement" && !excludedParentTypes.includes(parent.type)) {
         return <span
-            ref={stRef}
+            ref={stRef as RefObject<HTMLSpanElement>}
             data-cheat-sheet-id={cheatSheetId}
-            className={className + " contents"}
+            className={className + " contents [&>*:first-child]:ml-1"}
             title={title}
         >{component}</span>
     }
 
     return <div
-        ref={stRef}
+        ref={stRef as RefObject<HTMLDivElement>}
         data-cheat-sheet-id={cheatSheetId}
         className={className}
         title={title}
