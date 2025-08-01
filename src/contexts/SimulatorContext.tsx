@@ -62,11 +62,23 @@ export const SimulatorProvider = ({
 
     const codeAreaRef = useRef<HTMLDivElement>(null)
     const cheatSheetRef = useRef<HTMLDivElement>(null)
+    const astOfCodeChanged = useRef(false)
 
     useEffect(() => {
         const cleanup = cheatSheetHighlighter(codeAreaRef, cheatSheetRef, setHighlightedId)
         return cleanup
     }, [astOfCode])
+
+    // Run simulator when mode changes to RUN and AST has changed or first time
+    useEffect(() => {
+        if (mode === 'RUN' && astOfCode) {
+            const shouldRun = astOfCodeChanged.current
+            if (shouldRun) {
+                runSimulator(astOfCode as ESTree.Program)
+                astOfCodeChanged.current = false
+            }
+        }
+    }, [mode, astOfCode])
 
     const totalSteps = steps.length
 
@@ -76,9 +88,7 @@ export const SimulatorProvider = ({
             if (ast) {
                 setAstError(null)
                 setAstOfCode(ast)
-                if (mode === 'RUN') {
-                    runSimulator(ast)
-                }
+                astOfCodeChanged.current = true
             }
         } catch (error) {
             setAstError(error instanceof Error ? error.message : 'Unknown error')
