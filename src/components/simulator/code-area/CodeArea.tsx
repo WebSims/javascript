@@ -996,7 +996,7 @@ const BlockStatement = ({ st, parent, parens }: { st: any, parent: any, parens: 
                     ))}
                 </div>
             </div>
-            <span className="inline-block text-slate-500 font-bold">&#125;</span>
+            <span className="inline-block text-slate-500 font-bold mr-2">&#125;</span>
         </>
     )
 }
