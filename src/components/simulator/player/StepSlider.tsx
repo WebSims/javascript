@@ -220,8 +220,8 @@ const StepSlider: React.FC = () => {
                 <div
                     ref={setRefs}
                     className={cn(
-                        "absolute left-0 right-0 top-3 lg:top-1/2 -translate-y-1/2 flex overflow-hidden rounded-full px-2.5",
-                        isTooltipOpen ? "h-3" : "h-2"
+                        "absolute left-0 right-0 top-3 lg:top-1/2 -translate-y-1/2 flex overflow-hidden rounded-full px-2.5 transition-all duration-200",
+                        isTooltipOpen ? "h-3.5" : "h-2"
                     )}
                     style={{
                         pointerEvents: 'none',
@@ -362,14 +362,14 @@ const StepSlider: React.FC = () => {
                     max={steps.length > 0 ? steps.length - 1 : 0}
                     step={1}
                     className={cn(
-                        'pointer-events-none w-full absolute left-0 right-0 top-3 lg:top-1/2 -translate-y-1/2',
-                        isTooltipOpen ? '[&_[data-orientation=horizontal]]:h-3' : '[&_[data-orientation=horizontal]]:h-2',
+                        'pointer-events-none w-full absolute left-0 right-0 top-3 lg:top-1/2 -translate-y-1/2 z-30',
+                        isTooltipOpen ? '[&_[data-orientation=horizontal]]:h-3.5' : '[&_[data-orientation=horizontal]]:h-2',
+                        '[&_[data-orientation=horizontal]]:transition-all [&_[data-orientation=horizontal]]:duration-200',
                         // Enable pointer events and add hover styles for the thumb
                         '[&_[role=slider]]:pointer-events-auto',
                         isDragging ? '[&_[role=slider]]:cursor-grabbing' : '[&_[role=slider]]:cursor-pointer',
-                        '[&_[role=slider]]:w-5',
-                        '[&_[role=slider]]:h-5',
-                        '[&_[role=slider]]:hover:scale-125',
+                        isTooltipOpen ? '[&_[role=slider]]:w-6 [&_[role=slider]]:h-6' : '[&_[role=slider]]:w-5 [&_[role=slider]]:h-5',
+                        '[&_[role=slider]]:hover:scale-110',
                         '[&_[role=slider]]:hover:shadow-lg',
                         // Glass-like effect for filled portion with enhanced contrast
                         '[&_[data-orientation=horizontal]_span[data-orientation=horizontal]]:bg-transparent',
@@ -377,9 +377,9 @@ const StepSlider: React.FC = () => {
                         // '[&_[data-orientation=horizontal]_span[data-orientation=horizontal]]:rounded-full',
                         // currentStep.index < steps.length / 2 ? '[&_[data-orientation=horizontal]_span[data-orientation=horizontal]]:-mr-[7px]' : '',
                     )}
-                    style={{
-                        transform: 'translateY(-50%)',
-                    }}
+                    onPointerDown={handlePointer}
+                    onPointerMove={handlePointer}
+                    onPointerLeave={handlePointer}
                 />
             </div>
 
