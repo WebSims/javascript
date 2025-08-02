@@ -97,7 +97,7 @@ const DesktopMenu: React.FC = () => {
                         Examples
                     </NavigationMenuTrigger>
                     <NavigationMenuContent>
-                        <div className="grid w-[800px] grid-cols-2 gap-8 p-6">
+                        <div className="grid w-[800px] grid-cols-2 gap-10 p-6">
                             {Object.entries(groupedExamples).map(([category, examples]) => {
                                 const IconComponent = categoryIcons[category as keyof typeof categoryIcons]
                                 return (
@@ -108,14 +108,14 @@ const DesktopMenu: React.FC = () => {
                                                 {categoryLabels[category as keyof typeof categoryLabels]}
                                             </h3>
                                         </div>
-                                        <ul className="grid w-full grid-cols-1 gap-1 ml-6">
+                                        <ul className="grid w-full grid-cols-1 gap-1">
                                             {examples.map((example) => (
                                                 <ListItem
                                                     key={example.id}
                                                     title={example.title}
                                                     to={getExampleUrl(example.id)}
                                                     className={cn(
-                                                        "cursor-pointer",
+                                                        "cursor-pointer ml-8",
                                                         example.id === currentExample?.id
                                                             ? "bg-blue-50 text-blue-900 border border-blue-200"
                                                             : "",
