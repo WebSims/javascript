@@ -1,4 +1,4 @@
-import { createContext, useState, useEffect, useRef } from "react"
+import { createContext, useState, useEffect, useRef, useMemo } from "react"
 import { astOf } from "@/utils/ast"
 import { cheatSheetHighlighter } from "@/utils/cheatSheetHighlighter"
 import * as ts from "typescript"
@@ -47,12 +47,11 @@ export const SimulatorProvider = ({
     children: React.ReactNode
     mode: 'CODE' | 'RUN'
 }) => {
+
     const [files, setFiles] = useState<Record<string, string>>({ "main.js": "" })
     const [activeFile, setActiveFile] = useState("main.js")
-    const [astOfCode, setAstOfCode] = useState<ESTree.Program | ts.SourceFile | null>(null)
     const [astError, setAstError] = useState<string | null>(null)
     const [simulatorError, setSimulatorError] = useState<string | null>(null)
-    const [steps, setSteps] = useState<ExecStep[]>([])
     const [currentStep, setCurrentExecStep] = useState<ExecStep | null>(null)
     const [isPlaying, setIsPlaying] = useState(false)
     const [speed, setSpeed] = useState(2)
@@ -63,68 +62,79 @@ export const SimulatorProvider = ({
 
     const codeAreaRef = useRef<HTMLDivElement>(null)
     const cheatSheetRef = useRef<HTMLDivElement>(null)
-    const astOfCodeChanged = useRef(false)
+    const astChangedRef = useRef(false)
+    const previousStepsRef = useRef<ExecStep[]>([])
+
+    // Memoize astOfCode based on the current file content
+    const astOfCode = useMemo(() => {
+        const currentFileContent = files[activeFile] || ""
+        try {
+            const ast = astOf(currentFileContent)
+            if (ast) {
+                setAstError(null)
+                astChangedRef.current = true
+                return ast
+            }
+            return null
+        } catch (error) {
+            setAstError(error instanceof Error ? error.message : 'Unknown error')
+            return null
+        }
+    }, [files, activeFile])
+
+    const resetScrollPosition = () => {
+        // Reset scroll only for code area
+        if (codeAreaRef?.current) {
+            const scrollableContainer = codeAreaRef.current.closest('div.w-full.h-full.overflow-auto')
+            if (scrollableContainer) {
+                scrollableContainer.scrollTop = 0
+                scrollableContainer.scrollLeft = 0
+            }
+        }
+    }
+
+    // Memoize steps based on astOfCode and mode - only generate when AST changes and in RUN mode
+    const steps = useMemo(() => {
+        console.log('Steps memoization triggered:', { mode, hasAst: !!astOfCode, astChanged: astChangedRef.current })
+        if (mode === 'RUN' && astOfCode && astChangedRef.current) {
+            try {
+                const simulator = new Simulator(astOfCode as ESTree.Program)
+                const newSteps = simulator.run()
+                console.log('Generated steps:', newSteps.length, 'First step:', newSteps[0])
+                setCurrentExecStep(newSteps[0])
+                setSimulatorError(null)
+                astChangedRef.current = false
+                previousStepsRef.current = newSteps
+                resetScrollPosition()
+                return newSteps
+            } catch (error) {
+                console.error('Simulator error:', error)
+                setSimulatorError(error instanceof Error ? error.message : 'Unknown error')
+                return []
+            }
+        }
+        // Return previous steps if AST hasn't changed or we're in CODE mode
+        return previousStepsRef.current
+    }, [mode, astOfCode])
+
+    // Memoize totalSteps based on steps
+    const totalSteps = useMemo(() => steps.length, [steps])
 
     useEffect(() => {
         const cleanup = cheatSheetHighlighter(codeAreaRef, cheatSheetRef, setHighlightedId)
         return cleanup
     }, [astOfCode])
 
-    // Run simulator when mode changes to RUN and AST has changed or first time
-    useEffect(() => {
-        if (mode === 'RUN' && astOfCode) {
-            const shouldRun = astOfCodeChanged.current
-            if (shouldRun) {
-                runSimulator(astOfCode as ESTree.Program)
-                resetScrollPosition()
-                astOfCodeChanged.current = false
-            }
-        }
-    }, [mode, astOfCode])
-
-    const totalSteps = steps.length
-
-    const parseAndSetAst = (code: string) => {
-        try {
-            const ast = astOf(code)
-            if (ast) {
-                setAstError(null)
-                setAstOfCode(ast)
-                astOfCodeChanged.current = true
-            }
-        } catch (error) {
-            setAstError(error instanceof Error ? error.message : 'Unknown error')
-            setSteps([])
-            setCurrentExecStep(null)
-        }
-    }
-
     const initializeFiles = (files: Record<string, string>) => {
         setFiles(files)
         const fileNames = Object.keys(files)
         const mainFile = fileNames.find(filename => filename.includes('main.js')) || fileNames[0]
         setActiveFile(mainFile)
-        parseAndSetAst(files[mainFile])
     }
 
     const updateFileContent = (filename: string, newContent: string) => {
         const newFiles = { ...files, [filename]: newContent }
         setFiles(newFiles)
-        parseAndSetAst(newContent)
-    }
-
-    const runSimulator = (astOfCode: ESTree.Program) => {
-        const simulator = new Simulator(astOfCode as ESTree.Program)
-        try {
-            const steps = simulator.run()
-            console.log(steps)
-            setSteps(steps)
-            setCurrentExecStep(steps[0])
-        } catch (error) {
-            setSimulatorError(error instanceof Error ? error.message : 'Unknown error')
-            setSteps([])
-            setCurrentExecStep(null)
-        }
     }
 
     const togglePlaying = (state?: boolean) => {
@@ -159,16 +169,6 @@ export const SimulatorProvider = ({
         }
     }
 
-    const resetScrollPosition = () => {
-        // Reset scroll only for code area
-        if (codeAreaRef?.current) {
-            const scrollableContainer = codeAreaRef.current.closest('div.w-full.h-full.overflow-auto')
-            if (scrollableContainer) {
-                scrollableContainer.scrollTop = 0
-                scrollableContainer.scrollLeft = 0
-            }
-        }
-    }
 
     const resetSimulation = () => {
         changeStep(0)
