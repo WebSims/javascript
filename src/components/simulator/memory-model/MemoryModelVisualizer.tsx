@@ -756,7 +756,7 @@ const MemoryModelVisualizer = () => {
                 const reversedMemval = [...memvalItems].reverse()
 
                 // Define consistent dimensions for memval section
-                const memvalItemHeight = 35
+                const memvalItemHeight = 30
                 const memvalItemSpacing = 10
                 const memvalPadding = 20
 
@@ -826,27 +826,16 @@ const MemoryModelVisualizer = () => {
                             .attr("stroke", itemBorderColor)
                             .attr("stroke-width", 1.5)
 
-                        // Add stack position indicator (FILO - First In, Last Out)
-                        memvalGroup
-                            .append("text")
-                            .attr("x", 8)
-                            .attr("y", 12)
-                            .attr("font-size", "10px")
-                            .attr("font-family", "monospace")
-                            .attr("fill", "#64748b")
-                            .attr("font-weight", "bold")
-                            .text(`[${reversedMemval.length - 1 - memvalIndex}]`)
-
                         // Add memval value with type at the bottom
                         const displayValue = isReference ? `ref: ${memvalData.ref}` : String(memvalData.value)
-                        const typeText = isReference ? "ref" : typeof memvalData.value
-                        const formattedValue = typeText === "string" ? `"${displayValue}"` : displayValue
-                        const valueWithType = `${formattedValue} (${typeText})`
+                        const memvalType = isReference ? "ref" : typeof memvalData.value
+                        const formattedValue = memvalType === "string" ? `"${displayValue}"` : displayValue
+                        const valueWithType = `${formattedValue}`
 
                         memvalGroup
                             .append("text")
                             .attr("x", itemWidth / 2)
-                            .attr("y", 28)
+                            .attr("y", 20)
                             .attr("font-size", "12px")
                             .attr("font-family", "monospace")
                             .attr("fill", "#1e293b")
