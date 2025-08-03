@@ -17,7 +17,7 @@ type HeapObjectData = {
 type ScopeData = {
     id: string
     name: string
-    scopeTypeTag: string
+    scopeTags: string
     color: string
     borderColor: string
     textColor: string
@@ -78,15 +78,20 @@ const MemoryModelVisualizer = () => {
             )
 
             // Identify scope type for tag
-            let scopeTypeTag = ""
+            let scopeTags = ""
             if (scope.type === "global") {
-                scopeTypeTag = "[Global Scope]"
+                scopeTags = "[Global Scope]"
             } else if (scope.type === "function") {
-                scopeTypeTag = "[Function Scope]"
+                scopeTags = "[Function Scope]"
             } else if (scope.type === "block") {
-                scopeTypeTag = "[Block Scope]"
+                scopeTags = "[Block Scope]"
             } else {
-                scopeTypeTag = "[Unknown Scope]"
+                scopeTags = "[Unknown Scope]"
+            }
+
+            // Add "[Current]" tag if this is the current scope
+            if (index === currentStep?.scopeIndex) {
+                scopeTags += " [Current]"
             }
 
             // Process variables in scope
@@ -128,8 +133,8 @@ const MemoryModelVisualizer = () => {
 
             scopesData.push({
                 id: scopeId,
-                name: scopeTypeTag,
-                scopeTypeTag,
+                name: scopeTags,
+                scopeTags,
                 color: stepColor.backgroundColor,
                 borderColor: stepColor.borderColor,
                 textColor: stepColor.textColor,
@@ -415,7 +420,7 @@ const MemoryModelVisualizer = () => {
                     layoutOptions: {
                         "elk.padding": "[top=10, left=10, bottom=10, right=10]",
                     },
-                    labels: [{ text: scope.scopeTypeTag, width: 120, height: 20 }],
+                    labels: [{ text: scope.scopeTags, width: 120, height: 20 }],
                     children: [],
                 }
 
@@ -1072,7 +1077,7 @@ const MemoryModelVisualizer = () => {
                             .attr("font-weight", "bold")
                             .attr("fill", scopeData.textColor)
                             .attr("font-size", "12px")
-                            .text(scopeData.scopeTypeTag)
+                            .text(scopeData.scopeTags)
 
                         // Draw variables - ensure all variables are drawn regardless of ELK positioning
                         scopeData.variables.forEach((varData, varIndex: number) => {
