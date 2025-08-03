@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useRef, useState } from "react"
+import { useCallback, useEffect, useMemo, useRef, useState } from "react"
 import * as d3 from "d3"
 import ELK from "elkjs/lib/elk.bundled.js"
 import type { ElkNode as ElkLayoutNode, ElkEdge as ElkLayoutEdge } from "elkjs/lib/elk-api"
@@ -54,15 +54,17 @@ const MemoryModelVisualizer = () => {
     const { currentStep, steps } = useSimulatorStore()
     const svgRef = useRef<SVGSVGElement>(null)
     const [isDragging, setIsDragging] = useState(false)
-    // eslint-disable-next-line @typescript-eslint/no-unused-vars
+    // Track dragged item for state management (value used in drag handlers)
     const [draggedItem, setDraggedItem] = useState<{ id: string; type: 'scope' | 'heap'; x: number; y: number } | null>(null)
+    // Suppress unused warning as draggedItem is used for state tracking
+    void draggedItem
 
     const getMaxDepth = useMemo(() => {
         return Math.max(...steps.map(step => step.scopeIndex))
     }, [steps])
 
     // Transform snapshot data into visualization format
-    const transformData = () => {
+    const transformData = useCallback(() => {
         const scopesData: ScopeData[] = []
         const heapData: HeapObjectData[] = []
 
@@ -201,7 +203,7 @@ const MemoryModelVisualizer = () => {
             scopes: scopesData,
             heap: heapData
         }
-    }
+    }, [currentStep, getMaxDepth])
 
     // Helper function to format property values
     const formatPropertyValue = (propName: string, propValue: JSValue): { name: string; value: string; target?: string } => {
@@ -510,102 +512,22 @@ const MemoryModelVisualizer = () => {
             propIndex?: number
         }> = []
 
-        // Define the calculatePath function
-        const calculatePath = (
-            source: { x: number; y: number },
-            target: { x: number; y: number },
-            type: string
-        ): string => {
-            const path = d3.path()
-
-            // Determine if we're crossing between different sections
-            const crossingDivider = Math.abs(target.x - source.x) > 200
-
-            // Calculate distances and directions
-            const dx = target.x - source.x
-            const dy = target.y - source.y
-            const distance = Math.sqrt(dx * dx + dy * dy)
-            const routeAbove = source.y > target.y
-
-            // For variable references (scope to heap)
-            if (type === "var-ref") {
-                path.moveTo(source.x, source.y)
-
-                // Adjust curve parameters based on distance and crossing
-                const curveStrength = crossingDivider ? 0.5 : 0.3
-                const curveHeight = Math.min(Math.max(distance * curveStrength, 40), 120) * (routeAbove ? -1 : 1)
-
-                // For long distances, use a more pronounced S-curve
-                if (distance > 300) {
-                    path.bezierCurveTo(
-                        source.x + dx * 0.2,
-                        source.y + curveHeight * 0.7,
-                        target.x - dx * 0.2,
-                        target.y + curveHeight * 0.3,
-                        target.x,
-                        target.y,
-                    )
-                } else {
-                    // For shorter distances, use a simpler curve
-                    path.bezierCurveTo(
-                        source.x + dx * 0.3,
-                        source.y + curveHeight,
-                        target.x - dx * 0.3,
-                        target.y + curveHeight,
-                        target.x,
-                        target.y,
-                    )
-                }
-            }
-            // For property references (between heap objects)
-            else {
-                path.moveTo(source.x, source.y)
-
-                // Adjust curve parameters based on distance and direction
-                const curveHeight = Math.min(Math.max(Math.abs(dy) * 1.5, 50), 150) * (routeAbove ? -1 : 1)
-
-                // For objects that are far apart horizontally, use a flatter curve
-                if (Math.abs(dx) > 250) {
-                    path.bezierCurveTo(
-                        source.x + dx * 0.35,
-                        source.y + curveHeight * 0.2,
-                        target.x - dx * 0.35,
-                        target.y + curveHeight * 0.2,
-                        target.x,
-                        target.y,
-                    )
-                }
-                // For objects that are close horizontally but separated vertically, use a higher curve
-                else if (Math.abs(dy) > 120) {
-                    path.bezierCurveTo(
-                        source.x + dx * 0.4,
-                        source.y + curveHeight * 0.5,
-                        target.x - dx * 0.4,
-                        target.y + curveHeight * 0.5,
-                        target.x,
-                        target.y,
-                    )
-                }
-                // For objects that are close to each other, use a more pronounced curve
-                else {
-                    path.bezierCurveTo(
-                        source.x + dx * 0.5,
-                        source.y + curveHeight * 0.8,
-                        target.x - dx * 0.5,
-                        target.y + curveHeight * 0.8,
-                        target.x,
-                        target.y,
-                    )
-                }
-            }
-
-            return path.toString()
-        }
-
-
-
         // Function to update connections
         const updateConnections = () => {
+            // Define the calculatePath function for exactly straight lines
+            const calculatePath = (
+                source: { x: number; y: number },
+                target: { x: number; y: number }
+            ): string => {
+                const path = d3.path()
+
+                // Draw exactly straight line from source to target
+                path.moveTo(source.x, source.y)
+                path.lineTo(target.x, target.y)
+
+                return path.toString()
+            }
+
             graphContainer.selectAll(".connection").remove()
 
             edgeData.forEach((edge) => {
@@ -614,13 +536,12 @@ const MemoryModelVisualizer = () => {
 
                 if (!sourcePos || !targetPos) return
 
-                const pathType = edge.type === "var-ref" ? "var-ref" : "prop-ref"
                 const arrowType = edge.type === "var-ref" ? "arrow-var-ref" : "arrow-prop-ref"
 
                 graphContainer
                     .append("path")
                     .attr("class", "connection")
-                    .attr("d", calculatePath(sourcePos, targetPos, pathType))
+                    .attr("d", calculatePath(sourcePos, targetPos))
                     .attr("stroke", edge.type === "var-ref" ? "#4299e1" : "#ed8936")
                     .attr("stroke-width", 1.5)
                     .attr("fill", "none")
@@ -1143,26 +1064,183 @@ const MemoryModelVisualizer = () => {
                     })
                 }
 
-                // Draw heap objects - ensure all heap objects are drawn regardless of ELK positioning - only if there are heap objects
+                // Draw heap objects with D3 force simulation for optimal positioning
                 if (memoryModelData.heap.length > 0) {
-                    memoryModelData.heap.forEach((objData, objIndex: number) => {
-                        const objNodeId = objData.id
+                    // Define type for heap nodes with simulation properties
+                    type HeapNodeDatum = d3.SimulationNodeDatum & {
+                        id: string
+                        width: number
+                        height: number
+                        data: HeapObjectData
+                    }
 
-                        // Use the x position from ELK layout if available, otherwise calculate manually
-                        const objNode = heapSection.children?.find(child => child.id === objNodeId)
-                        const objX = objNode?.x || objIndex * (objectWidth + 50) // 50px spacing between objects
+                    // Create force simulation for heap objects
+                    const heapNodes: HeapNodeDatum[] = memoryModelData.heap.map((objData, objIndex) => {
+                        const objNode = heapSection.children?.find(child => child.id === objData.id)
+                        return {
+                            id: objData.id,
+                            x: (heapSection.x || 0) + (objNode?.x || objIndex * (objectWidth + 50)),
+                            y: (heapSection.y || 0) + (objNode?.y || 0),
+                            width: objNode?.width || objectWidth,
+                            height: objNode?.height || objectHeight,
+                            data: objData
+                        }
+                    })
+
+                    // Create connections data for force simulation
+                    const connections: Array<{ source: string; target: string; type: string }> = []
+
+                    // Add variable to heap connections
+                    memoryModelData.scopes.forEach((scope) => {
+                        scope.variables.forEach((variable) => {
+                            if (variable.type === "reference" && variable.target) {
+                                connections.push({
+                                    source: variable.id,
+                                    target: variable.target,
+                                    type: "var-ref"
+                                })
+                            }
+                        })
+                    })
+
+                    // Add heap object property connections
+                    memoryModelData.heap.forEach((object) => {
+                        if (object.properties) {
+                            object.properties.forEach((prop) => {
+                                if (prop.target) {
+                                    connections.push({
+                                        source: object.id,
+                                        target: prop.target,
+                                        type: "prop-ref"
+                                    })
+                                }
+                            })
+                        }
+                    })
+
+                    // Custom force to minimize line crossings
+                    const avoidCrossingsForce = () => {
+                        const strength = 0.2 // Increased from 0.05 for stronger repulsion
+                        return (alpha: number) => {
+                            heapNodes.forEach((node1, i) => {
+                                heapNodes.forEach((node2, j) => {
+                                    if (i >= j) return
+
+                                    // Check if there are connections that would cross
+                                    const connections1 = connections.filter(c => c.target === node1.id || c.source === node1.id)
+                                    const connections2 = connections.filter(c => c.target === node2.id || c.source === node2.id)
+
+                                    if (connections1.length > 0 && connections2.length > 0) {
+                                        // Calculate repulsion based on potential crossings
+                                        const dx = (node2.x || 0) - (node1.x || 0)
+                                        const dy = (node2.y || 0) - (node1.y || 0)
+                                        const distance = Math.sqrt(dx * dx + dy * dy) || 1
+
+                                        // Apply stronger repulsion when nodes are closer
+                                        const distanceFactor = Math.max(1, distance / 100) // Normalize distance
+                                        const connectionWeight = (connections1.length + connections2.length) * 2 // Increase connection importance
+                                        const force = strength * alpha * connectionWeight / (distanceFactor * distanceFactor)
+                                        const fx = (dx / distance) * force
+                                        const fy = (dy / distance) * force
+
+                                        if (node1.vx !== undefined && node1.vy !== undefined) {
+                                            node1.vx = (node1.vx || 0) - fx
+                                            node1.vy = (node1.vy || 0) - fy
+                                        }
+                                        if (node2.vx !== undefined && node2.vy !== undefined) {
+                                            node2.vx = (node2.vx || 0) + fx
+                                            node2.vy = (node2.vy || 0) + fy
+                                        }
+                                    }
+                                })
+                            })
+                        }
+                    }
+
+                    // Set up D3 force simulation for heap objects with crossing avoidance
+                    const simulation = d3.forceSimulation(heapNodes)
+                        .force("collision", d3.forceCollide().radius((d: d3.SimulationNodeDatum) => {
+                            const node = d as HeapNodeDatum
+                            return Math.max(node.width, node.height) / 2 + 80 // Increased from 40 to 80 for more spacing
+                        }).strength(0.8)) // Add strength parameter for stronger collision avoidance
+                        .force("center", d3.forceCenter((heapSection.x || 0) + (heapSection.width || 400) / 2, (heapSection.y || 0) + (heapSection.height || 300) / 2))
+                        .force("x", d3.forceX((heapSection.x || 0) + 100).strength(0.1)) // Reduced from 0.15 to allow more spread
+                        .force("y", d3.forceY((heapSection.y || 0) + 100).strength(0.1)) // Reduced from 0.15 to allow more spread
+                        .force("avoidCrossings", avoidCrossingsForce())
+                        .force("repel", d3.forceManyBody().strength(-500)) // Add general repulsion force
+                        .alphaDecay(0.01) // Reduced from 0.02 for longer simulation
+                        .velocityDecay(0.3) // Reduced from 0.4 for more dynamic movement
+
+                    // Run simulation to completion with more iterations for better results
+                    simulation.stop()
+                    for (let i = 0; i < 400; ++i) simulation.tick() // Increased from 200 to 400 for better convergence
+
+                    // Recalculate heap section bounds after force simulation
+                    if (heapNodes.length > 0) {
+                        const minX = Math.min(...heapNodes.map(node => (node.x || 0)))
+                        const maxX = Math.max(...heapNodes.map(node => (node.x || 0) + node.width))
+                        const minY = Math.min(...heapNodes.map(node => (node.y || 0)))
+                        const maxY = Math.max(...heapNodes.map(node => (node.y || 0) + node.height))
+
+                        // Update heap section bounds with padding
+                        const padding = 40
+                        const actualHeapWidth = maxX - minX + padding * 2
+                        const actualHeapHeight = maxY - minY + padding * 2
+
+                        // Adjust heap section position if objects moved outside bounds
+                        const adjustedHeapX = Math.min(heapSection.x || 0, minX - padding)
+                        heapSection.x = adjustedHeapX
+                        heapSection.width = actualHeapWidth
+                        heapSection.height = actualHeapHeight
+
+                        // Recalculate total content width with updated heap section
+                        const updatedTotalContentWidth = actualMemvalSectionWidth +
+                            (actualScopeSectionWidth > 0 ? sectionSpacing + actualScopeSectionWidth : 0) +
+                            (actualHeapWidth > 0 ? sectionSpacing + actualHeapWidth : 0)
+
+                        // Update viewport if content is wider than current viewport
+                        const currentViewportWidth = parseFloat(svg.attr("width"))
+                        const requiredViewportWidth = updatedTotalContentWidth + margin.left + margin.right
+
+                        if (requiredViewportWidth > currentViewportWidth) {
+                            const newViewportWidth = Math.max(requiredViewportWidth, 1000)
+                            const newCenterX = (newViewportWidth - updatedTotalContentWidth) / 2
+
+                            svg
+                                .attr("width", newViewportWidth)
+                                .attr("viewBox", `0 0 ${newViewportWidth} ${newViewportHeight}`)
+
+                            // Update content group position
+                            contentGroup.attr("transform", `translate(${newCenterX}, ${newCenterY}) scale(1)`)
+
+                            // Update zoom transform
+                            const newFitTransform = d3.zoomIdentity
+                                .translate(newCenterX, newCenterY)
+                                .scale(1)
+
+                            svg.transition()
+                                .duration(300)
+                                // eslint-disable-next-line @typescript-eslint/no-explicit-any
+                                .call(zoom.transform as any, newFitTransform)
+                        }
+                    }
+
+                    // Now render heap objects with optimized positions
+                    heapNodes.forEach((heapNode) => {
+                        const objData = heapNode.data
+                        const objNodeId = objData.id
 
                         const objectGroup = graphContainer
                             .append("g")
                             .attr("class", "heap-object")
                             .attr("data-id", objNodeId)
-                            .attr("transform", `translate(${(heapSection.x || 0) + objX}, ${(heapSection.y || 0) + (objNode?.y || 0)})`)
+                            .attr("transform", `translate(${heapNode.x || 0}, ${heapNode.y || 0})`)
                             .call(d3.drag()
                                 .on("start", (event) => {
                                     event.sourceEvent.stopPropagation()
                                     // Store the initial position and mouse position
-                                    const initialX = (heapSection.x || 0) + objX
-                                    const initialY = (heapSection.y || 0) + (objNode?.y || 0)
+                                    const initialX = heapNode.x || 0
+                                    const initialY = heapNode.y || 0
                                     const mouseX = event.x
                                     const mouseY = event.y
                                     setDraggedItem({ id: objNodeId, type: 'heap', x: initialX, y: initialY })
@@ -1185,8 +1263,8 @@ const MemoryModelVisualizer = () => {
                                     objectGroup.attr("transform", `translate(${newX}, ${newY})`)
 
                                     // Update node positions for connections
-                                    const objWidth = objNode?.width || objectWidth
-                                    const objHeight = objNode?.height || objectHeight
+                                    const objWidth = heapNode.width
+                                    const objHeight = heapNode.height
                                     nodePositions.set(objNodeId, {
                                         x: newX,
                                         y: newY + objHeight / 2
@@ -1218,13 +1296,13 @@ const MemoryModelVisualizer = () => {
 
 
                         // Store object position for connections - use left edge for incoming connections
-                        nodePositions.set(objNodeId, { x: (heapSection.x || 0) + objX, y: (heapSection.y || 0) + (objNode?.y || 0) + (objNode?.height || objectHeight) / 2 })
+                        nodePositions.set(objNodeId, { x: heapNode.x || 0, y: (heapNode.y || 0) + heapNode.height / 2 })
 
                         // Draw object rectangle
                         objectGroup
                             .append("rect")
-                            .attr("width", objNode?.width || objectWidth)
-                            .attr("height", objNode?.height || objectHeight)
+                            .attr("width", heapNode.width)
+                            .attr("height", heapNode.height)
                             .attr("rx", 6)
                             .attr("ry", 6)
                             .attr("fill", objData.color)
@@ -1241,7 +1319,7 @@ const MemoryModelVisualizer = () => {
                         // Add object type header
                         objectGroup
                             .append("rect")
-                            .attr("width", objNode?.width || objectWidth)
+                            .attr("width", heapNode.width)
                             .attr("height", 25)
                             .attr("rx", 6)
                             .attr("ry", 6)
@@ -1282,8 +1360,8 @@ const MemoryModelVisualizer = () => {
                                         .attr("stroke-width", 0.5)
 
                                     // Store property position for connections
-                                    const propX = (heapSection.x || 0) + objX + (objNode?.width || objectWidth) - 10
-                                    const propY = (heapSection.y || 0) + (objNode?.y || 0) + 45 + i * 20
+                                    const propX = (heapNode.x || 0) + heapNode.width - 10
+                                    const propY = (heapNode.y || 0) + 45 + i * 20
                                     const propId = `${objNodeId}_${prop.name}`
                                     propertyPositions.set(propId, { x: propX, y: propY })
 
@@ -1299,7 +1377,7 @@ const MemoryModelVisualizer = () => {
                                     // Add a small circle at the connection point
                                     objectGroup
                                         .append("circle")
-                                        .attr("cx", (objNode?.width || objectWidth) - 10)
+                                        .attr("cx", heapNode.width - 10)
                                         .attr("cy", 45 + i * 20)
                                         .attr("r", 3)
                                         .attr("fill", "#ed8936")
@@ -1326,7 +1404,7 @@ const MemoryModelVisualizer = () => {
             .catch((error) => {
                 console.error("ELK layout error:", error)
             })
-    }, [currentStep])
+    }, [currentStep, transformData])
 
     // Navigation control functions (commented out - not currently used)
     /*
