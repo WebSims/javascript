@@ -17,6 +17,7 @@ type HeapObjectData = {
 type ScopeData = {
     id: string
     name: string
+    scopeTypeTag: string
     color: string
     borderColor: string
     textColor: string
@@ -68,7 +69,6 @@ const MemoryModelVisualizer = () => {
         // Categorize scopes with depth-based colors
         currentStep?.memorySnapshot.scopes.forEach((scope, index) => {
             const scopeId = `scope-${index}`
-            let scopeName = "Unknown Scope"
 
             // Get depth-based colors using current depth and max depth
             const stepColor = getStepColorByDepth(
@@ -77,13 +77,16 @@ const MemoryModelVisualizer = () => {
                 scope.type === "function"
             )
 
-            // Identify scope type
+            // Identify scope type for tag
+            let scopeTypeTag = ""
             if (scope.type === "global") {
-                scopeName = "Global Scope"
+                scopeTypeTag = "[Global Scope]"
             } else if (scope.type === "function") {
-                scopeName = `Function Scope ${index}`
+                scopeTypeTag = "[Function Scope]"
             } else if (scope.type === "block") {
-                scopeName = `Block Scope ${index}`
+                scopeTypeTag = "[Block Scope]"
+            } else {
+                scopeTypeTag = "[Unknown Scope]"
             }
 
             // Process variables in scope
@@ -125,7 +128,8 @@ const MemoryModelVisualizer = () => {
 
             scopesData.push({
                 id: scopeId,
-                name: scopeName,
+                name: scopeTypeTag,
+                scopeTypeTag,
                 color: stepColor.backgroundColor,
                 borderColor: stepColor.borderColor,
                 textColor: stepColor.textColor,
@@ -411,7 +415,7 @@ const MemoryModelVisualizer = () => {
                     layoutOptions: {
                         "elk.padding": "[top=10, left=10, bottom=10, right=10]",
                     },
-                    labels: [{ text: scope.name, width: 100, height: 20 }],
+                    labels: [{ text: scope.scopeTypeTag, width: 120, height: 20 }],
                     children: [],
                 }
 
@@ -1060,14 +1064,15 @@ const MemoryModelVisualizer = () => {
                                 d3.select(this).style("cursor", "grab").attr("stroke-width", 2)
                             })
 
-                        // Add scope name
+                        // Add scope type tag
                         scopeGroup
                             .append("text")
                             .attr("x", 10)
                             .attr("y", 20)
                             .attr("font-weight", "bold")
                             .attr("fill", scopeData.textColor)
-                            .text(scopeData.name)
+                            .attr("font-size", "12px")
+                            .text(scopeData.scopeTypeTag)
 
                         // Draw variables - ensure all variables are drawn regardless of ELK positioning
                         scopeData.variables.forEach((varData, varIndex: number) => {
