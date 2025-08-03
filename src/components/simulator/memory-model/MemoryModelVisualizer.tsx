@@ -68,13 +68,16 @@ const MemoryModelVisualizer = () => {
         const scopesData: ScopeData[] = []
         const heapData: HeapObjectData[] = []
 
-        // Categorize scopes with depth-based colors
-        currentStep?.memorySnapshot.scopes.forEach((scope, index) => {
-            const scopeId = `scope-${index}`
+        // Categorize scopes with depth-based colors (reverse order - global at bottom)
+        const reversedScopes = [...(currentStep?.memorySnapshot.scopes || [])].reverse()
+        reversedScopes.forEach((scope, reversedIndex) => {
+            // Calculate original index for color and current scope detection
+            const originalIndex = (currentStep?.memorySnapshot.scopes.length || 0) - 1 - reversedIndex
+            const scopeId = `scope-${originalIndex}`
 
-            // Get depth-based colors using current depth and max depth
+            // Get depth-based colors using original depth and max depth
             const stepColor = getStepColorByDepth(
-                index,
+                originalIndex,
                 getMaxDepth,
                 scope.type === "function"
             )
@@ -92,7 +95,7 @@ const MemoryModelVisualizer = () => {
             }
 
             // Add "[Current]" tag if this is the current scope
-            if (index === currentStep?.scopeIndex) {
+            if (originalIndex === currentStep?.scopeIndex) {
                 scopeTags += " [Current]"
             }
 
