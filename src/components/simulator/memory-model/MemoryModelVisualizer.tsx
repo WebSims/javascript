@@ -733,7 +733,7 @@ const MemoryModelVisualizer = () => {
                 // Calculate actual section widths after layout
                 const calculateSectionWidth = (section: ElkNode): number => {
                     if (!section.children || section.children.length === 0) {
-                        return section.width || 200 // Default width if no children
+                        return (section.width || 200) // Default width if no children
                     }
 
                     // Find the rightmost edge of all children
@@ -742,7 +742,7 @@ const MemoryModelVisualizer = () => {
                     ))
 
                     // Add padding
-                    const padding = 40
+                    const padding = 150
                     return rightmostEdge + padding
                 }
 
@@ -815,17 +815,17 @@ const MemoryModelVisualizer = () => {
                 const actualHeapSectionHeight = heapSection.children && heapSection.children.length > 0 ? calculateSectionHeight(heapSection) : 0
 
                 // Log calculated section dimensions for debugging
-                // console.log('Calculated Section Dimensions:', {
-                //     memval: { width: actualMemvalSectionWidth, height: actualMemvalSectionHeight },
-                //     scope: { width: actualScopeSectionWidth, height: actualScopeSectionHeight },
-                //     heap: { width: actualHeapSectionWidth, height: actualHeapSectionHeight }
-                // })
+                console.log('Calculated Section Dimensions:', {
+                    memval: { width: actualMemvalSectionWidth, height: actualMemvalSectionHeight },
+                    scope: { width: actualScopeSectionWidth, height: actualScopeSectionHeight },
+                    heap: { width: actualHeapSectionWidth, height: actualHeapSectionHeight }
+                })
 
                 // Position sections using calculated widths - only show sections that have content
                 // New layout: memval -> heap -> scope
                 memvalSection.x = 0
                 heapSection.x = actualMemvalSectionWidth + sectionSpacing
-                scopeSection.x = heapSection.x + actualHeapSectionWidth + sectionSpacing
+                scopeSection.x = heapSection.x + sectionSpacing + actualHeapSectionWidth + sectionSpacing
 
                 // Apply vertical centering to all sections
                 memvalSection.y = 0
