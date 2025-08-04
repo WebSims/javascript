@@ -390,7 +390,7 @@ const MemoryModelVisualizer = () => {
                 id: "heapSection",
                 layoutOptions: {
                     "elk.algorithm": "layered",
-                    "elk.direction": "RIGHT",
+                    "elk.direction": "LEFT",
                     "elk.partitioning.activate": "true",
                     "elk.padding": "[top=20, left=20, bottom=20, right=20]",
                     "elk.layered.crossingMinimization.strategy": "LAYER_SWEEP",
@@ -647,7 +647,7 @@ const MemoryModelVisualizer = () => {
                     scopeData.variables.forEach((varData, varIndex) => {
                         const varNodeId = `var-${scopeNode.id}-${varData.name}`
                         nodePositions.set(varNodeId, {
-                            x: newX,
+                            x: newX + 5,
                             y: newY + 40 + varIndex * 35 + 10
                         })
                     })
@@ -727,7 +727,7 @@ const MemoryModelVisualizer = () => {
                         if (prop.target) {
                             const propId = `${objNodeId}_${prop.name}`
                             propertyPositions.set(propId, {
-                                x: newX + objWidth - 10,
+                                x: newX + 5,
                                 y: newY + 45 + propIndex * 20
                             })
                         }
@@ -1464,7 +1464,7 @@ const MemoryModelVisualizer = () => {
                                         .attr("stroke-width", 0.5)
 
                                     // Store property position for connections
-                                    const propX = (heapNode.x || 0) + heapNode.width - 10
+                                    const propX = (heapNode.x || 0) + 5
                                     const propY = (heapNode.y || 0) + 45 + i * 20
                                     const propId = `${objNodeId}_${prop.name}`
                                     propertyPositions.set(propId, { x: propX, y: propY })
@@ -1481,7 +1481,7 @@ const MemoryModelVisualizer = () => {
                                     // Add a small circle at the connection point
                                     objectGroup
                                         .append("circle")
-                                        .attr("cx", heapNode.width - 10)
+                                        .attr("cx", 5)
                                         .attr("cy", 45 + i * 20)
                                         .attr("r", 3)
                                         .attr("fill", "#ed8936")
