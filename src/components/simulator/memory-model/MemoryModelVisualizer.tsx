@@ -1041,7 +1041,7 @@ const MemoryModelVisualizer = () => {
                         // Store memval position for connections if it's a reference
                         if (isReference) {
                             const memvalId = `memval-${memvalIndex}`
-                            const memvalX = memvalSectionX + memvalPadding + itemWidth
+                            const memvalX = memvalSectionX + memvalPadding + itemWidth - 5
                             const memvalY = memvalSectionY + itemY + memvalItemHeight / 2
                             nodePositions.set(memvalId, { x: memvalX, y: memvalY })
 
@@ -1120,11 +1120,10 @@ const MemoryModelVisualizer = () => {
                             .style("cursor", "grab")
                             .call(createScopeDragBehavior(scopeNode, scopeData, actualScopeHeight))
 
-                        // Store scope position for connections - use the forced single column position
-                        nodePositions.set(scopeNode.id, {
-                            x: (scopeSection.x || 0) + singleColumnX + (scopeNode.width || 200) / 2,
-                            y: (scopeSection.y || 0) + singleColumnY + actualScopeHeight / 2
-                        })
+                        // Store scope position for connections - use the actual calculated position like memval
+                        const scopeX = (scopeSection.x || 0) + singleColumnX + (scopeNode.width || 200) / 2
+                        const scopeY = (scopeSection.y || 0) + singleColumnY + actualScopeHeight / 2
+                        nodePositions.set(scopeNode.id, { x: scopeX, y: scopeY })
 
                         // Draw scope rectangle
                         scopeGroup
@@ -1193,7 +1192,7 @@ const MemoryModelVisualizer = () => {
                                 .text(displayText)
 
                             // Store variable position for connections - position at the left side of the scope
-                            const varX = (scopeSection.x || 0) + singleColumnX
+                            const varX = (scopeSection.x || 0) + singleColumnX + 5
                             const varY = (scopeSection.y || 0) + singleColumnY + 40 + varIndex * 35 + 10
                             nodePositions.set(varNodeId, { x: varX, y: varY })
 
