@@ -548,13 +548,28 @@ const MemoryModelVisualizer = () => {
 
                 if (!sourcePos || !targetPos) return
 
-                const arrowType = edge.type === "var-ref" ? "arrow-var-ref" : "arrow-prop-ref"
+                let arrowType
+                let strokeColor
+
+                if (edge.type === "var-ref") {
+                    arrowType = "arrow-var-ref"
+                    strokeColor = "#4299e1"
+                } else if (edge.type === "prop-ref") {
+                    arrowType = "arrow-prop-ref"
+                    strokeColor = "#ed8936"
+                } else if (edge.type === "memval-ref") {
+                    arrowType = "arrow-memval-ref"
+                    strokeColor = "#8b5cf6"
+                } else {
+                    arrowType = "arrow-var-ref"
+                    strokeColor = "#4299e1"
+                }
 
                 graphContainer
                     .append("path")
                     .attr("class", "connection")
                     .attr("d", calculatePath(sourcePos, targetPos))
-                    .attr("stroke", edge.type === "var-ref" ? "#4299e1" : "#ed8936")
+                    .attr("stroke", strokeColor)
                     .attr("stroke-width", 1.5)
                     .attr("fill", "none")
                     .attr("marker-end", `url(#${arrowType})`)
@@ -565,7 +580,7 @@ const MemoryModelVisualizer = () => {
                     })
                     .on("mouseout", function () {
                         d3.select(this)
-                            .attr("stroke", edge.type === "var-ref" ? "#4299e1" : "#ed8936")
+                            .attr("stroke", strokeColor)
                             .attr("marker-end", `url(#${arrowType})`)
                     })
             })
@@ -897,6 +912,20 @@ const MemoryModelVisualizer = () => {
                     .attr("d", "M0,-4L8,0L0,4")
                     .attr("fill", "#ed8936")
 
+                // Memval reference arrow (purple)
+                defs
+                    .append("marker")
+                    .attr("id", "arrow-memval-ref")
+                    .attr("viewBox", "0 -5 10 10")
+                    .attr("refX", 8)
+                    .attr("refY", 0)
+                    .attr("markerWidth", 6)
+                    .attr("markerHeight", 6)
+                    .attr("orient", "auto")
+                    .append("path")
+                    .attr("d", "M0,-4L8,0L0,4")
+                    .attr("fill", "#8b5cf6")
+
                 // Highlighted arrow (red)
                 defs
                     .append("marker")
@@ -987,10 +1016,10 @@ const MemoryModelVisualizer = () => {
                             .attr("stroke-width", 1.5)
 
                         // Add memval value with type at the bottom
-                        const displayValue = isReference ? `ref: ${memvalData.ref}` : String(memvalData.value)
                         const memvalType = isReference ? "ref" : typeof memvalData.value
-                        const formattedValue = memvalType === "string" ? `"${displayValue}"` : displayValue
-                        const valueWithType = `${formattedValue}`
+                        const value = isReference ? memvalData.ref : memvalData.value
+                        const formattedValue = memvalType === "string" ? `"${value}"` : value
+                        const displayText = formattedValue
 
                         memvalGroup
                             .append("text")
@@ -1001,7 +1030,32 @@ const MemoryModelVisualizer = () => {
                             .attr("fill", "#1e293b")
                             .attr("font-weight", "500")
                             .attr("text-anchor", "middle")
-                            .text(valueWithType)
+                            .text(displayText as string)
+
+                        // Store memval position for connections if it's a reference
+                        if (isReference) {
+                            const memvalId = `memval-${memvalIndex}`
+                            const memvalX = memvalSectionX + memvalPadding + itemWidth
+                            const memvalY = memvalSectionY + itemY + memvalItemHeight / 2
+                            nodePositions.set(memvalId, { x: memvalX, y: memvalY })
+
+                            // Add edge data for memval references
+                            edgeData.push({
+                                source: memvalId,
+                                target: `obj-${memvalData.ref}-left`,
+                                type: "memval-ref",
+                                label: `memval-${memvalIndex}`,
+                            })
+
+                            // Add a small circle at the connection point
+                            memvalGroup
+                                .append("circle")
+                                .attr("cx", itemWidth - 5)
+                                .attr("cy", memvalItemHeight / 2)
+                                .attr("r", 3)
+                                .attr("fill", "#8b5cf6")
+                                .attr("stroke", "none")
+                        }
                     })
                 } else {
                     // Draw empty state with placeholder
@@ -1339,6 +1393,9 @@ const MemoryModelVisualizer = () => {
 
                         // Store object position for connections - use right edge for incoming connections
                         nodePositions.set(objNodeId, { x: (heapNode.x || 0) + heapNode.width, y: (heapNode.y || 0) + heapNode.height / 2 })
+
+                        // Store left edge position for memval connections
+                        nodePositions.set(`${objNodeId}-left`, { x: (heapNode.x || 0), y: (heapNode.y || 0) + heapNode.height / 2 })
 
                         // Draw object rectangle
                         objectGroup
