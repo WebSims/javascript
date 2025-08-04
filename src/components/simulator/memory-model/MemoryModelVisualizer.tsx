@@ -352,7 +352,7 @@ const MemoryModelVisualizer = () => {
                 id: "memvalSection",
                 layoutOptions: {
                     "elk.algorithm": "layered",
-                    "elk.direction": "DOWN",
+                    "elk.direction": "UP",
                     "elk.partitioning.activate": "true",
                     "elk.padding": "[top=20, left=20, bottom=20, right=20]",
                     "elk.spacing.nodeNode": "20",
@@ -368,12 +368,15 @@ const MemoryModelVisualizer = () => {
             const scopeSection: ElkNode = {
                 id: "scopeSection",
                 layoutOptions: {
-                    "elk.algorithm": "stress",
-                    "elk.direction": "DOWN",
+                    "elk.algorithm": "layered",
+                    "elk.direction": "UP",
+                    "elk.partitioning.activate": "true",
                     "elk.padding": "[top=20, left=20, bottom=20, right=20]",
-                    "elk.spacing.nodeNode": "40",
-                    "elk.stress.desiredEdgeLength": "100",
-                    "elk.stress.quality": "draft",
+                    "elk.spacing.nodeNode": "20",
+                    "elk.layered.spacing.baseValue": "15",
+                    "elk.layered.nodePlacement.strategy": "BRANDES_KOEPF",
+                    "elk.layered.considerModelOrder.strategy": "PREFER_EDGES",
+                    "elk.layered.crossingMinimization.strategy": "LAYER_SWEEP",
                 },
                 children: [],
             }
@@ -422,10 +425,10 @@ const MemoryModelVisualizer = () => {
             memoryModelData.scopes.forEach((scope) => {
                 const scopeNode: ElkNode = {
                     id: scope.id,
-                    width: 300,
+                    width: 200,
                     height: calculateScopeHeight(scope.id),
                     layoutOptions: {
-                        "elk.padding": "[top=10, left=10, bottom=10, right=10]",
+                        "elk.padding": "[top=5, left=5, bottom=5, right=5]",
                     },
                     labels: [{ text: scope.scopeTags, width: 120, height: 20 }],
                     children: [],
@@ -748,58 +751,45 @@ const MemoryModelVisualizer = () => {
 
                 const calculateSectionHeight = (section: ElkNode): number => {
                     if (!section.children || section.children.length === 0) {
-                        return section.height || 200 // Default height if no children
+                        return 100 // Default height if no children
                     }
 
-                    // Calculate height based on section type and content
+                    // For scope sections, calculate height based on scope content
+                    if (section.id === "scopeSection") {
+                        let totalHeight = 0
+
+                        section.children.forEach((scopeNode) => {
+                            // Find the corresponding scope data
+                            const scopeHeight = calculateScopeHeight(scopeNode.id)
+                            totalHeight += scopeHeight + 20// Add spacing between scopes
+                        })
+
+                        return totalHeight
+                    }
+
+                    // For memval sections, calculate height based on memval content
                     if (section.id === "memvalSection") {
-                        // For memval section, use the calculated height from rendering logic
                         const memvalItems = currentStep?.memorySnapshot.memval || []
                         const reversedMemval = [...memvalItems].reverse()
-                        const memvalItemHeight = 35
-                        const memvalItemSpacing = 10
-                        const memvalPadding = 20
-                        const titleHeight = 20
-                        const itemCount = Math.max(reversedMemval.length, 1)
-                        return titleHeight + (itemCount * memvalItemHeight) + ((itemCount - 1) * memvalItemSpacing) + (memvalPadding * 2)
-                    } else if (section.id === "scopeSection") {
-                        // For scope section, calculate based on manual positioning logic
-                        let totalHeight = 0
-                        section.children?.forEach((scopeNode, scopeIndex) => {
-                            const scopeData = memoryModelData.scopes.find(s => s.id === scopeNode.id)
-                            if (scopeData) {
-                                const headerHeight = 30
-                                const variableSpacing = 35
-                                const bottomPadding = 10
-                                const scopeHeight = headerHeight + scopeData.variables.length * variableSpacing + bottomPadding
-                                const actualScopeHeight = Math.max(120, scopeHeight)
 
-                                // Add spacing between scopes (20px) except for the last one
-                                const spacing = scopeIndex < (section.children?.length || 0) - 1 ? 20 : 0
-                                totalHeight += actualScopeHeight + spacing
-                            }
-                        })
-                        return totalHeight + 40 // Add section padding
-                    } else if (section.id === "heapSection") {
-                        // For heap section, use the original calculation
-                        if (!section.children || section.children.length === 0) {
-                            return section.height || 200 // Default height if no children
-                        }
+                        // Define consistent dimensions for memval section
+                        const titleHeight = 20 // Space for section title
+                        const memvalItemHeight = 30 // Height of each memval item
+                        const memvalItemSpacing = 10 // Spacing between items
+                        const sectionPadding = 20 // Padding around the section
 
-                        // Find the bottommost edge of all children
-                        const bottommostEdge = Math.max(...section.children.map(child =>
-                            (child.y || 0) + (child.height || 200)
-                        ))
+                        // Calculate section height based on content
+                        const itemCount = Math.max(reversedMemval.length, 1) // At least 1 item height for empty state
+                        const itemsHeight = itemCount * (memvalItemHeight + memvalItemSpacing)
+                        const totalHeight = titleHeight + itemsHeight + sectionPadding * 2 + 15
 
-                        // Add padding
-                        const padding = 40
-                        return bottommostEdge + padding
+                        return totalHeight
                     }
 
-                    // Fallback: use ELK positions but with better calculation
-                    const bottommostEdge = Math.max(...(section.children?.map(child =>
-                        (child.y || 0) + (child.height || 200)
-                    ) || [0]))
+                    // For other sections, use the original calculation
+                    const bottommostEdge = Math.max(...section.children.map(child =>
+                        (child.y || 0) + (child.height || 100)
+                    ))
 
                     // Add padding
                     const padding = 40
@@ -810,7 +800,7 @@ const MemoryModelVisualizer = () => {
                 const actualMemvalSectionWidth = calculateSectionWidth(memvalSection)
                 const actualScopeSectionWidth = scopeSection.children && scopeSection.children.length > 0 ? calculateSectionWidth(scopeSection) : 0
                 const actualHeapSectionWidth = heapSection.children && heapSection.children.length > 0 ? calculateSectionWidth(heapSection) : 0
-                const actualMemvalSectionHeight = calculateSectionHeight(memvalSection)
+                const actualMemvalSectionHeight = memvalSection.children && memvalSection.children.length > 0 ? calculateSectionHeight(memvalSection) : 110
                 const actualScopeSectionHeight = scopeSection.children && scopeSection.children.length > 0 ? calculateSectionHeight(scopeSection) : 0
                 const actualHeapSectionHeight = heapSection.children && heapSection.children.length > 0 ? calculateSectionHeight(heapSection) : 0
 
@@ -827,8 +817,7 @@ const MemoryModelVisualizer = () => {
                 heapSection.x = actualMemvalSectionWidth + sectionSpacing
                 scopeSection.x = heapSection.x + sectionSpacing + actualHeapSectionWidth + sectionSpacing
 
-                // Apply vertical centering to all sections
-                memvalSection.y = 0
+                memvalSection.y = actualScopeSectionHeight - actualMemvalSectionHeight
                 scopeSection.y = 0
                 heapSection.y = 0
 
@@ -928,8 +917,8 @@ const MemoryModelVisualizer = () => {
                 const memvalSectionHeight = titleHeight + (itemCount * memvalItemHeight) + ((itemCount - 1) * memvalItemSpacing) + (memvalPadding * 2)
 
                 // Fixed position for memval section (consistent regardless of content)
-                const memvalSectionX = 0
-                const memvalSectionY = 0
+                const memvalSectionX = memvalSection.x || 0
+                const memvalSectionY = memvalSection.y || 0
 
                 // Create memval section container
                 const memvalContainer = graphContainer
