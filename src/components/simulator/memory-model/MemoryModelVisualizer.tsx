@@ -112,16 +112,20 @@ const MemoryModelVisualizer = () => {
                 }
 
                 // Format the value for display
-                let displayValue: string
+                let displayValue
                 if (variable.value.type === "primitive") {
                     if (variable.value.value === undefined) {
                         displayValue = "undefined"
                     } else if (variable.value.value === null) {
                         displayValue = "null"
                     } else if (variable.value.value === "not_initialized") {
-                        displayValue = "<TDZ>"
+                        displayValue = "TDZ"
                     } else {
-                        displayValue = String(variable.value.value)
+                        if (typeof variable.value.value === 'string') {
+                            displayValue = `"${variable.value.value}"`
+                        } else {
+                            displayValue = String(variable.value.value)
+                        }
                     }
                 } else {
                     displayValue = `[Reference: ${variable.value.ref}]`
@@ -1056,9 +1060,6 @@ const MemoryModelVisualizer = () => {
                             .style("cursor", "grab")
                             .call(createScopeDragBehavior(scopeNode, scopeData, actualScopeHeight))
 
-
-
-
                         // Store scope position for connections - use the forced single column position
                         nodePositions.set(scopeNode.id, {
                             x: (scopeSection.x || 0) + singleColumnX + (scopeNode.width || 200) / 2,
@@ -1119,14 +1120,17 @@ const MemoryModelVisualizer = () => {
                                 .attr("stroke", "black")
                                 .attr("stroke-width", 1)
 
-                            // Add variable name
+                            // Add variable name   
+                            const isReference = varData.type === "reference"
+                            const displayText = `${varData.name}${isReference ? "" : `: ${varData.value}`}`
+
                             variableGroup
                                 .append("text")
                                 .attr("x", 21)
                                 .attr("y", 15)
                                 .attr("font-size", "12px")
                                 .attr("fill", scopeData.textColor)
-                                .text(`${varData.name}: ${varData.value || ""}`)
+                                .text(displayText)
 
                             // Store variable position for connections - position at the left side of the scope
                             const varX = (scopeSection.x || 0) + singleColumnX
