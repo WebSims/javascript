@@ -739,14 +739,20 @@ const MemoryModelVisualizer = () => {
                         return (section.width || 200) // Default width if no children
                     }
 
+                    if (section.id === "memvalSection") {
+                        return 200
+                    }
+
+                    if (section.id === "scopeSection") {
+                        return 300
+                    }
+
                     // Find the rightmost edge of all children
                     const rightmostEdge = Math.max(...section.children.map(child =>
-                        (child.x || 0) + (child.width || 200)
+                        (child.x || 0) + (child.width || 200) + 200
                     ))
 
-                    // Add padding
-                    const padding = 150
-                    return rightmostEdge + padding
+                    return rightmostEdge
                 }
 
                 const calculateSectionHeight = (section: ElkNode): number => {
@@ -800,22 +806,23 @@ const MemoryModelVisualizer = () => {
                 const actualMemvalSectionWidth = calculateSectionWidth(memvalSection)
                 const actualScopeSectionWidth = scopeSection.children && scopeSection.children.length > 0 ? calculateSectionWidth(scopeSection) : 0
                 const actualHeapSectionWidth = heapSection.children && heapSection.children.length > 0 ? calculateSectionWidth(heapSection) : 0
+
                 const actualMemvalSectionHeight = memvalSection.children && memvalSection.children.length > 0 ? calculateSectionHeight(memvalSection) : 110
                 const actualScopeSectionHeight = scopeSection.children && scopeSection.children.length > 0 ? calculateSectionHeight(scopeSection) : 0
                 const actualHeapSectionHeight = heapSection.children && heapSection.children.length > 0 ? calculateSectionHeight(heapSection) : 0
 
                 // Log calculated section dimensions for debugging
-                console.log('Calculated Section Dimensions:', {
-                    memval: { width: actualMemvalSectionWidth, height: actualMemvalSectionHeight },
-                    scope: { width: actualScopeSectionWidth, height: actualScopeSectionHeight },
-                    heap: { width: actualHeapSectionWidth, height: actualHeapSectionHeight }
-                })
+                // console.log('Calculated Section Dimensions:', {
+                //     memval: { width: actualMemvalSectionWidth, height: actualMemvalSectionHeight },
+                //     scope: { width: actualScopeSectionWidth, height: actualScopeSectionHeight },
+                //     heap: { width: actualHeapSectionWidth, height: actualHeapSectionHeight }
+                // })
 
                 // Position sections using calculated widths - only show sections that have content
                 // New layout: memval -> heap -> scope
                 memvalSection.x = 0
-                heapSection.x = actualMemvalSectionWidth + sectionSpacing
-                scopeSection.x = heapSection.x + sectionSpacing + actualHeapSectionWidth + sectionSpacing
+                heapSection.x = sectionSpacing + actualMemvalSectionWidth
+                scopeSection.x = heapSection.x + sectionSpacing + actualHeapSectionWidth
 
                 memvalSection.y = actualScopeSectionHeight - actualMemvalSectionHeight
                 scopeSection.y = 0
@@ -823,9 +830,7 @@ const MemoryModelVisualizer = () => {
 
                 // Calculate total content dimensions using actual section widths - only include sections with content
                 // New layout order: memval -> heap -> scope
-                const totalContentWidth = actualMemvalSectionWidth +
-                    (actualHeapSectionWidth > 0 ? sectionSpacing + actualHeapSectionWidth : 0) +
-                    (actualScopeSectionWidth > 0 ? sectionSpacing + actualScopeSectionWidth : 0)
+                const totalContentWidth = actualMemvalSectionWidth + actualHeapSectionWidth + actualScopeSectionWidth + 2 * sectionSpacing
                 const totalContentHeight = Math.max(actualMemvalSectionHeight, actualScopeSectionHeight, actualHeapSectionHeight)
 
                 // Update viewport dimensions if needed
@@ -1283,16 +1288,14 @@ const MemoryModelVisualizer = () => {
 
                         // Recalculate total content width with updated heap section
                         // New layout order: memval -> heap -> scope
-                        const updatedTotalContentWidth = actualMemvalSectionWidth +
-                            (actualHeapWidth > 0 ? sectionSpacing + actualHeapWidth : 0) +
-                            (actualScopeSectionWidth > 0 ? sectionSpacing + actualScopeSectionWidth : 0)
+                        const updatedTotalContentWidth = actualMemvalSectionWidth + actualHeapWidth + actualScopeSectionWidth + 2 * sectionSpacing
 
                         // Update viewport if content is wider than current viewport
                         const currentViewportWidth = parseFloat(svg.attr("width"))
                         const requiredViewportWidth = updatedTotalContentWidth + margin.left + margin.right
 
                         if (requiredViewportWidth > currentViewportWidth) {
-                            const newViewportWidth = Math.max(requiredViewportWidth, 1000)
+                            const newViewportWidth = Math.max(requiredViewportWidth, 700)
                             const newCenterX = (newViewportWidth - updatedTotalContentWidth) / 2
 
                             svg
