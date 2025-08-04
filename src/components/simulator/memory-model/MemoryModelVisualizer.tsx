@@ -716,6 +716,12 @@ const MemoryModelVisualizer = () => {
                         y: newY + objHeight / 2
                     })
 
+                    // Update left edge position for memval connections
+                    nodePositions.set(`${objNodeId}-left`, {
+                        x: newX,
+                        y: newY + objHeight / 2
+                    })
+
                     // Update property positions
                     objData.properties?.forEach((prop, propIndex) => {
                         if (prop.target) {
