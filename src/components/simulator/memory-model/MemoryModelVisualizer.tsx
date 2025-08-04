@@ -230,6 +230,8 @@ const MemoryModelVisualizer = () => {
         }
     }
 
+
+
     useEffect(() => {
         if (!currentStep) return
         if (!svgRef.current) return
@@ -562,6 +564,161 @@ const MemoryModelVisualizer = () => {
             })
         }
 
+        // Helper type for drag data
+        type DragData = {
+            dragOffsetX: number
+            dragOffsetY: number
+            initialX: number
+            initialY: number
+        }
+
+        // Helper function to create drag behavior for scope elements
+        const createScopeDragBehavior = (scopeNode: ElkNode, scopeData: ScopeData, actualScopeHeight: number) => {
+            return d3.drag<SVGGElement, unknown>()
+                .on("start", function (event) {
+                    event.sourceEvent.stopPropagation()
+
+                    // Get current transform
+                    const transform = d3.select(this).attr("transform")
+                    const translateMatch = transform.match(/translate\(([^,]+),([^)]+)\)/)
+                    const currentX = translateMatch ? parseFloat(translateMatch[1]) : 0
+                    const currentY = translateMatch ? parseFloat(translateMatch[2]) : 0
+
+                    // Get mouse position relative to SVG
+                    const [mouseX, mouseY] = d3.pointer(event.sourceEvent, svgRef.current)
+
+                    // Store drag offset
+                    d3.select(this).datum({
+                        dragOffsetX: mouseX - currentX,
+                        dragOffsetY: mouseY - currentY,
+                        initialX: currentX,
+                        initialY: currentY
+                    } as DragData)
+
+                    // Update state and cursor
+                    setDraggedItem({ id: scopeNode.id, type: 'scope', x: currentX, y: currentY })
+                    setIsDragging(true)
+                    d3.select(this).style("cursor", "grabbing")
+                })
+                .on("drag", function (event) {
+                    // Get stored drag data
+                    const dragData = d3.select(this).datum() as DragData
+
+                    // Get current mouse position relative to SVG
+                    const [mouseX, mouseY] = d3.pointer(event.sourceEvent, svgRef.current)
+
+                    // Calculate new position
+                    const newX = mouseX - dragData.dragOffsetX
+                    const newY = mouseY - dragData.dragOffsetY
+
+                    // Update visual position
+                    d3.select(this).attr("transform", `translate(${newX}, ${newY})`)
+
+                    // Update node positions for connections
+                    const scopeWidth = scopeNode.width || 200
+                    nodePositions.set(scopeNode.id, {
+                        x: newX + scopeWidth / 2,
+                        y: newY + actualScopeHeight / 2
+                    })
+
+                    // Update variable positions
+                    scopeData.variables.forEach((varData, varIndex) => {
+                        const varNodeId = `var-${scopeNode.id}-${varData.name}`
+                        nodePositions.set(varNodeId, {
+                            x: newX,
+                            y: newY + 40 + varIndex * 35 + 10
+                        })
+                    })
+
+                    // Update connections
+                    updateConnections()
+                })
+                .on("end", function () {
+                    // Clean up state
+                    setDraggedItem(null)
+                    setIsDragging(false)
+                    d3.select(this).style("cursor", "grab")
+
+                    // Clear stored drag data
+                    d3.select(this).datum(null)
+                })
+        }
+
+        // Helper function to create drag behavior for heap objects
+        const createHeapDragBehavior = (heapNode: ElkNode, objData: HeapObjectData, objNodeId: string) => {
+            return d3.drag<SVGGElement, unknown>()
+                .on("start", function (event) {
+                    event.sourceEvent.stopPropagation()
+
+                    // Get current transform
+                    const transform = d3.select(this).attr("transform")
+                    const translateMatch = transform.match(/translate\(([^,]+),([^)]+)\)/)
+                    const currentX = translateMatch ? parseFloat(translateMatch[1]) : 0
+                    const currentY = translateMatch ? parseFloat(translateMatch[2]) : 0
+
+                    // Get mouse position relative to SVG
+                    const [mouseX, mouseY] = d3.pointer(event.sourceEvent, svgRef.current)
+
+                    // Store drag offset
+                    d3.select(this).datum({
+                        dragOffsetX: mouseX - currentX,
+                        dragOffsetY: mouseY - currentY,
+                        initialX: currentX,
+                        initialY: currentY
+                    } as DragData)
+
+                    // Update state and cursor
+                    setDraggedItem({ id: objNodeId, type: 'heap', x: currentX, y: currentY })
+                    setIsDragging(true)
+                    d3.select(this).style("cursor", "grabbing")
+                })
+                .on("drag", function (event) {
+                    // Get stored drag data
+                    const dragData = d3.select(this).datum() as DragData
+
+                    // Get current mouse position relative to SVG
+                    const [mouseX, mouseY] = d3.pointer(event.sourceEvent, svgRef.current)
+
+                    // Calculate new position
+                    const newX = mouseX - dragData.dragOffsetX
+                    const newY = mouseY - dragData.dragOffsetY
+
+                    // Update visual position
+                    d3.select(this).attr("transform", `translate(${newX}, ${newY})`)
+
+                    // Update node positions for connections
+                    const objWidth = heapNode.width || 180
+                    const objHeight = heapNode.height || 120
+                    nodePositions.set(objNodeId, {
+                        x: newX + objWidth,
+                        y: newY + objHeight / 2
+                    })
+
+                    // Update property positions
+                    objData.properties?.forEach((prop, propIndex) => {
+                        if (prop.target) {
+                            const propId = `${objNodeId}_${prop.name}`
+                            propertyPositions.set(propId, {
+                                x: newX + objWidth - 10,
+                                y: newY + 45 + propIndex * 20
+                            })
+                        }
+                    })
+
+                    // Update connections
+                    updateConnections()
+                })
+                .on("end", function () {
+                    // Clean up state
+                    setDraggedItem(null)
+                    setIsDragging(false)
+                    d3.select(this).style("cursor", "grab")
+
+                    // Clear stored drag data
+                    d3.select(this).datum(null)
+                })
+        }
+
         // Run the layout algorithm
         elk
             .layout(elkGraph)
@@ -665,9 +822,10 @@ const MemoryModelVisualizer = () => {
                 // })
 
                 // Position sections using calculated widths - only show sections that have content
+                // New layout: memval -> heap -> scope
                 memvalSection.x = 0
-                scopeSection.x = actualMemvalSectionWidth + sectionSpacing
-                heapSection.x = scopeSection.x + actualScopeSectionWidth
+                heapSection.x = actualMemvalSectionWidth + sectionSpacing
+                scopeSection.x = heapSection.x + actualHeapSectionWidth + sectionSpacing
 
                 // Apply vertical centering to all sections
                 memvalSection.y = 0
@@ -675,9 +833,10 @@ const MemoryModelVisualizer = () => {
                 heapSection.y = 0
 
                 // Calculate total content dimensions using actual section widths - only include sections with content
+                // New layout order: memval -> heap -> scope
                 const totalContentWidth = actualMemvalSectionWidth +
-                    (actualScopeSectionWidth > 0 ? sectionSpacing + actualScopeSectionWidth : 0) +
-                    (actualHeapSectionWidth > 0 ? sectionSpacing + actualHeapSectionWidth : 0)
+                    (actualHeapSectionWidth > 0 ? sectionSpacing + actualHeapSectionWidth : 0) +
+                    (actualScopeSectionWidth > 0 ? sectionSpacing + actualScopeSectionWidth : 0)
                 const totalContentHeight = Math.max(actualMemvalSectionHeight, actualScopeSectionHeight, actualHeapSectionHeight)
 
                 // Update viewport dimensions if needed
@@ -900,61 +1059,9 @@ const MemoryModelVisualizer = () => {
                             .attr("class", "scope")
                             .attr("data-id", scopeNode.id)
                             .attr("transform", `translate(${(scopeSection.x || 0) + singleColumnX}, ${(scopeSection.y || 0) + singleColumnY})`)
-                            .call(d3.drag()
-                                .on("start", (event) => {
-                                    event.sourceEvent.stopPropagation()
-                                    // Store the initial position and mouse position
-                                    const initialX = (scopeSection.x || 0) + singleColumnX
-                                    const initialY = (scopeSection.y || 0) + singleColumnY
-                                    const mouseX = event.x
-                                    const mouseY = event.y
-                                    setDraggedItem({ id: scopeNode.id, type: 'scope', x: initialX, y: initialY })
-                                    setIsDragging(true)
-                                    scopeGroup.select("rect").style("cursor", "grabbing")
-                                    // Store the offset for smooth dragging
-                                    scopeGroup.attr("data-drag-offset-x", String(mouseX - initialX))
-                                    scopeGroup.attr("data-drag-offset-y", String(mouseY - initialY))
-                                })
-                                .on("drag", (event) => {
-                                    // Get the stored offset
-                                    const offsetX = parseFloat(scopeGroup.attr("data-drag-offset-x") || "0")
-                                    const offsetY = parseFloat(scopeGroup.attr("data-drag-offset-y") || "0")
+                            .style("cursor", "grab")
+                            .call(createScopeDragBehavior(scopeNode, scopeData, actualScopeHeight))
 
-                                    // Calculate new position based on current mouse position minus offset
-                                    const newX = event.x - offsetX
-                                    const newY = event.y - offsetY
-
-                                    // Update the visual position
-                                    scopeGroup.attr("transform", `translate(${newX}, ${newY})`)
-
-                                    // Update node positions for connections
-                                    const scopeWidth = scopeNode.width || 200
-                                    const scopeHeight = actualScopeHeight
-                                    nodePositions.set(scopeNode.id, {
-                                        x: newX + scopeWidth / 2,
-                                        y: newY + scopeHeight / 2
-                                    })
-
-                                    // Update variable positions
-                                    scopeData.variables.forEach((varData, varIndex) => {
-                                        const varNodeId = `var-${scopeNode.id}-${varData.name}`
-                                        nodePositions.set(varNodeId, {
-                                            x: newX + 295,
-                                            y: newY + 40 + varIndex * 35 + 10
-                                        })
-                                    })
-
-                                    // Update connections
-                                    updateConnections()
-                                })
-                                .on("end", () => {
-                                    setDraggedItem(null)
-                                    setIsDragging(false)
-                                    scopeGroup.select("rect").style("cursor", "grab")
-                                    // Clean up the stored offset
-                                    scopeGroup.attr("data-drag-offset-x", null)
-                                    scopeGroup.attr("data-drag-offset-y", null)
-                                }) as unknown as d3.DragBehavior<SVGGElement, unknown, unknown>)
 
 
 
@@ -1027,8 +1134,8 @@ const MemoryModelVisualizer = () => {
                                 .attr("fill", scopeData.textColor)
                                 .text(`${varData.name}: ${varData.value || ""}`)
 
-                            // Store variable position for connections - position at the right side of the variable
-                            const varX = (scopeSection.x || 0) + singleColumnX + 295
+                            // Store variable position for connections - position at the left side of the scope
+                            const varX = (scopeSection.x || 0) + singleColumnX
                             const varY = (scopeSection.y || 0) + singleColumnY + 40 + varIndex * 35 + 10
                             nodePositions.set(varNodeId, { x: varX, y: varY })
 
@@ -1036,7 +1143,7 @@ const MemoryModelVisualizer = () => {
                             if (varData.type === "reference") {
                                 variableGroup
                                     .append("circle")
-                                    .attr("cx", 284)
+                                    .attr("cx", -5)
                                     .attr("cy", 10)
                                     .attr("r", 3)
                                     .attr("fill", "#4299e1")
@@ -1186,9 +1293,10 @@ const MemoryModelVisualizer = () => {
                         heapSection.height = actualHeapHeight
 
                         // Recalculate total content width with updated heap section
+                        // New layout order: memval -> heap -> scope
                         const updatedTotalContentWidth = actualMemvalSectionWidth +
-                            (actualScopeSectionWidth > 0 ? sectionSpacing + actualScopeSectionWidth : 0) +
-                            (actualHeapWidth > 0 ? sectionSpacing + actualHeapWidth : 0)
+                            (actualHeapWidth > 0 ? sectionSpacing + actualHeapWidth : 0) +
+                            (actualScopeSectionWidth > 0 ? sectionSpacing + actualScopeSectionWidth : 0)
 
                         // Update viewport if content is wider than current viewport
                         const currentViewportWidth = parseFloat(svg.attr("width"))
@@ -1227,68 +1335,14 @@ const MemoryModelVisualizer = () => {
                             .attr("class", "heap-object")
                             .attr("data-id", objNodeId)
                             .attr("transform", `translate(${heapNode.x || 0}, ${heapNode.y || 0})`)
-                            .call(d3.drag()
-                                .on("start", (event) => {
-                                    event.sourceEvent.stopPropagation()
-                                    // Store the initial position and mouse position
-                                    const initialX = heapNode.x || 0
-                                    const initialY = heapNode.y || 0
-                                    const mouseX = event.x
-                                    const mouseY = event.y
-                                    setDraggedItem({ id: objNodeId, type: 'heap', x: initialX, y: initialY })
-                                    setIsDragging(true)
-                                    objectGroup.select("rect").style("cursor", "grabbing")
-                                    // Store the offset for smooth dragging
-                                    objectGroup.attr("data-drag-offset-x", String(mouseX - initialX))
-                                    objectGroup.attr("data-drag-offset-y", String(mouseY - initialY))
-                                })
-                                .on("drag", (event) => {
-                                    // Get the stored offset
-                                    const offsetX = parseFloat(objectGroup.attr("data-drag-offset-x") || "0")
-                                    const offsetY = parseFloat(objectGroup.attr("data-drag-offset-y") || "0")
-
-                                    // Calculate new position based on current mouse position minus offset
-                                    const newX = event.x - offsetX
-                                    const newY = event.y - offsetY
-
-                                    // Update the visual position
-                                    objectGroup.attr("transform", `translate(${newX}, ${newY})`)
-
-                                    // Update node positions for connections
-                                    const objWidth = heapNode.width
-                                    const objHeight = heapNode.height
-                                    nodePositions.set(objNodeId, {
-                                        x: newX,
-                                        y: newY + objHeight / 2
-                                    })
-
-                                    // Update property positions
-                                    objData.properties?.forEach((prop, propIndex) => {
-                                        if (prop.target) {
-                                            const propId = `${objNodeId}_${prop.name}`
-                                            propertyPositions.set(propId, {
-                                                x: newX + objWidth - 10,
-                                                y: newY + 45 + propIndex * 20
-                                            })
-                                        }
-                                    })
-
-                                    // Update connections
-                                    updateConnections()
-                                })
-                                .on("end", () => {
-                                    setDraggedItem(null)
-                                    setIsDragging(false)
-                                    objectGroup.select("rect").style("cursor", "grab")
-                                    // Clean up the stored offset
-                                    objectGroup.attr("data-drag-offset-x", null)
-                                    objectGroup.attr("data-drag-offset-y", null)
-                                }) as unknown as d3.DragBehavior<SVGGElement, unknown, unknown>)
+                            .style("cursor", "grab")
+                            .call(createHeapDragBehavior(heapNode, objData, objNodeId))
 
 
 
-                        // Store object position for connections - use left edge for incoming connections
-                        nodePositions.set(objNodeId, { x: heapNode.x || 0, y: (heapNode.y || 0) + heapNode.height / 2 })
+
+                        // Store object position for connections - use right edge for incoming connections
+                        nodePositions.set(objNodeId, { x: (heapNode.x || 0) + heapNode.width, y: (heapNode.y || 0) + heapNode.height / 2 })
 
                         // Draw object rectangle
                         objectGroup
