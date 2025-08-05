@@ -4,8 +4,8 @@ import ELK from "elkjs/lib/elk.bundled.js"
 import type { ElkNode as ElkLayoutNode, ElkEdge as ElkLayoutEdge } from "elkjs/lib/elk-api"
 import { JSValue, HEAP_OBJECT_TYPE, EXEC_STEP_TYPE } from "@/types/simulator"
 import { useSimulatorStore } from "@/hooks/useSimulatorStore"
-import { useResponsive } from "@/hooks/useResponsive"
 import { getStepColorByDepth } from "@/helpers/steps"
+import useElementSize from "@/hooks/useElementSize"
 import {
     ContextMenu,
     ContextMenuContent,
@@ -63,8 +63,8 @@ type ElkGraph = ElkNode & {
 
 const MemoryModelVisualizer = () => {
     const { currentStep, steps, settings, toggleAutoZoom } = useSimulatorStore()
-    const { isDesktop } = useResponsive()
     const svgRef = useRef<SVGSVGElement>(null)
+    const [containerRef, containerSize] = useElementSize<HTMLDivElement>()
     const [isDragging, setIsDragging] = useState(false)
     // Track dragged item for state management (value used in drag handlers)
     const [draggedItem, setDraggedItem] = useState<{ id: string; type: 'scope' | 'heap'; x: number; y: number } | null>(null)
@@ -263,6 +263,8 @@ const MemoryModelVisualizer = () => {
     useEffect(() => {
         if (!currentStep) return
         if (!svgRef.current) return
+        if (!containerSize.width || !containerSize.height) return
+        console.log("containerSize", containerSize)
 
         // Clear any existing SVG content
         d3.select(svgRef.current).selectAll("*").remove()
@@ -305,8 +307,8 @@ const MemoryModelVisualizer = () => {
         const totalContentHeight = Math.max(memvalSectionHeight, scopeSectionHeight, heapSectionHeight)
 
         // Calculate viewport dimensions (use container size or default)
-        const viewportWidth = isDesktop ? 1000 : 700
-        const viewportHeight = isDesktop ? 1000 : 700
+        const viewportWidth = containerSize.width
+        const viewportHeight = containerSize.height
 
         // Calculate centering offsets
         const centerX = (viewportWidth - initialTotalContentWidth) / 2
@@ -325,11 +327,11 @@ const MemoryModelVisualizer = () => {
             return scopeData.variables.length > 0 ? calculatedHeight : scopeHeight
         }
 
-        // Create SVG with calculated dimensions
+        // Create SVG with 100% width and height
         const svg = d3
             .select(svgRef.current)
-            .attr("width", viewportWidth)
-            .attr("height", viewportHeight)
+            .attr("width", "100%")
+            .attr("height", "100%")
             .attr("viewBox", `0 0 ${viewportWidth} ${viewportHeight}`)
 
         // Create zoom behavior - configurable auto zoom
@@ -883,32 +885,25 @@ const MemoryModelVisualizer = () => {
                 const totalContentHeight = Math.max(actualMemvalSectionHeight, actualScopeSectionHeight, actualHeapSectionHeight)
 
                 // Update viewport dimensions if needed
-                const viewportWidth = isDesktop ? 1000 : 700
-                const viewportHeight = isDesktop ? 1000 : 700
 
                 const newViewportWidth = settings.autoZoom ? Math.max(totalContentWidth + margin.left + margin.right, viewportWidth) : viewportWidth
                 const newViewportHeight = settings.autoZoom ? Math.max(totalContentHeight + margin.top + margin.bottom, viewportHeight) : viewportHeight
 
-                // Update SVG dimensions if they changed significantly
-                if (Math.abs(newViewportWidth - viewportWidth) > 50 || Math.abs(newViewportHeight - viewportHeight) > 50) {
-                    svg
-                        .attr("width", newViewportWidth)
-                        .attr("height", newViewportHeight)
-                        .attr("viewBox", `0 0 ${newViewportWidth} ${newViewportHeight}`)
-                }
+                svg.attr("viewBox", `0 0 ${newViewportWidth} ${newViewportHeight}`)
 
-                // Recalculate centering offsets with actual dimensions
-
-                // // Update content group position with scale 1
-                // contentGroup.attr("transform", `translate(${newCenterX}, ${newCenterY}) scale(1)`)
-
+                // Update content group position with scale 1
 
                 const scale = 1
-                const adjustedCenterX = (newViewportWidth - (totalContentWidth * newViewportWidth / viewportWidth) * scale) / 2
-                const adjustedCenterY = (newViewportHeight - (totalContentHeight * newViewportHeight / viewportHeight) * scale) / 2
+                let centerX = (newViewportWidth - (totalContentWidth * newViewportWidth / viewportWidth) * scale) / 2
+                let centerY = (newViewportHeight - (totalContentHeight * newViewportHeight / viewportHeight) * scale) / 2
+                if (settings.autoZoom) {
+                    centerX = (newViewportWidth - (totalContentWidth) * scale) / 2
+                    centerY = (newViewportHeight - (totalContentHeight) * scale) / 2
+                }
+                contentGroup.attr("transform", `translate(${centerX}, ${centerY}) scale(1)`)
 
                 const centerTransform = d3.zoomIdentity
-                    .translate(adjustedCenterX, adjustedCenterY)
+                    .translate(centerX, centerY)
                     .scale(scale)
 
                 svg.transition()
@@ -1414,58 +1409,7 @@ const MemoryModelVisualizer = () => {
                     for (let i = 0; i < 400; ++i) simulation.tick() // Increased from 200 to 400 for better convergence
 
                     // Recalculate heap section bounds after force simulation
-                    if (heapNodes.length > 0) {
-                        const minX = Math.min(...heapNodes.map(node => (node.x || 0)))
-                        const maxX = Math.max(...heapNodes.map(node => (node.x || 0) + node.width))
-                        const minY = Math.min(...heapNodes.map(node => (node.y || 0)))
-                        const maxY = Math.max(...heapNodes.map(node => (node.y || 0) + node.height))
 
-                        // Update heap section bounds with padding
-                        const padding = 40
-                        const actualHeapWidth = maxX - minX + padding * 2
-                        const actualHeapHeight = maxY - minY + padding * 2
-
-                        // Adjust heap section position if objects moved outside bounds
-                        const adjustedHeapX = Math.min(heapSection.x || 0, minX - padding)
-                        heapSection.x = adjustedHeapX
-                        heapSection.width = actualHeapWidth
-                        heapSection.height = actualHeapHeight
-
-                        // Recalculate total content width with updated heap section
-                        // New layout order: memval -> heap -> scope
-                        const updatedTotalContentWidth = actualMemvalSectionWidth + actualHeapWidth + actualScopeSectionWidth + 2 * sectionSpacing
-
-                        // Update viewport if content is wider than current viewport
-                        const currentViewportWidth = parseFloat(svg.attr("width"))
-                        const requiredViewportWidth = updatedTotalContentWidth + margin.left + margin.right
-
-                        if (requiredViewportWidth > currentViewportWidth) {
-
-                            const newViewportWidth = settings.autoZoom ? Math.max(requiredViewportWidth, 700) : viewportWidth
-
-                            svg
-                                .attr("width", newViewportWidth)
-                                .attr("viewBox", `0 0 ${newViewportWidth} ${newViewportHeight}`)
-
-                            // Update content group position
-                            // contentGroup.attr("transform", `translate(${newCenterX}, ${newCenterY}) scale(1)`)
-
-                            // Auto pan to center all content with larger scale
-                            // Adjust centering for the 1.5x scale
-                            const scale = 1
-                            const adjustedCenterX = (newViewportWidth - (totalContentWidth * newViewportWidth / viewportWidth) * scale) / 2
-                            const adjustedCenterY = (newViewportHeight - (totalContentHeight * newViewportHeight / viewportHeight) * scale) / 2
-
-                            const centerTransform = d3.zoomIdentity
-                                .translate(adjustedCenterX, adjustedCenterY)
-                                .scale(scale)
-
-                            svg.transition()
-                                .duration(300)
-                                // eslint-disable-next-line @typescript-eslint/no-explicit-any
-                                .call(zoom.transform as any, centerTransform)
-                        }
-                    }
 
                     // Now render heap objects with optimized positions
                     heapNodes.forEach((heapNode) => {
@@ -1595,7 +1539,7 @@ const MemoryModelVisualizer = () => {
             .catch((error) => {
                 console.error("ELK layout error:", error)
             })
-    }, [currentStep, transformData])
+    }, [currentStep, transformData, containerSize])
 
     // Navigation control functions (commented out - not currently used)
     /*
@@ -1660,7 +1604,7 @@ const MemoryModelVisualizer = () => {
     */
 
     return (
-        <div className="relative w-full h-full">
+        <div ref={containerRef} className="relative w-full h-full">
             <ContextMenu>
                 <ContextMenuTrigger asChild>
                     <div className="w-full h-full">
