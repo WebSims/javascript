@@ -332,7 +332,7 @@ const MemoryModelVisualizer = () => {
 
         // Create zoom behavior - configurable auto zoom
         const zoom = d3.zoom()
-            .scaleExtent(settings.autoZoom ? [0.1, 5] : [0.5, 3]) // Different ranges based on auto zoom setting
+            .scaleExtent(settings.autoZoom ? [0.1, 5] : [1.2, 4]) // Larger scale range when auto zoom is disabled
             .on("zoom", (event) => {
                 const { transform } = event
                 contentGroup.attr("transform", transform)
@@ -451,7 +451,7 @@ const MemoryModelVisualizer = () => {
             memoryModelData.scopes.forEach((scope) => {
                 const scopeNode: ElkNode = {
                     id: scope.id,
-                    width: 200,
+                    width: 300,
                     height: calculateScopeHeight(scope.id),
                     layoutOptions: {
                         "elk.padding": "[top=5, left=5, bottom=5, right=5]",
@@ -464,7 +464,7 @@ const MemoryModelVisualizer = () => {
                 scope.variables.forEach((variable) => {
                     const varNode: ElkNode = {
                         id: variable.id,
-                        width: 280,
+                        width: 290,
                         height: variableHeight,
                         labels: [{ text: variable.name, width: 80, height: 20 }],
                     }
@@ -911,36 +911,20 @@ const MemoryModelVisualizer = () => {
                         // eslint-disable-next-line @typescript-eslint/no-explicit-any
                         .call(zoom.transform as any, fitTransform)
                 } else {
-                    // Auto pan to center current scope without zoom
-                    const currentScope = memoryModelData.scopes.find(scope => scope.isCurrentScope)
-                    if (currentScope) {
-                        // Find the current scope's position
-                        const currentScopeNode = scopeSection.children?.find(child => child.id === currentScope.id)
-                        if (currentScopeNode) {
-                            const scopeX = (scopeSection.x || 0) + (currentScopeNode.x || 0) + (currentScopeNode.width || 200) / 2
-                            const scopeY = (scopeSection.y || 0) + (currentScopeNode.y || 0) + calculateScopeHeight(currentScope.id) / 2
+                    // Auto pan to center all content with larger scale
+                    // Adjust centering for the 1.5x scale
+                    const scale = 1.3
+                    const adjustedCenterX = (newViewportWidth - totalContentWidth * scale) / 2
+                    const adjustedCenterY = (newViewportHeight - totalContentHeight * scale) / 2
 
-                            // Calculate center position to keep current scope in center
-                            const centerTransform = d3.zoomIdentity
-                                .translate(newViewportWidth / 2 - scopeX, newViewportHeight / 2 - scopeY)
-                                .scale(1)
+                    const centerTransform = d3.zoomIdentity
+                        .translate(adjustedCenterX, adjustedCenterY)
+                        .scale(scale)
 
-                            svg.transition()
-                                .duration(750)
-                                // eslint-disable-next-line @typescript-eslint/no-explicit-any
-                                .call(zoom.transform as any, centerTransform)
-                        }
-                    } else {
-                        // Fallback: center the entire content without zoom
-                        const centerTransform = d3.zoomIdentity
-                            .translate(newCenterX, newCenterY)
-                            .scale(1)
-
-                        svg.transition()
-                            .duration(750)
-                            // eslint-disable-next-line @typescript-eslint/no-explicit-any
-                            .call(zoom.transform as any, centerTransform)
-                    }
+                    svg.transition()
+                        .duration(750)
+                        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+                        .call(zoom.transform as any, centerTransform)
                 }
 
                 // Add arrow marker definitions with different colors and sizes
@@ -1489,36 +1473,20 @@ const MemoryModelVisualizer = () => {
                                     // eslint-disable-next-line @typescript-eslint/no-explicit-any
                                     .call(zoom.transform as any, newFitTransform)
                             } else {
-                                // Auto pan to center current scope without zoom
-                                const currentScope = memoryModelData.scopes.find(scope => scope.isCurrentScope)
-                                if (currentScope) {
-                                    // Find the current scope's position
-                                    const currentScopeNode = scopeSection.children?.find(child => child.id === currentScope.id)
-                                    if (currentScopeNode) {
-                                        const scopeX = (scopeSection.x || 0) + (currentScopeNode.x || 0) + (currentScopeNode.width || 200) / 2
-                                        const scopeY = (scopeSection.y || 0) + (currentScopeNode.y || 0) + calculateScopeHeight(currentScope.id) / 2
+                                // Auto pan to center all content with larger scale
+                                // Adjust centering for the 1.5x scale
+                                const scale = 1.3
+                                const adjustedCenterX = (newViewportWidth - updatedTotalContentWidth * scale) / 2
+                                const adjustedCenterY = (newViewportHeight - totalContentHeight * scale) / 2
 
-                                        // Calculate center position to keep current scope in center
-                                        const centerTransform = d3.zoomIdentity
-                                            .translate(newViewportWidth / 2 - scopeX, newViewportHeight / 2 - scopeY)
-                                            .scale(1)
+                                const centerTransform = d3.zoomIdentity
+                                    .translate(adjustedCenterX, adjustedCenterY)
+                                    .scale(scale)
 
-                                        svg.transition()
-                                            .duration(300)
-                                            // eslint-disable-next-line @typescript-eslint/no-explicit-any
-                                            .call(zoom.transform as any, centerTransform)
-                                    }
-                                } else {
-                                    // Fallback: center the entire content without zoom
-                                    const centerTransform = d3.zoomIdentity
-                                        .translate(newCenterX, newCenterY)
-                                        .scale(1)
-
-                                    svg.transition()
-                                        .duration(300)
-                                        // eslint-disable-next-line @typescript-eslint/no-explicit-any
-                                        .call(zoom.transform as any, centerTransform)
-                                }
+                                svg.transition()
+                                    .duration(300)
+                                    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+                                    .call(zoom.transform as any, centerTransform)
                             }
                         }
                     }
