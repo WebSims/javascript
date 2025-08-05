@@ -791,7 +791,7 @@ const MemoryModelVisualizer = () => {
                     }
 
                     if (section.id === "scopeSection") {
-                        return 300
+                        return 400
                     }
 
                     // Find the rightmost edge of all children
@@ -877,7 +877,7 @@ const MemoryModelVisualizer = () => {
 
                 // Calculate total content dimensions using actual section widths - only include sections with content
                 // New layout order: memval -> heap -> scope
-                const totalContentWidth = actualMemvalSectionWidth + actualHeapSectionWidth + actualScopeSectionWidth + 3 * sectionSpacing
+                const totalContentWidth = actualMemvalSectionWidth + actualHeapSectionWidth + actualScopeSectionWidth + 2 * sectionSpacing
                 const totalContentHeight = Math.max(actualMemvalSectionHeight, actualScopeSectionHeight, actualHeapSectionHeight)
 
                 // Update viewport dimensions if needed
@@ -1444,7 +1444,7 @@ const MemoryModelVisualizer = () => {
 
                         // Recalculate total content width with updated heap section
                         // New layout order: memval -> heap -> scope
-                        const updatedTotalContentWidth = actualMemvalSectionWidth + actualHeapWidth + actualScopeSectionWidth + 3 * sectionSpacing
+                        const updatedTotalContentWidth = actualMemvalSectionWidth + actualHeapWidth + actualScopeSectionWidth + 2 * sectionSpacing
 
                         // Update viewport if content is wider than current viewport
                         const currentViewportWidth = parseFloat(svg.attr("width"))
