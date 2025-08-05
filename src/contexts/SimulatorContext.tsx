@@ -101,12 +101,11 @@ export const SimulatorProvider = ({
 
     // Memoize steps based on astOfCode and mode - only generate when AST changes and in RUN mode
     const steps = useMemo(() => {
-        console.log('Steps memoization triggered:', { mode, hasAst: !!astOfCode, astChanged: astChangedRef.current })
         if (mode === 'RUN' && astOfCode && astChangedRef.current) {
             try {
                 const simulator = new Simulator(astOfCode as ESTree.Program)
                 const newSteps = simulator.run()
-                console.log('Generated steps:', newSteps.length, 'First step:', newSteps[0])
+                console.log('Generated steps:', newSteps.length, 'First step:', newSteps[0], 'Steps:', newSteps)
                 setCurrentExecStep(newSteps[0])
                 setSimulatorError(null)
                 astChangedRef.current = false

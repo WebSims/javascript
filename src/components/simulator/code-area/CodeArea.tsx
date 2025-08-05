@@ -228,7 +228,8 @@ const Statement = ({ st, parent, parens }) => {
     }
 
     if (st.type == "IfStatement") {
-        st.category = parent.type === "IfStatement" ? "statement.conditional.else" : "statement.conditional.if"
+        console.log(st.alternate)
+        st.category = "statement.conditional.if"
         component = <IfStatement st={st} parent={parent} parens={parens} />
     }
 
