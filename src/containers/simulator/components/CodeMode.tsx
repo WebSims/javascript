@@ -73,12 +73,14 @@ const CodeMode: React.FC = () => {
             <TabsTrigger value="EDITOR">Editor</TabsTrigger>
             <TabsTrigger value="PARSED">Parsed</TabsTrigger>
           </TabsList>
-          <TabsContent value="EDITOR" className='h-full  overflow-auto'>
-            <CodeEditor />
-          </TabsContent>
-          <TabsContent value="PARSED" className='h-full overflow-auto'>
-            <CodeArea />
-          </TabsContent>
+          <div className='h-[calc(100%-42px)]'>
+            <TabsContent value="EDITOR" className='h-full overflow-auto'>
+              <CodeEditor />
+            </TabsContent>
+            <TabsContent value="PARSED" className='h-full overflow-auto'>
+              <CodeArea />
+            </TabsContent>
+          </div>
         </Tabs>
       </ResizablePanel>
       <ResizableHandle withHandle className="bg-slate-100 hover:bg-slate-200 transition-colors" />
