@@ -1061,7 +1061,7 @@ const CodeArea: React.FC<CodeAreaProps> = ({ parent, parens, debug }) => {
         <div className="w-full h-full overflow-auto">
             <pre
                 ref={codeAreaRef}
-                className="min-w-fit max-w-full font-mono space-y-1 p-2"
+                className="min-w-fit max-w-full font-mono space-y-1 lg:p-2"
             >
                 {statements.map((statement, i) => {
                     return <Statement key={i} st={statement} parent={parent} parens={parens} />

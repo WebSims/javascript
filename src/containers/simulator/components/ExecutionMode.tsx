@@ -45,7 +45,7 @@ const ExecutionMode: React.FC = () => {
     return (
         <div className='h-full flex flex-col'>
             <ResizablePanelGroup direction="vertical">
-                <ResizablePanel>
+                <ResizablePanel className='p-1'>
                     <CodeArea />
                 </ResizablePanel>
                 <ResizableHandle withHandle className="bg-slate-100 hover:bg-slate-200 transition-colors" />
