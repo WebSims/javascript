@@ -3,7 +3,7 @@ import { ChevronDownIcon, ChevronUpIcon, BookOpenIcon } from 'lucide-react'
 
 import { Button } from '@/components/ui/button'
 import { useSimulatorStore } from '@/hooks/useSimulatorStore'
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
+import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs"
 
 import CHEAT_SHEET_DATA from '@/components/simulator/cheat-sheet/CheatSheetData.json'
 import CheatSheetBox from '@/components/simulator/cheat-sheet/components/CheatSheetBox'
@@ -83,20 +83,26 @@ const CheatSheetAccordion: React.FC<CheatSheetAccordionProps> = ({ open = true, 
                     >
                         {isDesktop ? (
                             <CheatSheet />
-                        ) :
-                            topLevelCategories.map((category) => (
-                                <TabsContent key={category} value={category} className='h-full'>
-                                    <CheatSheetBox
-                                        path={category}
-                                        data={CHEAT_SHEET_DATA as CheatSheetDataType}
-                                    />
-                                </TabsContent>
-                            ))
-                        }
+                        ) : (
+                            <div className="h-full relative">
+                                {topLevelCategories.map((category) => (
+                                    <div
+                                        key={category}
+                                        className={`absolute inset-0 transition-opacity duration-200 ${activeTab === category ? 'opacity-100' : 'opacity-0 pointer-events-none'
+                                            }`}
+                                    >
+                                        <CheatSheetBox
+                                            path={category}
+                                            data={CHEAT_SHEET_DATA as CheatSheetDataType}
+                                        />
+                                    </div>
+                                ))}
+                            </div>
+                        )}
                     </div>
                 </div>
             </Tabs>
-        </div >
+        </div>
     )
 }
 
