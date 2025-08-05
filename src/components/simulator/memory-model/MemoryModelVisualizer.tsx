@@ -17,7 +17,9 @@ type HeapObjectData = {
 type ScopeData = {
     id: string
     name: string
-    scopeTags: string
+    scopeTags: string[]
+    scopeType: string
+    isCurrentScope: boolean
     color: string
     borderColor: string
     textColor: string
@@ -83,20 +85,26 @@ const MemoryModelVisualizer = () => {
             )
 
             // Identify scope type for tag
-            let scopeTags = ""
+            let scopeTags: string[] = []
+            let scopeType = ""
             if (scope.type === "global") {
-                scopeTags = "[Global Scope]"
+                scopeTags = ["Global Scope"]
+                scopeType = "global"
             } else if (scope.type === "function") {
-                scopeTags = "[Function Scope]"
+                scopeTags = ["Function Scope"]
+                scopeType = "function"
             } else if (scope.type === "block") {
-                scopeTags = "[Block Scope]"
+                scopeTags = ["Block Scope"]
+                scopeType = "block"
             } else {
-                scopeTags = "[Unknown Scope]"
+                scopeTags = ["Unknown Scope"]
+                scopeType = "unknown"
             }
 
-            // Add "[Current]" tag if this is the current scope
-            if (originalIndex === currentStep?.scopeIndex) {
-                scopeTags += " [Current]"
+            // Add current scope indicator
+            const isCurrentScope = originalIndex === currentStep?.scopeIndex
+            if (isCurrentScope) {
+                scopeTags.push("Current")
             }
 
             // Process variables in scope
@@ -142,8 +150,10 @@ const MemoryModelVisualizer = () => {
 
             scopesData.push({
                 id: scopeId,
-                name: scopeTags,
+                name: scopeTags.join(" "),
                 scopeTags,
+                scopeType,
+                isCurrentScope,
                 color: stepColor.backgroundColor,
                 borderColor: stepColor.borderColor,
                 textColor: stepColor.textColor,
@@ -293,10 +303,10 @@ const MemoryModelVisualizer = () => {
             const scopeData = memoryModelData.scopes.find(s => s.id === scopeId)
             if (!scopeData) return scopeHeight
 
-            const headerHeight = 30 // Space for scope name
+            const badgeHeight = 30 // Space for badge (20px height + 10px padding)
             const variableSpacing = 35 // Space between variables (matches rendering)
             const bottomPadding = 10 // Bottom padding
-            const calculatedHeight = headerHeight + scopeData.variables.length * variableSpacing + bottomPadding
+            const calculatedHeight = badgeHeight + scopeData.variables.length * variableSpacing + bottomPadding
 
             return scopeData.variables.length > 0 ? calculatedHeight : scopeHeight
         }
@@ -434,7 +444,7 @@ const MemoryModelVisualizer = () => {
                     layoutOptions: {
                         "elk.padding": "[top=5, left=5, bottom=5, right=5]",
                     },
-                    labels: [{ text: scope.scopeTags, width: 120, height: 20 }],
+                    labels: [{ text: scope.scopeTags.join(" "), width: 120, height: 20 }],
                     children: [],
                 }
 
@@ -1143,15 +1153,68 @@ const MemoryModelVisualizer = () => {
                                 d3.select(this).style("cursor", "grab").attr("stroke-width", 2)
                             })
 
-                        // Add scope type tag
-                        scopeGroup
-                            .append("text")
-                            .attr("x", 10)
-                            .attr("y", 20)
-                            .attr("font-weight", "bold")
-                            .attr("fill", scopeData.textColor)
-                            .attr("font-size", "12px")
-                            .text(scopeData.scopeTags)
+                        // Add scope type badges
+                        const badgeGroup = scopeGroup.append("g").attr("class", "scope-badges")
+
+                        let currentX = 10
+                        const badgeHeight = 20
+                        const badgeSpacing = 8
+
+                        scopeData.scopeTags.forEach((tag) => {
+                            const badgeText = tag
+                            const textWidth = badgeText.length * 7
+
+                            // Determine badge styling based on tag type
+                            let badgeFill = "#f3f4f6"
+                            let badgeStroke = "#d1d5db"
+                            let textFill = "#374151"
+
+                            if (tag === "Current") {
+                                badgeFill = "#059669"
+                                badgeStroke = "#047857"
+                                textFill = "#ffffff"
+                            } else if (tag === "Global Scope") {
+                                badgeFill = "#8b5cf6"
+                                badgeStroke = "#7c3aed"
+                                textFill = "#ffffff"
+                            } else if (tag === "Function Scope") {
+                                badgeFill = "#3b82f6"
+                                badgeStroke = "#1d4ed8"
+                                textFill = "#ffffff"
+                            } else if (tag === "Block Scope") {
+                                badgeFill = "#f59e0b"
+                                badgeStroke = "#d97706"
+                                textFill = "#ffffff"
+                            }
+
+                            // Badge background rectangle
+                            badgeGroup
+                                .append("rect")
+                                .attr("x", currentX)
+                                .attr("y", 10)
+                                .attr("width", textWidth)
+                                .attr("height", badgeHeight)
+                                .attr("rx", 10) // Rounded corners
+                                .attr("ry", 10)
+                                .attr("fill", badgeFill)
+                                .attr("stroke", badgeStroke)
+                                .attr("stroke-width", 1)
+
+                            // Badge text
+                            badgeGroup
+                                .append("text")
+                                .attr("x", currentX)
+                                .attr("y", 24)
+                                .attr("font-weight", "600")
+                                .attr("font-size", "11px")
+                                .attr("fill", textFill)
+                                .attr("text-anchor", "middle")
+                                .attr("transform", `translate(${textWidth / 2}, 0)`)
+                                .text(badgeText)
+
+                            // Update position for next badge
+                            currentX += textWidth + badgeSpacing
+                        })
 
                         // Draw variables - ensure all variables are drawn regardless of ELK positioning
                         scopeData.variables.forEach((varData, varIndex: number) => {
@@ -1193,7 +1256,7 @@ const MemoryModelVisualizer = () => {
 
                             // Store variable position for connections - position at the left side of the scope
                             const varX = (scopeSection.x || 0) + singleColumnX + 5
-                            const varY = (scopeSection.y || 0) + singleColumnY + 40 + varIndex * 35 + 10
+                            const varY = (scopeSection.y || 0) + singleColumnY + 35 + varIndex * 35 + 10
                             nodePositions.set(varNodeId, { x: varX, y: varY })
 
                             // Add a small circle at the connection point for variables (only for reference types)
