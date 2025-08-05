@@ -4,6 +4,7 @@ import ELK from "elkjs/lib/elk.bundled.js"
 import type { ElkNode as ElkLayoutNode, ElkEdge as ElkLayoutEdge } from "elkjs/lib/elk-api"
 import { JSValue, HEAP_OBJECT_TYPE, EXEC_STEP_TYPE } from "@/types/simulator"
 import { useSimulatorStore } from "@/hooks/useSimulatorStore"
+import { useResponsive } from "@/hooks/useResponsive"
 import { getStepColorByDepth } from "@/helpers/steps"
 import {
     ContextMenu,
@@ -62,6 +63,7 @@ type ElkGraph = ElkNode & {
 
 const MemoryModelVisualizer = () => {
     const { currentStep, steps, settings, toggleAutoZoom } = useSimulatorStore()
+    const { isDesktop } = useResponsive()
     const svgRef = useRef<SVGSVGElement>(null)
     const [isDragging, setIsDragging] = useState(false)
     // Track dragged item for state management (value used in drag handlers)
@@ -303,8 +305,8 @@ const MemoryModelVisualizer = () => {
         const totalContentHeight = Math.max(memvalSectionHeight, scopeSectionHeight, heapSectionHeight)
 
         // Calculate viewport dimensions (use container size or default)
-        const viewportWidth = Math.max(initialTotalContentWidth + margin.left + margin.right, 1000)
-        const viewportHeight = Math.max(totalContentHeight + margin.top + margin.bottom, 1000)
+        const viewportWidth = isDesktop ? 1000 : 700
+        const viewportHeight = isDesktop ? 1000 : 700
 
         // Calculate centering offsets
         const centerX = (viewportWidth - initialTotalContentWidth) / 2
@@ -881,8 +883,11 @@ const MemoryModelVisualizer = () => {
                 const totalContentHeight = Math.max(actualMemvalSectionHeight, actualScopeSectionHeight, actualHeapSectionHeight)
 
                 // Update viewport dimensions if needed
-                const newViewportWidth = Math.max(totalContentWidth + margin.left + margin.right, 700)
-                const newViewportHeight = Math.max(totalContentHeight + margin.top + margin.bottom, 700)
+                const viewportWidth = isDesktop ? 1000 : 700
+                const viewportHeight = isDesktop ? 1000 : 700
+
+                const newViewportWidth = settings.autoZoom ? Math.max(totalContentWidth + margin.left + margin.right, viewportWidth) : viewportWidth
+                const newViewportHeight = settings.autoZoom ? Math.max(totalContentHeight + margin.top + margin.bottom, viewportHeight) : viewportHeight
 
                 // Update SVG dimensions if they changed significantly
                 if (Math.abs(newViewportWidth - viewportWidth) > 50 || Math.abs(newViewportHeight - viewportHeight) > 50) {
@@ -893,39 +898,23 @@ const MemoryModelVisualizer = () => {
                 }
 
                 // Recalculate centering offsets with actual dimensions
-                const newCenterX = (newViewportWidth - totalContentWidth) / 2
-                const newCenterY = (newViewportHeight - totalContentHeight) / 2
 
-                // Update content group position with scale 1
-                contentGroup.attr("transform", `translate(${newCenterX}, ${newCenterY}) scale(1)`)
+                // // Update content group position with scale 1
+                // contentGroup.attr("transform", `translate(${newCenterX}, ${newCenterY}) scale(1)`)
 
-                // Auto pan/zoom based on settings
-                if (settings.autoZoom) {
-                    // Auto zoom to fit content
-                    const fitTransform = d3.zoomIdentity
-                        .translate(newCenterX, newCenterY)
-                        .scale(1)
 
-                    svg.transition()
-                        .duration(750)
-                        // eslint-disable-next-line @typescript-eslint/no-explicit-any
-                        .call(zoom.transform as any, fitTransform)
-                } else {
-                    // Auto pan to center all content with larger scale
-                    // Adjust centering for the 1.5x scale
-                    const scale = 1.3
-                    const adjustedCenterX = (newViewportWidth - totalContentWidth * scale) / 2
-                    const adjustedCenterY = (newViewportHeight - totalContentHeight * scale) / 2
+                const scale = 1
+                const adjustedCenterX = (newViewportWidth - (totalContentWidth * newViewportWidth / viewportWidth) * scale) / 2
+                const adjustedCenterY = (newViewportHeight - (totalContentHeight * newViewportHeight / viewportHeight) * scale) / 2
 
-                    const centerTransform = d3.zoomIdentity
-                        .translate(adjustedCenterX, adjustedCenterY)
-                        .scale(scale)
+                const centerTransform = d3.zoomIdentity
+                    .translate(adjustedCenterX, adjustedCenterY)
+                    .scale(scale)
 
-                    svg.transition()
-                        .duration(750)
-                        // eslint-disable-next-line @typescript-eslint/no-explicit-any
-                        .call(zoom.transform as any, centerTransform)
-                }
+                svg.transition()
+                    .duration(750)
+                    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+                    .call(zoom.transform as any, centerTransform)
 
                 // Add arrow marker definitions with different colors and sizes
                 const defs = svg.append("defs")
@@ -1451,43 +1440,30 @@ const MemoryModelVisualizer = () => {
                         const requiredViewportWidth = updatedTotalContentWidth + margin.left + margin.right
 
                         if (requiredViewportWidth > currentViewportWidth) {
-                            const newViewportWidth = Math.max(requiredViewportWidth, 700)
-                            const newCenterX = (newViewportWidth - updatedTotalContentWidth) / 2
+
+                            const newViewportWidth = settings.autoZoom ? Math.max(requiredViewportWidth, 700) : viewportWidth
 
                             svg
                                 .attr("width", newViewportWidth)
                                 .attr("viewBox", `0 0 ${newViewportWidth} ${newViewportHeight}`)
 
                             // Update content group position
-                            contentGroup.attr("transform", `translate(${newCenterX}, ${newCenterY}) scale(1)`)
+                            // contentGroup.attr("transform", `translate(${newCenterX}, ${newCenterY}) scale(1)`)
 
-                            // Auto pan/zoom based on settings
-                            if (settings.autoZoom) {
-                                // Auto zoom to fit content
-                                const newFitTransform = d3.zoomIdentity
-                                    .translate(newCenterX, newCenterY)
-                                    .scale(1)
+                            // Auto pan to center all content with larger scale
+                            // Adjust centering for the 1.5x scale
+                            const scale = 1
+                            const adjustedCenterX = (newViewportWidth - (totalContentWidth * newViewportWidth / viewportWidth) * scale) / 2
+                            const adjustedCenterY = (newViewportHeight - (totalContentHeight * newViewportHeight / viewportHeight) * scale) / 2
 
-                                svg.transition()
-                                    .duration(300)
-                                    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-                                    .call(zoom.transform as any, newFitTransform)
-                            } else {
-                                // Auto pan to center all content with larger scale
-                                // Adjust centering for the 1.5x scale
-                                const scale = 1.3
-                                const adjustedCenterX = (newViewportWidth - updatedTotalContentWidth * scale) / 2
-                                const adjustedCenterY = (newViewportHeight - totalContentHeight * scale) / 2
+                            const centerTransform = d3.zoomIdentity
+                                .translate(adjustedCenterX, adjustedCenterY)
+                                .scale(scale)
 
-                                const centerTransform = d3.zoomIdentity
-                                    .translate(adjustedCenterX, adjustedCenterY)
-                                    .scale(scale)
-
-                                svg.transition()
-                                    .duration(300)
-                                    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-                                    .call(zoom.transform as any, centerTransform)
-                            }
+                            svg.transition()
+                                .duration(300)
+                                // eslint-disable-next-line @typescript-eslint/no-explicit-any
+                                .call(zoom.transform as any, centerTransform)
                         }
                     }
 
