@@ -334,7 +334,7 @@ const MemoryModelVisualizer = () => {
 
         // Create zoom behavior - configurable auto zoom
         const zoom = d3.zoom()
-            .scaleExtent(settings.autoZoom ? [0.1, 5] : [1.2, 4]) // Larger scale range when auto zoom is disabled
+            .scaleExtent([0.1, 5])
             .on("zoom", (event) => {
                 const { transform } = event
                 contentGroup.attr("transform", transform)
