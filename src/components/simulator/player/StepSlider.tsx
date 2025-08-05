@@ -220,7 +220,7 @@ const StepSlider: React.FC = () => {
                 <div
                     ref={setRefs}
                     className={cn(
-                        "absolute left-0 right-0 top-3 lg:top-1/2 -translate-y-1/2 flex overflow-hidden rounded-full px-2.5 transition-all duration-200",
+                        "absolute left-0 right-0 top-3 lg:top-1/2 -translate-y-1/2 px-2.5 flex overflow-hidden transition-all duration-200",
                         isTooltipOpen ? "h-3.5" : "h-2"
                     )}
                     style={{
@@ -229,6 +229,8 @@ const StepSlider: React.FC = () => {
                     }}
                 >
                     {steps.map((step, index) => {
+                        if (index === steps.length - 1) return
+
                         // For POP_SCOPE steps, use the next step's values
                         const shouldUseNextStep = step.type === EXEC_STEP_TYPE.POP_SCOPE && index < steps.length - 1
                         const targetIndex = shouldUseNextStep ? index + 1 : index
@@ -241,20 +243,15 @@ const StepSlider: React.FC = () => {
                             isInFunctionScope(targetIndex)
                         )
 
-                        if (index !== steps.length - 1) {
-                            return (
-                                <>
-                                    {index === 0 && (<div className='w-2.5 absolute left-0 top-0 bottom-0' style={{ backgroundColor: stepColor.backgroundColor }}></div>)}
-                                    <div
-                                        key={step.index}
-                                        className='flex-1 h-full'
-                                        style={{ backgroundColor: stepColor.backgroundColor }}
-                                    />
-                                </>
-                            )
-                        } else {
-                            return (<div className='w-2.5 absolute right-0 top-0 bottom-0' style={{ backgroundColor: stepColor.backgroundColor }}></div>)
-                        }
+                        return (
+                            <>
+                                <div
+                                    key={step.index}
+                                    className='flex-1 h-full'
+                                    style={{ backgroundColor: stepColor.backgroundColor }}
+                                />
+                            </>
+                        )
                     })}
                 </div>
 
@@ -362,15 +359,15 @@ const StepSlider: React.FC = () => {
                     max={steps.length > 0 ? steps.length - 1 : 0}
                     step={1}
                     className={cn(
-                        'pointer-events-none w-full absolute left-0 right-0 top-3 lg:top-1/2 -translate-y-1/2 z-30',
+                        'pointer-events-none w-full absolute left-0 right-0 top-3 lg:top-1/2 -translate-y-1/2 z-30 px-2.5',
                         isTooltipOpen ? '[&_[data-orientation=horizontal]]:h-3.5' : '[&_[data-orientation=horizontal]]:h-2',
                         '[&_[data-orientation=horizontal]]:transition-all [&_[data-orientation=horizontal]]:duration-200',
+                        '[&_[data-orientation=horizontal]]:rounded-none',
                         // Enable pointer events and add hover styles for the thumb
                         '[&_[role=slider]]:pointer-events-auto',
                         isDragging ? '[&_[role=slider]]:cursor-grabbing' : '[&_[role=slider]]:cursor-pointer',
-                        isTooltipOpen ? '[&_[role=slider]]:w-6 [&_[role=slider]]:h-6' : '[&_[role=slider]]:w-5 [&_[role=slider]]:h-5',
-                        '[&_[role=slider]]:hover:scale-110',
-                        '[&_[role=slider]]:hover:shadow-lg',
+                        '[&_[role=slider]]:w-5 [&_[role=slider]]:h-5',
+                        '[&_[role=slider]]:bg-white/70',
                         // Glass-like effect for filled portion with enhanced contrast
                         '[&_[data-orientation=horizontal]_span[data-orientation=horizontal]]:bg-transparent',
                         // current step is lest than 50%
