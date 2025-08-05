@@ -1,6 +1,6 @@
 import { createContext, useState, useEffect, useRef, useMemo } from "react"
 import { astOf } from "@/utils/ast"
-import { cheatSheetHighlighter } from "@/utils/cheatSheetHighlighter"
+import { useCheatSheetHighlighter } from "@/hooks/useCheatSheetHighlighter"
 import * as ts from "typescript"
 import { ExecStep } from "@/types/simulator"
 import * as ESTree from 'estree'
@@ -62,10 +62,14 @@ export const SimulatorProvider = ({
         autoZoom: false, // Enable auto zoom by default
     })
 
-    const codeAreaRef = useRef<HTMLDivElement>(null)
-    const cheatSheetRef = useRef<HTMLDivElement>(null)
     const astChangedRef = useRef(false)
     const previousStepsRef = useRef<ExecStep[]>([])
+
+    // Use the cheat sheet highlighter hook
+    const { codeAreaRef, cheatSheetRef } = useCheatSheetHighlighter({
+        onHighlight: setHighlightedId,
+        enabled: mode === 'CODE'
+    })
 
     // Memoize astOfCode based on the current file content
     const astOfCode = useMemo(() => {
@@ -121,11 +125,6 @@ export const SimulatorProvider = ({
 
     // Memoize totalSteps based on steps
     const totalSteps = useMemo(() => steps.length, [steps])
-
-    useEffect(() => {
-        const cleanup = cheatSheetHighlighter(codeAreaRef, cheatSheetRef, setHighlightedId)
-        return cleanup
-    }, [astOfCode])
 
     const initializeFiles = (files: Record<string, string>) => {
         setFiles(files)
