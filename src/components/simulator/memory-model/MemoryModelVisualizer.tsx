@@ -5,6 +5,14 @@ import type { ElkNode as ElkLayoutNode, ElkEdge as ElkLayoutEdge } from "elkjs/l
 import { JSValue, HEAP_OBJECT_TYPE, EXEC_STEP_TYPE } from "@/types/simulator"
 import { useSimulatorStore } from "@/hooks/useSimulatorStore"
 import { getStepColorByDepth } from "@/helpers/steps"
+import {
+    ContextMenu,
+    ContextMenuContent,
+    ContextMenuTrigger,
+    ContextMenuCheckboxItem,
+    ContextMenuLabel,
+    ContextMenuSeparator,
+} from "@/components/ui/context-menu"
 
 type HeapObjectData = {
     id: string
@@ -53,7 +61,7 @@ type ElkGraph = ElkNode & {
 }
 
 const MemoryModelVisualizer = () => {
-    const { currentStep, steps } = useSimulatorStore()
+    const { currentStep, steps, settings, toggleAutoZoom } = useSimulatorStore()
     const svgRef = useRef<SVGSVGElement>(null)
     const [isDragging, setIsDragging] = useState(false)
     // Track dragged item for state management (value used in drag handlers)
@@ -322,9 +330,9 @@ const MemoryModelVisualizer = () => {
             .attr("height", viewportHeight)
             .attr("viewBox", `0 0 ${viewportWidth} ${viewportHeight}`)
 
-        // Create zoom behavior
+        // Create zoom behavior - configurable auto zoom
         const zoom = d3.zoom()
-            .scaleExtent([0.1, 5]) // Min zoom 0.1x, max zoom 3x
+            .scaleExtent(settings.autoZoom ? [0.1, 5] : [0.5, 3]) // Different ranges based on auto zoom setting
             .on("zoom", (event) => {
                 const { transform } = event
                 contentGroup.attr("transform", transform)
@@ -891,15 +899,49 @@ const MemoryModelVisualizer = () => {
                 // Update content group position with scale 1
                 contentGroup.attr("transform", `translate(${newCenterX}, ${newCenterY}) scale(1)`)
 
-                // Reset zoom to fit content
-                const fitTransform = d3.zoomIdentity
-                    .translate(newCenterX, newCenterY)
-                    .scale(1)
+                // Auto pan/zoom based on settings
+                if (settings.autoZoom) {
+                    // Auto zoom to fit content
+                    const fitTransform = d3.zoomIdentity
+                        .translate(newCenterX, newCenterY)
+                        .scale(1)
 
-                svg.transition()
-                    .duration(750)
-                    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-                    .call(zoom.transform as any, fitTransform)
+                    svg.transition()
+                        .duration(750)
+                        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+                        .call(zoom.transform as any, fitTransform)
+                } else {
+                    // Auto pan to center current scope without zoom
+                    const currentScope = memoryModelData.scopes.find(scope => scope.isCurrentScope)
+                    if (currentScope) {
+                        // Find the current scope's position
+                        const currentScopeNode = scopeSection.children?.find(child => child.id === currentScope.id)
+                        if (currentScopeNode) {
+                            const scopeX = (scopeSection.x || 0) + (currentScopeNode.x || 0) + (currentScopeNode.width || 200) / 2
+                            const scopeY = (scopeSection.y || 0) + (currentScopeNode.y || 0) + calculateScopeHeight(currentScope.id) / 2
+
+                            // Calculate center position to keep current scope in center
+                            const centerTransform = d3.zoomIdentity
+                                .translate(newViewportWidth / 2 - scopeX, newViewportHeight / 2 - scopeY)
+                                .scale(1)
+
+                            svg.transition()
+                                .duration(750)
+                                // eslint-disable-next-line @typescript-eslint/no-explicit-any
+                                .call(zoom.transform as any, centerTransform)
+                        }
+                    } else {
+                        // Fallback: center the entire content without zoom
+                        const centerTransform = d3.zoomIdentity
+                            .translate(newCenterX, newCenterY)
+                            .scale(1)
+
+                        svg.transition()
+                            .duration(750)
+                            // eslint-disable-next-line @typescript-eslint/no-explicit-any
+                            .call(zoom.transform as any, centerTransform)
+                    }
+                }
 
                 // Add arrow marker definitions with different colors and sizes
                 const defs = svg.append("defs")
@@ -1260,7 +1302,7 @@ const MemoryModelVisualizer = () => {
 
                             // Store variable position for connections - position at the left side of the scope
                             const varX = (scopeSection.x || 0) + singleColumnX + 5
-                            const varY = (scopeSection.y || 0) + singleColumnY + 35 + varIndex * 35 + 10
+                            const varY = (scopeSection.y || 0) + singleColumnY + 35 + varIndex * 35 + 15
                             nodePositions.set(varNodeId, { x: varX, y: varY })
 
                             // Add a small circle at the connection point for variables (only for reference types)
@@ -1435,15 +1477,49 @@ const MemoryModelVisualizer = () => {
                             // Update content group position
                             contentGroup.attr("transform", `translate(${newCenterX}, ${newCenterY}) scale(1)`)
 
-                            // Update zoom transform
-                            const newFitTransform = d3.zoomIdentity
-                                .translate(newCenterX, newCenterY)
-                                .scale(1)
+                            // Auto pan/zoom based on settings
+                            if (settings.autoZoom) {
+                                // Auto zoom to fit content
+                                const newFitTransform = d3.zoomIdentity
+                                    .translate(newCenterX, newCenterY)
+                                    .scale(1)
 
-                            svg.transition()
-                                .duration(300)
-                                // eslint-disable-next-line @typescript-eslint/no-explicit-any
-                                .call(zoom.transform as any, newFitTransform)
+                                svg.transition()
+                                    .duration(300)
+                                    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+                                    .call(zoom.transform as any, newFitTransform)
+                            } else {
+                                // Auto pan to center current scope without zoom
+                                const currentScope = memoryModelData.scopes.find(scope => scope.isCurrentScope)
+                                if (currentScope) {
+                                    // Find the current scope's position
+                                    const currentScopeNode = scopeSection.children?.find(child => child.id === currentScope.id)
+                                    if (currentScopeNode) {
+                                        const scopeX = (scopeSection.x || 0) + (currentScopeNode.x || 0) + (currentScopeNode.width || 200) / 2
+                                        const scopeY = (scopeSection.y || 0) + (currentScopeNode.y || 0) + calculateScopeHeight(currentScope.id) / 2
+
+                                        // Calculate center position to keep current scope in center
+                                        const centerTransform = d3.zoomIdentity
+                                            .translate(newViewportWidth / 2 - scopeX, newViewportHeight / 2 - scopeY)
+                                            .scale(1)
+
+                                        svg.transition()
+                                            .duration(300)
+                                            // eslint-disable-next-line @typescript-eslint/no-explicit-any
+                                            .call(zoom.transform as any, centerTransform)
+                                    }
+                                } else {
+                                    // Fallback: center the entire content without zoom
+                                    const centerTransform = d3.zoomIdentity
+                                        .translate(newCenterX, newCenterY)
+                                        .scale(1)
+
+                                    svg.transition()
+                                        .duration(300)
+                                        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+                                        .call(zoom.transform as any, centerTransform)
+                                }
+                            }
                         }
                     }
 
@@ -1641,73 +1717,28 @@ const MemoryModelVisualizer = () => {
 
     return (
         <div className="relative w-full h-full">
-            {/* Navigation Controls
-            <div className="absolute top-4 right-4 z-10 flex flex-col gap-2 bg-white/90 backdrop-blur-sm rounded-lg p-2 shadow-lg border border-gray-200">
-                <button
-                    onClick={handleZoomIn}
-                    className="p-2 rounded-md bg-blue-500 text-white hover:bg-blue-600 transition-colors"
-                    title="Zoom In"
-                    aria-label="Zoom In"
-                >
-                    <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0zM10 7v3m0 0v3m0-3h3m-3 0H7" />
-                    </svg>
-                </button>
-
-                <button
-                    onClick={handleZoomOut}
-                    className="p-2 rounded-md bg-blue-500 text-white hover:bg-blue-600 transition-colors"
-                    title="Zoom Out"
-                    aria-label="Zoom Out"
-                >
-                    <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0zM13 10H7" />
-                    </svg>
-                </button>
-
-                <button
-                    onClick={handleResetZoom}
-                    className="p-2 rounded-md bg-gray-500 text-white hover:bg-gray-600 transition-colors"
-                    title="Reset Zoom"
-                    aria-label="Reset Zoom"
-                >
-                    <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 8V4m0 0h4M4 4l5 5m11-1V4m0 0h-4m4 0l-5 5M4 16v4m0 0h4m-4 0l5-5m11 5l-5-5m5 5v-4m0 4h-4" />
-                    </svg>
-                </button>
-
-                <button
-                    onClick={handleFitToView}
-                    className="p-2 rounded-md bg-green-500 text-white hover:bg-green-600 transition-colors"
-                    title="Fit to View"
-                    aria-label="Fit to View"
-                >
-                    <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 8V4m0 0h4M4 4l5 5m11-1V4m0 0h-4m4 0l-5 5M4 16v4m0 0h4m-4 0l5-5m11 5l-5-5m5 5v-4m0 4h-4" />
-                    </svg>
-                </button>
-            </div>
-
-            <div className="absolute bottom-4 left-4 z-10 bg-white/90 backdrop-blur-sm rounded-lg px-3 py-1 shadow-lg border border-gray-200">
-                <span className="text-sm font-mono text-gray-700">
-                    {Math.round(zoomLevel * 100)}%
-                </span>
-            </div>
-
-            <div className="absolute top-4 left-4 z-10 bg-white/90 backdrop-blur-sm rounded-lg p-3 shadow-lg border border-gray-200 max-w-xs">
-                <h3 className="text-sm font-semibold text-gray-800 mb-2">Navigation</h3>
-                <ul className="text-xs text-gray-600 space-y-1">
-                    <li>• <strong>Drag</strong> to pan around</li>
-                    <li>• <strong>Scroll</strong> to zoom in/out</li>
-                    <li>• <strong>Double-click</strong> to reset zoom</li>
-                </ul>
-            </div> */}
-
-            <svg
-                ref={svgRef}
-                className="w-full h-full cursor-grab active:cursor-grabbing"
-                style={{ cursor: isDragging ? 'grabbing' : 'grab' }}
-            />
+            <ContextMenu>
+                <ContextMenuTrigger asChild>
+                    <div className="w-full h-full">
+                        <svg
+                            ref={svgRef}
+                            className="w-full h-full cursor-grab active:cursor-grabbing"
+                            style={{ cursor: isDragging ? 'grabbing' : 'grab' }}
+                        />
+                    </div>
+                </ContextMenuTrigger>
+                <ContextMenuContent className="w-48 ">
+                    <ContextMenuLabel className="text-xs">Memory Model Settings</ContextMenuLabel>
+                    <ContextMenuSeparator />
+                    <ContextMenuCheckboxItem
+                        checked={settings.autoZoom}
+                        onCheckedChange={toggleAutoZoom}
+                        className="text-xs"
+                    >
+                        Auto Zoom
+                    </ContextMenuCheckboxItem>
+                </ContextMenuContent>
+            </ContextMenu>
         </div>
     )
 }

@@ -36,6 +36,7 @@ type SimulatorContextType = {
     highlightedId: string | null
     changeHighlightedId: (id: string) => void
     settings: Record<string, boolean>
+    toggleAutoZoom: () => void
 }
 
 const SimulatorContext = createContext<SimulatorContextType | undefined>(undefined)
@@ -56,8 +57,9 @@ export const SimulatorProvider = ({
     const [isPlaying, setIsPlaying] = useState(false)
     const [speed, setSpeed] = useState(2)
     const [highlightedId, setHighlightedId] = useState<string | null>(null)
-    const [settings] = useState<Record<string, boolean>>({
+    const [settings, setSettings] = useState<Record<string, boolean>>({
         autoSave: true,
+        autoZoom: false, // Enable auto zoom by default
     })
 
     const codeAreaRef = useRef<HTMLDivElement>(null)
@@ -199,6 +201,13 @@ export const SimulatorProvider = ({
         setActiveFile(filename)
     }
 
+    const toggleAutoZoom = () => {
+        setSettings(prev => ({
+            ...prev,
+            autoZoom: !prev.autoZoom
+        }))
+    }
+
     return (
         <SimulatorContext.Provider
             value={{
@@ -228,6 +237,7 @@ export const SimulatorProvider = ({
                 highlightedId,
                 changeHighlightedId,
                 settings,
+                toggleAutoZoom,
             }}
         >
             {children}
