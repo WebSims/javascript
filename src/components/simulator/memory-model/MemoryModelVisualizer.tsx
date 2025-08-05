@@ -2,7 +2,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from "react"
 import * as d3 from "d3"
 import ELK from "elkjs/lib/elk.bundled.js"
 import type { ElkNode as ElkLayoutNode, ElkEdge as ElkLayoutEdge } from "elkjs/lib/elk-api"
-import { JSValue, HEAP_OBJECT_TYPE } from "@/types/simulator"
+import { JSValue, HEAP_OBJECT_TYPE, EXEC_STEP_TYPE } from "@/types/simulator"
 import { useSimulatorStore } from "@/hooks/useSimulatorStore"
 import { getStepColorByDepth } from "@/helpers/steps"
 
@@ -102,7 +102,11 @@ const MemoryModelVisualizer = () => {
             }
 
             // Add current scope indicator
-            const isCurrentScope = originalIndex === currentStep?.scopeIndex
+            // For POP_SCOPE steps, use the parent scope (next step's scopeIndex)
+            const effectiveScopeIndex = currentStep?.type === EXEC_STEP_TYPE.POP_SCOPE && currentStep.index < steps.length - 1
+                ? steps[currentStep.index + 1].scopeIndex
+                : currentStep?.scopeIndex
+            const isCurrentScope = originalIndex === effectiveScopeIndex
             if (isCurrentScope) {
                 scopeTags.push("Current")
             }
