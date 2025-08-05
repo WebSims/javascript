@@ -73,11 +73,11 @@ const CodeMode: React.FC = () => {
             <TabsTrigger value="EDITOR">Editor</TabsTrigger>
             <TabsTrigger value="PARSED">Parsed</TabsTrigger>
           </TabsList>
-          <div className='h-[calc(100%-42px)]'>
+          <div className='h-[calc(100%-36px)] overflow-hidden'>
             <TabsContent value="EDITOR" className='h-full overflow-auto'>
               <CodeEditor />
             </TabsContent>
-            <TabsContent value="PARSED" className='h-full overflow-auto'>
+            <TabsContent value="PARSED" className='h-full overflow-auto mt-0'>
               <CodeArea />
             </TabsContent>
           </div>
