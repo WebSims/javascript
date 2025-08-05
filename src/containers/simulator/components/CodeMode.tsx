@@ -66,7 +66,7 @@ const CodeMode: React.FC = () => {
       <ResizablePanel className='p-1'>
         <Tabs
           className='h-full'
-          defaultValue="EDITOR"
+          defaultValue="PARSED"
           onValueChange={() => updateFileContent(activeFile, fileContent)}
         >
           <TabsList>
