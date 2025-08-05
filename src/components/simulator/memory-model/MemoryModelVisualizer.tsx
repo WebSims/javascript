@@ -302,7 +302,7 @@ const MemoryModelVisualizer = () => {
         }, 0)
 
         // Calculate initial total content dimensions (will be updated after layout)
-        const sectionSpacing = 50
+        const sectionSpacing = 40
         const initialTotalContentWidth = 800 // Initial estimate, will be updated
         const totalContentHeight = Math.max(memvalSectionHeight, scopeSectionHeight, heapSectionHeight)
 
@@ -815,10 +815,13 @@ const MemoryModelVisualizer = () => {
                     if (section.id === "scopeSection") {
                         let totalHeight = 0
 
-                        section.children.forEach((scopeNode) => {
+                        section.children?.forEach((scopeNode, index) => {
                             // Find the corresponding scope data
                             const scopeHeight = calculateScopeHeight(scopeNode.id)
-                            totalHeight += scopeHeight + 20// Add spacing between scopes
+                            const isFirst = index === 0
+                            const isLast = index === (section.children?.length || 0) - 1
+                            const spacing = isFirst || isLast ? 10 : 20
+                            totalHeight += scopeHeight + spacing
                         })
 
                         return totalHeight
@@ -830,16 +833,16 @@ const MemoryModelVisualizer = () => {
                         const reversedMemval = [...memvalItems].reverse()
 
                         // Define consistent dimensions for memval section
-                        const titleHeight = 20 // Space for section title
+                        const titleHeight = 10 // Space for section title
                         const memvalItemHeight = 30 // Height of each memval item
-                        const memvalItemSpacing = 10 // Spacing between items
-                        const sectionPadding = 20 // Padding around the section
+                        const memvalItemSpacing = 5 // Spacing between items
+                        const sectionPadding = 40 // Padding around the section
 
                         // Calculate section height based on content
                         const itemCount = Math.max(reversedMemval.length, 1) // At least 1 item height for empty state
                         const itemsHeight = itemCount * (memvalItemHeight + memvalItemSpacing)
-                        const totalHeight = titleHeight + itemsHeight + sectionPadding * 2 + 15
-
+                        const spacing = itemCount * 5
+                        const totalHeight = titleHeight + itemsHeight + spacing + sectionPadding
                         return totalHeight
                     }
 
@@ -858,10 +861,10 @@ const MemoryModelVisualizer = () => {
                 const actualScopeSectionWidth = scopeSection.children && scopeSection.children.length > 0 ? calculateSectionWidth(scopeSection) : 0
                 const actualHeapSectionWidth = heapSection.children && heapSection.children.length > 0 ? calculateSectionWidth(heapSection) : 0
 
-                const actualMemvalSectionHeight = memvalSection.children && memvalSection.children.length > 0 ? calculateSectionHeight(memvalSection) : 110
+                const actualMemvalSectionHeight = memvalSection.children && memvalSection.children.length > 0 ? calculateSectionHeight(memvalSection) : 30
                 const actualScopeSectionHeight = scopeSection.children && scopeSection.children.length > 0 ? calculateSectionHeight(scopeSection) : 0
                 const actualHeapSectionHeight = heapSection.children && heapSection.children.length > 0 ? calculateSectionHeight(heapSection) : 0
-
+                console.log(actualMemvalSectionHeight, actualScopeSectionHeight, actualHeapSectionHeight)
                 // Log calculated section dimensions for debugging
                 // console.log('Calculated Section Dimensions:', {
                 //     memval: { width: actualMemvalSectionWidth, height: actualMemvalSectionHeight },
@@ -882,23 +885,20 @@ const MemoryModelVisualizer = () => {
                 // Calculate total content dimensions using actual section widths - only include sections with content
                 // New layout order: memval -> heap -> scope
                 const totalContentWidth = actualMemvalSectionWidth + actualHeapSectionWidth + actualScopeSectionWidth + 2 * sectionSpacing
-                const totalContentHeight = Math.max(actualMemvalSectionHeight, actualScopeSectionHeight, actualHeapSectionHeight)
-
-                // Update viewport dimensions if needed
+                const totalContentHeight = Math.max(actualMemvalSectionHeight, actualScopeSectionHeight, actualHeapSectionHeight) + 2 * sectionSpacing
 
                 const newViewportWidth = settings.autoZoom ? Math.max(totalContentWidth + margin.left + margin.right, viewportWidth) : viewportWidth
                 const newViewportHeight = settings.autoZoom ? Math.max(totalContentHeight + margin.top + margin.bottom, viewportHeight) : viewportHeight
 
                 svg.attr("viewBox", `0 0 ${newViewportWidth} ${newViewportHeight}`)
-
                 // Update content group position with scale 1
-
                 const scale = 1
-                let centerX = (newViewportWidth - (totalContentWidth * newViewportWidth / viewportWidth) * scale) / 2
-                let centerY = (newViewportHeight - (totalContentHeight * newViewportHeight / viewportHeight) * scale) / 2
+                console.log(totalContentWidth)
+                let centerX = (newViewportWidth - totalContentWidth * newViewportWidth / viewportWidth * scale) / 2
+                let centerY = (newViewportHeight - totalContentHeight * newViewportHeight / viewportHeight * scale) / 2
                 if (settings.autoZoom) {
-                    centerX = (newViewportWidth - (totalContentWidth) * scale) / 2
-                    centerY = (newViewportHeight - (totalContentHeight) * scale) / 2
+                    centerX = (newViewportWidth - totalContentWidth * scale) / 2
+                    centerY = (newViewportHeight - totalContentHeight * scale) / 2
                 }
                 contentGroup.attr("transform", `translate(${centerX}, ${centerY}) scale(1)`)
 
@@ -1551,7 +1551,7 @@ const MemoryModelVisualizer = () => {
             // eslint-disable-next-line @typescript-eslint/no-explicit-any
             .call(d3.zoom().scaleBy as any, 1.5)
     }
-
+     
     const handleZoomOut = () => {
         if (!svgRef.current) return
         const svg = d3.select(svgRef.current)
@@ -1560,7 +1560,7 @@ const MemoryModelVisualizer = () => {
             // eslint-disable-next-line @typescript-eslint/no-explicit-any
             .call(d3.zoom().scaleBy as any, 1 / 1.5)
     }
-
+     
     const handleResetZoom = () => {
         if (!svgRef.current) return
         const svg = d3.select(svgRef.current)
@@ -1569,17 +1569,17 @@ const MemoryModelVisualizer = () => {
             // eslint-disable-next-line @typescript-eslint/no-explicit-any
             .call(d3.zoom().transform as any, d3.zoomIdentity)
     }
-
+     
     const handleFitToView = () => {
         if (!svgRef.current || !currentStep) return
         const svg = d3.select(svgRef.current)
         const svgElement = svgRef.current
-
+     
         // Get the content bounds
         const contentGroup = svg.select("g")
         const node = contentGroup.node() as SVGGElement
         const bbox = node?.getBBox()
-
+     
         if (bbox) {
             const padding = 40
             const scale = Math.min(
@@ -1587,14 +1587,14 @@ const MemoryModelVisualizer = () => {
                 (svgElement.clientHeight - padding) / bbox.height,
                 1 // Don't scale up beyond 1x
             )
-
+     
             const transform = d3.zoomIdentity
                 .translate(
                     (svgElement.clientWidth - bbox.width * scale) / 2 - bbox.x * scale,
                     (svgElement.clientHeight - bbox.height * scale) / 2 - bbox.y * scale
                 )
                 .scale(scale)
-
+     
             svg.transition()
                 .duration(750)
                 // eslint-disable-next-line @typescript-eslint/no-explicit-any
