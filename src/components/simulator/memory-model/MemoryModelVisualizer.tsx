@@ -14,6 +14,12 @@ import {
     ContextMenuLabel,
     ContextMenuSeparator,
 } from "@/components/ui/context-menu"
+import {
+    createMemvalSection,
+    createMemvalNodes,
+    createMemvalEdges,
+    renderMemvalSection,
+} from "./memval"
 
 type HeapObjectData = {
     id: string
@@ -61,11 +67,7 @@ type ElkGraph = ElkNode & {
     edges: ElkEdge[]
 }
 
-const MEMVAL_SECTION_WIDTH = 160
-const MEMVAL_SECTION_SPACING = 10
-const MEMVAL_SECTION_PADDING = 20
-const MEMVAL_ITEM_WIDTH = 120
-const MEMVAL_ITEM_HEIGHT = 30
+
 
 const MemoryModelVisualizer = () => {
     const { currentStep, steps, settings, toggleAutoZoom } = useSimulatorStore()
@@ -421,22 +423,7 @@ const MemoryModelVisualizer = () => {
             }
 
             // Create a section for memval with layered algorithm from bottom to top
-            const memvalSection: ElkNode = {
-                id: "memvalSection",
-                layoutOptions: {
-                    "elk.algorithm": "layered",
-                    "elk.direction": "UP",
-                    "elk.partitioning.activate": "true",
-                    "elk.padding": `[top=${MEMVAL_SECTION_PADDING}, left=${MEMVAL_SECTION_PADDING}, bottom=${MEMVAL_SECTION_PADDING}, right=${MEMVAL_SECTION_PADDING}]`,
-                    "elk.layered.nodePlacement.strategy": "NETWORK_SIMPLEX",
-                    "elk.layered.considerModelOrder.strategy": "NODES_AND_EDGES",
-                    "elk.layered.crossingMinimization.strategy": "LAYER_SWEEP",
-                    "elk.layered.spacing.nodeNodeBetweenLayers": `${MEMVAL_SECTION_SPACING}`,
-                    "elk.layered.nodePlacement.bk.fixedAlignment": "BALANCED",
-                    "elk.edgeRouting": "SPLINES",
-                },
-                children: [],
-            }
+            const memvalSection = createMemvalSection()
 
             // Create a section for scopes with content-based sizing
             const scopeSection: ElkNode = {
@@ -477,30 +464,13 @@ const MemoryModelVisualizer = () => {
             // Add memval nodes with layered algorithm (bottom to top)
             const memvalItems = currentStep?.memorySnapshot.memval || []
 
-            // Create memval nodes in order (first in at bottom, last in at top)
-            memvalItems.forEach((memval, index) => {
-                const memvalNode: ElkNode = {
-                    id: `memval-${index}`,
-                    width: MEMVAL_ITEM_WIDTH,
-                    height: MEMVAL_ITEM_HEIGHT,
-                    labels: [{
-                        text: memval.type === "reference" ? `ref: ${memval.ref}` : String(memval.value),
-                    }],
-                }
-                memvalSection.children?.push(memvalNode)
-            })
+            // Create memval nodes using the module
+            const memvalNodes = createMemvalNodes(memvalItems)
+            memvalSection.children?.push(...memvalNodes)
 
             // Add edges between memval items to create layered structure
-            for (let i = 0; i < memvalItems.length - 1; i++) {
-                graph.edges.push({
-                    id: `memval-edge-${i}`,
-                    sources: [`memval-${i}`],
-                    targets: [`memval-${i + 1}`],
-                    layoutOptions: {
-                        "elk.layered.priority.direction": "1",
-                    },
-                })
-            }
+            const memvalEdges = createMemvalEdges(memvalItems)
+            graph.edges.push(...memvalEdges)
 
             // Note: Removed memval layered edges to avoid drawing lines within the section
 
@@ -1066,114 +1036,17 @@ const MemoryModelVisualizer = () => {
                     .attr("fill", "#e53e3e")
 
 
-                // Draw memval items using ELK layout positions
+                // Draw memval items using the module
                 if (currentStep?.memorySnapshot.memval.length > 0 && memvalSection.children) {
                     const memvalItems = currentStep?.memorySnapshot.memval || []
 
-                    // Create memval section container
-                    const memvalContainer = graphContainer
-                        .append("g")
-                        .attr("class", "memval-section")
-                        .attr("transform", `translate(${memvalSection.x || 0}, ${memvalSection.y || 0})`)
-
-                    // Add background rectangle for memval section
-                    const memvalSectionWidth = memvalSection.width || MEMVAL_SECTION_WIDTH
-                    const memvalSectionHeight = memvalSection.height || 100
-
-                    memvalContainer
-                        .append("rect")
-                        .attr("width", memvalSectionWidth)
-                        .attr("height", memvalSectionHeight)
-                        .attr("fill", "#f8f9fa") // Light gray background
-                        .attr("stroke", "none") // No border
-                        .attr("rx", 6) // Rounded corners
-                        .attr("ry", 6)
-
-                    // Draw memval items using ELK layout positions
-                    memvalSection.children.forEach((memvalNode: ElkNode, memvalIndex: number) => {
-                        const memvalData = memvalItems[memvalIndex]
-                        if (!memvalData) return
-
-                        const memvalGroup = memvalContainer
-                            .append("g")
-                            .attr("class", "memval-item")
-                            .attr("transform", `translate(${memvalNode.x || 0}, ${memvalNode.y || 0})`)
-
-                        // Determine item styling based on type
-                        const isReference = memvalData.type === "reference"
-                        const itemColor = isReference ? "#dbeafe" : "#f0f9ff"
-                        const itemBorderColor = isReference ? "#3b82f6" : "#0ea5e9"
-                        const itemWidth = memvalNode.width || MEMVAL_ITEM_WIDTH
-                        const itemHeight = memvalNode.height || MEMVAL_ITEM_HEIGHT
-
-                        // Draw item background
-                        memvalGroup
-                            .append("rect")
-                            .attr("width", itemWidth)
-                            .attr("height", itemHeight)
-                            .attr("rx", 6)
-                            .attr("ry", 6)
-                            .attr("fill", itemColor)
-                            .attr("stroke", itemBorderColor)
-                            .attr("stroke-width", 1.5)
-
-                        // Add memval value
-                        const memvalType = isReference ? "ref" : typeof memvalData.value
-                        let value = 'N/A'
-
-                        // For references, find the referenced object type and show it
-                        if (isReference) {
-                            const referencedObject = memoryModelData.heap.find(obj => obj.id === `obj-${memvalData.ref}`)
-                            if (referencedObject) {
-                                value = `${referencedObject.type}`
-                            }
-                        } else {
-                            value = memvalData.value as string
-                        }
-
-                        const formattedValue = memvalType === "string" ? `"${value}"` : value
-                        const displayText = formattedValue
-
-                        memvalGroup
-                            .append("text")
-                            .attr("x", itemWidth / 2)
-                            .attr("y", itemHeight / 2 + 5)
-                            .attr("font-size", "12px")
-                            .attr("font-family", "monospace")
-                            .attr("fill", "#1e293b")
-                            .attr("font-weight", "500")
-                            .attr("text-anchor", "middle")
-                            .text(displayText as string)
-
-                        // Store memval position for layered structure edges
-                        const memvalId = `memval-${memvalIndex}`
-                        const memvalX = (memvalSection.x || 0) + (memvalNode.x || 0) + itemWidth / 2
-                        const memvalY = (memvalSection.y || 0) + (memvalNode.y || 0) + itemHeight / 2
-                        nodePositions.set(memvalId, { x: memvalX, y: memvalY })
-
-                        // Store memval position for connections if it's a reference
-                        if (isReference) {
-                            const memvalRefX = (memvalSection.x || 0) + (memvalNode.x || 0) + itemWidth - 5
-                            const memvalRefY = (memvalSection.y || 0) + (memvalNode.y || 0) + itemHeight / 2
-                            nodePositions.set(`${memvalId}-ref`, { x: memvalRefX, y: memvalRefY })
-
-                            // Add edge data for memval references
-                            edgeData.push({
-                                source: `${memvalId}-ref`,
-                                target: `obj-${memvalData.ref}-left`,
-                                type: "memval-ref",
-                                label: `memval-${memvalIndex}`,
-                            })
-
-                            // Add a small circle at the connection point
-                            memvalGroup
-                                .append("circle")
-                                .attr("cx", itemWidth - 5)
-                                .attr("cy", itemHeight / 2)
-                                .attr("r", 3)
-                                .attr("fill", "#8b5cf6")
-                                .attr("stroke", "none")
-                        }
+                    renderMemvalSection({
+                        memvalSection,
+                        memvalItems,
+                        graphContainer,
+                        memoryModelData,
+                        nodePositions,
+                        edgeData,
                     })
                 }
 
