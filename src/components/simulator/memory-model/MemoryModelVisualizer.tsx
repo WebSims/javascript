@@ -150,7 +150,8 @@ const MemoryModelVisualizer = () => {
                         }
                     }
                 } else {
-                    displayValue = `[Reference: ${variable.value.ref}]`
+                    // For references, we'll enhance this after heap data is available
+                    displayValue = variable.value.ref
                 }
 
                 return {
@@ -158,7 +159,7 @@ const MemoryModelVisualizer = () => {
                     name,
                     type: varType,
                     target,
-                    value: displayValue
+                    value: displayValue as string
                 }
             })
 
@@ -175,7 +176,7 @@ const MemoryModelVisualizer = () => {
             })
         })
 
-        // Process heap objects
+        // Process heap objects first to get type information
         Object.entries(currentStep?.memorySnapshot.heap ?? {}).forEach(([ref, obj]) => {
             const objId = `obj-${ref}`
             let objType = "OBJECT"
@@ -192,19 +193,34 @@ const MemoryModelVisualizer = () => {
                 objBorderColor = "#63b3ed"
             }
 
+            heapData.push({
+                id: objId,
+                type: objType,
+                color: objColor,
+                borderColor: objBorderColor,
+                properties: [] // Will be populated after heap data is available
+            })
+        })
+
+        // Now process heap object properties with type information available
+        Object.entries(currentStep?.memorySnapshot.heap ?? {}).forEach(([ref, obj]) => {
+            const objId = `obj-${ref}`
+            const heapObj = heapData.find(h => h.id === objId)
+            if (!heapObj) return
+
             const properties: { name: string; value: string; target?: string }[] = []
 
             if (obj.type === HEAP_OBJECT_TYPE.OBJECT) {
                 // Process object properties
                 Object.entries(obj.properties).forEach(([propName, propValue]) => {
-                    const property = formatPropertyValue(propName, propValue)
+                    const property = formatPropertyValue(propName, propValue, heapData)
                     properties.push(property)
                 })
             } else if (obj.type === HEAP_OBJECT_TYPE.ARRAY) {
                 // Process array elements
                 obj.elements.forEach((element, index) => {
                     if (element !== undefined) {
-                        const property = formatPropertyValue(String(index), element)
+                        const property = formatPropertyValue(String(index), element, heapData)
                         properties.push(property)
                     }
                 })
@@ -221,12 +237,18 @@ const MemoryModelVisualizer = () => {
                 })
             }
 
-            heapData.push({
-                id: objId,
-                type: objType,
-                color: objColor,
-                borderColor: objBorderColor,
-                properties
+            heapObj.properties = properties
+        })
+
+        // Enhance scope variable references with object type information
+        scopesData.forEach(scope => {
+            scope.variables.forEach(variable => {
+                if (variable.type === "reference" && variable.target) {
+                    const referencedObject = heapData.find(obj => obj.id === variable.target)
+                    if (referencedObject) {
+                        variable.value = referencedObject.type
+                    }
+                }
             })
         })
 
@@ -237,7 +259,7 @@ const MemoryModelVisualizer = () => {
     }, [currentStep, getMaxDepth])
 
     // Helper function to format property values
-    const formatPropertyValue = (propName: string, propValue: JSValue): { name: string; value: string; target?: string } => {
+    const formatPropertyValue = (propName: string, propValue: JSValue, heapData?: HeapObjectData[]): { name: string; value: string; target?: string } => {
         if (propValue.type === "primitive") {
             if (propValue.value === undefined) {
                 return { name: propName, value: "undefined" }
@@ -250,9 +272,19 @@ const MemoryModelVisualizer = () => {
             }
         } else {
             // It's a reference
+            let refDisplay = 'N/A'
+
+            // If heap data is available, show the object type
+            if (heapData) {
+                const referencedObject = heapData.find(obj => obj.id === `obj-${propValue.ref}`)
+                if (referencedObject) {
+                    refDisplay = referencedObject.type
+                }
+            }
+
             return {
                 name: propName,
-                value: `[Reference: ${propValue.ref}]`,
+                value: refDisplay,
                 target: `obj-${propValue.ref}`
             }
         }
@@ -798,14 +830,12 @@ const MemoryModelVisualizer = () => {
                         return 300
                     }
 
-                    if (section.id === "heapSection") {
-                        // Find the rightmost edge of all children
-                        const rightmostEdge = Math.max(...section.children.map(child =>
-                            (child.x || 0) + (child.width || 200)
-                        ))
+                    // Find the rightmost edge of all children
+                    const rightmostEdge = Math.max(...section.children.map(child =>
+                        (child.x || 0) + (child.width || 200)
+                    ))
 
-                        return rightmostEdge + 160
-                    }
+                    return rightmostEdge + 160
                 }
 
                 const calculateSectionHeight = (section: ElkNode): number => {
@@ -1049,7 +1079,18 @@ const MemoryModelVisualizer = () => {
 
                         // Add memval value with type at the bottom
                         const memvalType = isReference ? "ref" : typeof memvalData.value
-                        const value = isReference ? 'REF' : memvalData.value
+                        let value = 'N/A'
+
+                        // For references, find the referenced object type and show it
+                        if (isReference) {
+                            const referencedObject = memoryModelData.heap.find(obj => obj.id === `obj-${memvalData.ref}`)
+                            if (referencedObject) {
+                                value = `${referencedObject.type}`
+                            }
+                        } else {
+                            value = memvalData.value as string
+                        }
+
                         const formattedValue = memvalType === "string" ? `"${value}"` : value
                         const displayText = formattedValue
 
