@@ -835,16 +835,15 @@ const MemoryModelVisualizer = () => {
                         const reversedMemval = [...memvalItems].reverse()
 
                         // Define consistent dimensions for memval section
-                        const titleHeight = 10 // Space for section title
                         const memvalItemHeight = 30 // Height of each memval item
                         const memvalItemSpacing = 5 // Spacing between items
-                        const sectionPadding = 40 // Padding around the section
+                        const sectionPadding = 30 // Padding around the section
 
                         // Calculate section height based on content
                         const itemCount = Math.max(reversedMemval.length, 1) // At least 1 item height for empty state
                         const itemsHeight = itemCount * (memvalItemHeight + memvalItemSpacing)
                         const spacing = itemCount * 5
-                        const totalHeight = titleHeight + itemsHeight + spacing + sectionPadding
+                        const totalHeight = itemsHeight + spacing + sectionPadding
                         return totalHeight
                     }
 
@@ -1015,9 +1014,8 @@ const MemoryModelVisualizer = () => {
                     const memvalPadding = 20
 
                     // Calculate section height based on content (including title)
-                    const titleHeight = 20 // Space for title (padding + text height)
                     const itemCount = Math.max(reversedMemval.length, 1) // At least 1 item height for empty state
-                    const memvalSectionHeight = titleHeight + (itemCount * memvalItemHeight) + ((itemCount - 1) * memvalItemSpacing) + (memvalPadding * 2)
+                    const memvalSectionHeight = (itemCount * memvalItemHeight) + ((itemCount - 1) * memvalItemSpacing) + (memvalPadding * 2)
 
                     // Fixed position for memval section (consistent regardless of content)
                     const memvalSectionX = memvalSection.x || 0
@@ -1040,21 +1038,9 @@ const MemoryModelVisualizer = () => {
                         .attr("stroke", "#e2e8f0")
                         .attr("stroke-width", 2)
 
-                    // Add memval section title
-                    memvalContainer
-                        .append("text")
-                        .attr("x", actualMemvalSectionWidth / 2)
-                        .attr("y", memvalPadding)
-                        .attr("text-anchor", "middle")
-                        .attr("font-size", "14px")
-                        .attr("font-family", "monospace")
-                        .attr("font-weight", "bold")
-                        .attr("fill", "#374151")
-                        .text("MEMVAL Stack")
-
                     // Draw actual memval items
                     reversedMemval.forEach((memvalData, memvalIndex: number) => {
-                        const itemY = memvalPadding + titleHeight + (memvalIndex * (memvalItemHeight + memvalItemSpacing))
+                        const itemY = memvalPadding + (memvalIndex * (memvalItemHeight + memvalItemSpacing))
 
                         const memvalGroup = memvalContainer
                             .append("g")
