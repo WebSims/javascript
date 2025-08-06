@@ -422,7 +422,7 @@ const MemoryModelVisualizer = () => {
                     "elk.layered.crossingMinimization.strategy": "LAYER_SWEEP",
                     "elk.layered.considerModelOrder.strategy": "NODES_AND_EDGES",
                     "elk.spacing.nodeNode": "50",
-                    "elk.layered.spacing.nodeNodeBetweenLayers": "60",
+                    "elk.layered.spacing.nodeNodeBetweenLayers": "50",
                     "elk.layered.nodePlacement.strategy": "NETWORK_SIMPLEX",
                     "elk.layered.nodePlacement.bk.fixedAlignment": "BALANCED",
                     "elk.edgeRouting": "SPLINES",
@@ -795,15 +795,17 @@ const MemoryModelVisualizer = () => {
                     }
 
                     if (section.id === "scopeSection") {
-                        return 400
+                        return 300
                     }
 
-                    // Find the rightmost edge of all children
-                    const rightmostEdge = Math.max(...section.children.map(child =>
-                        (child.x || 0) + (child.width || 200) + 200
-                    ))
+                    if (section.id === "heapSection") {
+                        // Find the rightmost edge of all children
+                        const rightmostEdge = Math.max(...section.children.map(child =>
+                            (child.x || 0) + (child.width || 200)
+                        ))
 
-                    return rightmostEdge
+                        return rightmostEdge + 160
+                    }
                 }
 
                 const calculateSectionHeight = (section: ElkNode): number => {
@@ -857,14 +859,13 @@ const MemoryModelVisualizer = () => {
                 }
 
                 // Calculate actual section dimensions
-                const actualMemvalSectionWidth = calculateSectionWidth(memvalSection)
+                const actualMemvalSectionWidth = memvalSection.children && memvalSection.children.length > 0 ? calculateSectionWidth(memvalSection) : 0
                 const actualScopeSectionWidth = scopeSection.children && scopeSection.children.length > 0 ? calculateSectionWidth(scopeSection) : 0
                 const actualHeapSectionWidth = heapSection.children && heapSection.children.length > 0 ? calculateSectionWidth(heapSection) : 0
 
-                const actualMemvalSectionHeight = memvalSection.children && memvalSection.children.length > 0 ? calculateSectionHeight(memvalSection) : 30
+                const actualMemvalSectionHeight = memvalSection.children && memvalSection.children.length > 0 ? calculateSectionHeight(memvalSection) : 90
                 const actualScopeSectionHeight = scopeSection.children && scopeSection.children.length > 0 ? calculateSectionHeight(scopeSection) : 0
                 const actualHeapSectionHeight = heapSection.children && heapSection.children.length > 0 ? calculateSectionHeight(heapSection) : 0
-                console.log(actualMemvalSectionHeight, actualScopeSectionHeight, actualHeapSectionHeight)
                 // Log calculated section dimensions for debugging
                 // console.log('Calculated Section Dimensions:', {
                 //     memval: { width: actualMemvalSectionWidth, height: actualMemvalSectionHeight },
@@ -875,16 +876,25 @@ const MemoryModelVisualizer = () => {
                 // Position sections using calculated widths - only show sections that have content
                 // New layout: memval -> heap -> scope
                 memvalSection.x = 0
-                heapSection.x = sectionSpacing + actualMemvalSectionWidth
-                scopeSection.x = heapSection.x + sectionSpacing + actualHeapSectionWidth
+                heapSection.x = actualMemvalSectionWidth + (actualMemvalSectionWidth > 0 ? 2 * sectionSpacing : 0)
+                scopeSection.x = heapSection.x + actualHeapSectionWidth + (heapSection.x + actualHeapSectionWidth > 0 ? 2 * sectionSpacing : 0)
 
                 memvalSection.y = actualScopeSectionHeight - actualMemvalSectionHeight
                 scopeSection.y = 0
                 heapSection.y = 0
 
+                let spacing = 0
+                if (actualMemvalSectionWidth > 0 && heapSection.x + actualHeapSectionWidth > 0 && scopeSection.x + actualScopeSectionWidth > 0) {
+                    spacing = 2 * sectionSpacing
+                } else if (heapSection.x + actualHeapSectionWidth > 0 && scopeSection.x + actualScopeSectionWidth > 0) {
+                    spacing = 4 * sectionSpacing
+                } else {
+                    spacing = 2 * sectionSpacing
+                }
+
                 // Calculate total content dimensions using actual section widths - only include sections with content
                 // New layout order: memval -> heap -> scope
-                const totalContentWidth = actualMemvalSectionWidth + actualHeapSectionWidth + actualScopeSectionWidth + 2 * sectionSpacing
+                const totalContentWidth = scopeSection.x + actualScopeSectionWidth + spacing
                 const totalContentHeight = Math.max(actualMemvalSectionHeight, actualScopeSectionHeight, actualHeapSectionHeight) + 2 * sectionSpacing
 
                 const newViewportWidth = settings.autoZoom ? Math.max(totalContentWidth + margin.left + margin.right, viewportWidth) : viewportWidth
@@ -893,13 +903,35 @@ const MemoryModelVisualizer = () => {
                 svg.attr("viewBox", `0 0 ${newViewportWidth} ${newViewportHeight}`)
                 // Update content group position with scale 1
                 const scale = 1
-                console.log(totalContentWidth)
                 let centerX = (newViewportWidth - totalContentWidth * newViewportWidth / viewportWidth * scale) / 2
                 let centerY = (newViewportHeight - totalContentHeight * newViewportHeight / viewportHeight * scale) / 2
+
                 if (settings.autoZoom) {
                     centerX = (newViewportWidth - totalContentWidth * scale) / 2
                     centerY = (newViewportHeight - totalContentHeight * scale) / 2
+                } else {
+                    // When auto zoom is off, center Y-axis on the current scope
+                    const currentScopeData = memoryModelData.scopes.find(scope => scope.isCurrentScope)
+                    if (currentScopeData && scopeSection.children && scopeSection.children.length > 0) {
+                        // Find the current scope node
+                        const currentScopeNode = scopeSection.children.find(scopeNode => scopeNode.id === currentScopeData.id)
+                        if (currentScopeNode) {
+                            // Calculate the position of the current scope
+                            const currentScopeIndex = scopeSection.children.findIndex(scopeNode => scopeNode.id === currentScopeData.id)
+                            const currentScopeHeight = calculateScopeHeight(currentScopeNode.id) + 2 * sectionSpacing
+                            const currentScopeY = currentScopeIndex === 0 ? 0 :
+                                scopeSection.children?.slice(0, currentScopeIndex).reduce((total, prevNode) =>
+                                    total + calculateScopeHeight(prevNode.id) + 20, 0) || 0
+
+                            // Calculate the center position of the current scope
+                            const currentScopeCenterY = (scopeSection.y || 0) + currentScopeY + currentScopeHeight / 2
+
+                            // Center the viewport on the current scope
+                            centerY = (newViewportHeight / 2) - currentScopeCenterY
+                        }
+                    }
                 }
+
                 contentGroup.attr("transform", `translate(${centerX}, ${centerY}) scale(1)`)
 
                 const centerTransform = d3.zoomIdentity
@@ -970,55 +1002,56 @@ const MemoryModelVisualizer = () => {
                     .attr("d", "M0,-5L10,0L0,5")
                     .attr("fill", "#e53e3e")
 
-                // Refactored MEMVAL section with improved UI and calculated positioning
-                const memvalItems = currentStep?.memorySnapshot.memval || []
-                const reversedMemval = [...memvalItems].reverse()
 
-                // Define consistent dimensions for memval section
-                const memvalItemHeight = 30
-                const memvalItemSpacing = 10
-                const memvalPadding = 20
+                // Draw memval items 
+                if (currentStep?.memorySnapshot.memval.length > 0) {
+                    // Refactored MEMVAL section with improved UI and calculated positioning
+                    const memvalItems = currentStep?.memorySnapshot.memval || []
+                    const reversedMemval = [...memvalItems].reverse()
 
-                // Calculate section height based on content (including title)
-                const titleHeight = 20 // Space for title (padding + text height)
-                const itemCount = Math.max(reversedMemval.length, 1) // At least 1 item height for empty state
-                const memvalSectionHeight = titleHeight + (itemCount * memvalItemHeight) + ((itemCount - 1) * memvalItemSpacing) + (memvalPadding * 2)
+                    // Define consistent dimensions for memval section
+                    const memvalItemHeight = 30
+                    const memvalItemSpacing = 10
+                    const memvalPadding = 20
 
-                // Fixed position for memval section (consistent regardless of content)
-                const memvalSectionX = memvalSection.x || 0
-                const memvalSectionY = memvalSection.y || 0
+                    // Calculate section height based on content (including title)
+                    const titleHeight = 20 // Space for title (padding + text height)
+                    const itemCount = Math.max(reversedMemval.length, 1) // At least 1 item height for empty state
+                    const memvalSectionHeight = titleHeight + (itemCount * memvalItemHeight) + ((itemCount - 1) * memvalItemSpacing) + (memvalPadding * 2)
 
-                // Create memval section container
-                const memvalContainer = graphContainer
-                    .append("g")
-                    .attr("class", "memval-section")
-                    .attr("transform", `translate(${memvalSectionX}, ${memvalSectionY})`)
+                    // Fixed position for memval section (consistent regardless of content)
+                    const memvalSectionX = memvalSection.x || 0
+                    const memvalSectionY = memvalSection.y || 0
 
-                // Draw memval section background with improved styling using calculated width
-                memvalContainer
-                    .append("rect")
-                    .attr("width", actualMemvalSectionWidth)
-                    .attr("height", memvalSectionHeight)
-                    .attr("rx", 6)
-                    .attr("ry", 6)
-                    .attr("fill", "#f8fafc")
-                    .attr("stroke", "#e2e8f0")
-                    .attr("stroke-width", 2)
+                    // Create memval section container
+                    const memvalContainer = graphContainer
+                        .append("g")
+                        .attr("class", "memval-section")
+                        .attr("transform", `translate(${memvalSectionX}, ${memvalSectionY})`)
 
-                // Add memval section title
-                memvalContainer
-                    .append("text")
-                    .attr("x", actualMemvalSectionWidth / 2)
-                    .attr("y", memvalPadding)
-                    .attr("text-anchor", "middle")
-                    .attr("font-size", "14px")
-                    .attr("font-family", "monospace")
-                    .attr("font-weight", "bold")
-                    .attr("fill", "#374151")
-                    .text("MEMVAL Stack")
+                    // Draw memval section background with improved styling using calculated width
+                    memvalContainer
+                        .append("rect")
+                        .attr("width", actualMemvalSectionWidth)
+                        .attr("height", memvalSectionHeight)
+                        .attr("rx", 6)
+                        .attr("ry", 6)
+                        .attr("fill", "#f8fafc")
+                        .attr("stroke", "#e2e8f0")
+                        .attr("stroke-width", 2)
 
-                // Draw memval items or empty state
-                if (reversedMemval.length > 0) {
+                    // Add memval section title
+                    memvalContainer
+                        .append("text")
+                        .attr("x", actualMemvalSectionWidth / 2)
+                        .attr("y", memvalPadding)
+                        .attr("text-anchor", "middle")
+                        .attr("font-size", "14px")
+                        .attr("font-family", "monospace")
+                        .attr("font-weight", "bold")
+                        .attr("fill", "#374151")
+                        .text("MEMVAL Stack")
+
                     // Draw actual memval items
                     reversedMemval.forEach((memvalData, memvalIndex: number) => {
                         const itemY = memvalPadding + titleHeight + (memvalIndex * (memvalItemHeight + memvalItemSpacing))
@@ -1087,39 +1120,6 @@ const MemoryModelVisualizer = () => {
                                 .attr("stroke", "none")
                         }
                     })
-                } else {
-                    // Draw empty state with placeholder
-                    const emptyItemY = memvalPadding + titleHeight
-                    const emptyItemWidth = actualMemvalSectionWidth - (memvalPadding * 2)
-
-                    const emptyGroup = memvalContainer
-                        .append("g")
-                        .attr("class", "memval-empty")
-                        .attr("transform", `translate(${memvalPadding}, ${emptyItemY})`)
-
-                    // Draw empty item background
-                    emptyGroup
-                        .append("rect")
-                        .attr("width", emptyItemWidth)
-                        .attr("height", memvalItemHeight)
-                        .attr("rx", 6)
-                        .attr("ry", 6)
-                        .attr("fill", "#f1f5f9")
-                        .attr("stroke", "#cbd5e1")
-                        .attr("stroke-width", 1.5)
-                        .attr("stroke-dasharray", "3,3")
-
-                    // Add empty state text
-                    emptyGroup
-                        .append("text")
-                        .attr("x", emptyItemWidth / 2)
-                        .attr("y", memvalItemHeight / 2 + 5)
-                        .attr("text-anchor", "middle")
-                        .attr("font-size", "12px")
-                        .attr("font-family", "monospace")
-                        .attr("fill", "#94a3b8")
-                        .attr("font-style", "italic")
-                        .text("empty")
                 }
 
                 // Draw scopes in a single column - only if there are scopes
