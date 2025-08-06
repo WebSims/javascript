@@ -836,15 +836,13 @@ const MemoryModelVisualizer = () => {
 
                         // Define consistent dimensions for memval section
                         const memvalItemHeight = 30 // Height of each memval item
-                        const memvalItemSpacing = 5 // Spacing between items
-                        const sectionPadding = 30 // Padding around the section
+                        const memvalItemSpacing = 10 // Spacing between items
+                        const sectionPadding = 10 // Padding around the section
 
                         // Calculate section height based on content
                         const itemCount = Math.max(reversedMemval.length, 1) // At least 1 item height for empty state
                         const itemsHeight = itemCount * (memvalItemHeight + memvalItemSpacing)
-                        const spacing = itemCount * 5
-                        const totalHeight = itemsHeight + spacing + sectionPadding
-                        return totalHeight
+                        return itemsHeight + sectionPadding
                     }
 
                     // For other sections, use the original calculation
@@ -1013,10 +1011,6 @@ const MemoryModelVisualizer = () => {
                     const memvalItemSpacing = 10
                     const memvalPadding = 20
 
-                    // Calculate section height based on content (including title)
-                    const itemCount = Math.max(reversedMemval.length, 1) // At least 1 item height for empty state
-                    const memvalSectionHeight = (itemCount * memvalItemHeight) + ((itemCount - 1) * memvalItemSpacing) + (memvalPadding * 2)
-
                     // Fixed position for memval section (consistent regardless of content)
                     const memvalSectionX = memvalSection.x || 0
                     const memvalSectionY = memvalSection.y || 0
@@ -1026,17 +1020,6 @@ const MemoryModelVisualizer = () => {
                         .append("g")
                         .attr("class", "memval-section")
                         .attr("transform", `translate(${memvalSectionX}, ${memvalSectionY})`)
-
-                    // Draw memval section background with improved styling using calculated width
-                    memvalContainer
-                        .append("rect")
-                        .attr("width", actualMemvalSectionWidth)
-                        .attr("height", memvalSectionHeight)
-                        .attr("rx", 6)
-                        .attr("ry", 6)
-                        .attr("fill", "#f8fafc")
-                        .attr("stroke", "#e2e8f0")
-                        .attr("stroke-width", 2)
 
                     // Draw actual memval items
                     reversedMemval.forEach((memvalData, memvalIndex: number) => {
