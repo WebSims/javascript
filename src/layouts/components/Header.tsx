@@ -7,11 +7,13 @@ import { useModeToggle } from '@/hooks/useModeToggle'
 import { MenuIcon, PlayIcon, CodeIcon } from 'lucide-react'
 import DesktopMenu from '@/layouts/components/DesktopMenu'
 import MobileMenu from '@/layouts/components/MobileMenu'
+import { getAppVersion } from '@/lib/utils'
 
 const Header: React.FC = () => {
     const { isDesktop } = useResponsive()
     const { currentMode, toggleMode } = useModeToggle()
     const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false)
+    const appVersion = getAppVersion()
 
     const handleMobileMenuToggle = () => {
         setIsMobileMenuOpen(!isMobileMenuOpen)
@@ -42,7 +44,10 @@ const Header: React.FC = () => {
                     role="button"
                 >
                     <Link to="/">
-                        WebSims.org/js
+                        <div className="flex flex-col items-start">
+                            <span>WebSims.org/js</span>
+                            <span className="text-xs text-gray-500 font-normal">v{appVersion}</span>
+                        </div>
                     </Link>
                 </div>
                 {isDesktop && <DesktopMenu />}
