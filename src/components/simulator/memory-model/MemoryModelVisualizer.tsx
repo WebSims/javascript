@@ -791,7 +791,7 @@ const MemoryModelVisualizer = () => {
                     }
 
                     if (section.id === "memvalSection") {
-                        return 200
+                        return 160
                     }
 
                     if (section.id === "scopeSection") {
@@ -1034,7 +1034,7 @@ const MemoryModelVisualizer = () => {
                         const isReference = memvalData.type === "reference"
                         const itemColor = isReference ? "#dbeafe" : "#f0f9ff"
                         const itemBorderColor = isReference ? "#3b82f6" : "#0ea5e9"
-                        const itemWidth = actualMemvalSectionWidth - (memvalPadding * 2)
+                        const itemWidth = 160
 
                         // Draw item background
                         memvalGroup
