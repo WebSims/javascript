@@ -20,6 +20,16 @@ import {
     createMemvalEdges,
     renderMemvalSection,
 } from "./memval"
+import {
+    createScopeSection,
+    createScopeNodes,
+    createScopeEdges,
+    renderScopeSection,
+    SCOPE_SECTION_SPACING,
+    SCOPE_SECTION_PADDING,
+    SCOPE_BADGE_HEIGHT,
+    SCOPE_ITEM_HEIGHT,
+} from "./scope"
 
 type HeapObjectData = {
     id: string
@@ -67,12 +77,7 @@ type ElkGraph = ElkNode & {
     edges: ElkEdge[]
 }
 
-export const SCOPE_SECTION_WIDTH = 200
-export const SCOPE_SECTION_SPACING = 10
-export const SCOPE_SECTION_PADDING = 10
-export const SCOPE_BADGE_HEIGHT = 30
-export const SCOPE_ITEM_WIDTH = 180
-export const SCOPE_ITEM_HEIGHT = 20
+
 
 const MemoryModelVisualizer = () => {
     const { currentStep, steps, settings, toggleAutoZoom } = useSimulatorStore()
@@ -93,11 +98,11 @@ const MemoryModelVisualizer = () => {
         const scopesData: ScopeData[] = []
         const heapData: HeapObjectData[] = []
 
-        // Categorize scopes with depth-based colors
-        const scopes = currentStep?.memorySnapshot.scopes || []
-        scopes.forEach((scope, index) => {
-            // Use the actual index for color and current scope detection
-            const originalIndex = index
+        // Categorize scopes with depth-based colors (reverse order - global at bottom)
+        const reversedScopes = [...(currentStep?.memorySnapshot.scopes || [])].reverse()
+        reversedScopes.forEach((scope, reversedIndex) => {
+            // Calculate original index for color and current scope detection
+            const originalIndex = (currentStep?.memorySnapshot.scopes.length || 0) - 1 - reversedIndex
             const scopeId = `scope-${originalIndex}`
 
             // Get depth-based colors using original depth and max depth
@@ -424,22 +429,7 @@ const MemoryModelVisualizer = () => {
             const memvalSection = createMemvalSection()
 
             // Create a section for scopes with layered algorithm from bottom to top
-            const scopeSection: ElkNode = {
-                id: "scopeSection",
-                layoutOptions: {
-                    "elk.algorithm": "layered",
-                    "elk.direction": "UP",
-                    "elk.partitioning.activate": "true",
-                    "elk.padding": `[top=${SCOPE_SECTION_PADDING}, left=${SCOPE_SECTION_PADDING}, bottom=${SCOPE_SECTION_PADDING}, right=${SCOPE_SECTION_PADDING}]`,
-                    "elk.layered.nodePlacement.strategy": "NETWORK_SIMPLEX",
-                    "elk.layered.considerModelOrder.strategy": "NODES_AND_EDGES",
-                    "elk.layered.crossingMinimization.strategy": "LAYER_SWEEP",
-                    "elk.layered.spacing.nodeNodeBetweenLayers": `${SCOPE_SECTION_SPACING}`,
-                    "elk.layered.nodePlacement.bk.fixedAlignment": "BALANCED",
-                    "elk.edgeRouting": "SPLINES",
-                },
-                children: [],
-            }
+            const scopeSection = createScopeSection()
 
             // Create a section for heap with content-based sizing
             const heapSection: ElkNode = {
@@ -476,29 +466,13 @@ const MemoryModelVisualizer = () => {
             // Add scope nodes with layered algorithm (bottom to top)
             const scopeItems = memoryModelData.scopes
 
-            // Create scope nodes
-            scopeItems.forEach((scope) => {
-                const scopeNode: ElkNode = {
-                    id: scope.id,
-                    width: SCOPE_SECTION_WIDTH,
-                    height: calculateScopeHeight(scope.id),
-                    labels: [{ text: scope.scopeTags.join(" ") }],
-                }
-
-                scopeSection.children?.push(scopeNode)
-            })
+            // Create scope nodes using the module
+            const scopeNodes = createScopeNodes(scopeItems, calculateScopeHeight)
+            scopeSection.children?.push(...scopeNodes)
 
             // Add edges between scopes to create layered structure (bottom to top)
-            for (let i = 0; i < scopeItems.length - 1; i++) {
-                graph.edges.push({
-                    id: `scope-edge-${i}`,
-                    sources: [scopeItems[i].id],
-                    targets: [scopeItems[i + 1].id],
-                    layoutOptions: {
-                        "elk.layered.priority.direction": "1",
-                    },
-                })
-            }
+            const scopeEdges = createScopeEdges(scopeItems)
+            graph.edges.push(...scopeEdges)
 
             // Add heap object nodes
             memoryModelData.heap.forEach((object) => {
@@ -1019,197 +993,16 @@ const MemoryModelVisualizer = () => {
                     })
                 }
 
-                // Draw scopes using ELK layout positions - only if there are scopes
+                // Draw scopes using the module
                 if (scopeSection.children && scopeSection.children.length > 0) {
-                    // Create scope section container
-                    const scopeContainer = graphContainer
-                        .append("g")
-                        .attr("class", "scope-section")
-                        .attr("transform", `translate(${scopeSection.x || 0}, ${scopeSection.y || 0})`)
-
-                    // Add background rectangle for scope section
-                    const scopeSectionWidth = scopeSection.width || 200
-                    const scopeSectionHeight = scopeSection.height || 100
-
-                    scopeContainer
-                        .append("rect")
-                        .attr("class", "scope-section-background")
-                        .attr("width", scopeSectionWidth)
-                        .attr("height", scopeSectionHeight)
-                        .attr("fill", "#f1f3f4") // Slightly darker gray background
-                        .attr("stroke", "none") // No border
-                        .attr("rx", 6) // Rounded corners
-                        .attr("ry", 6)
-
-                    // Draw scope items using ELK layout positions
-                    scopeSection.children.forEach((scopeNode: ElkNode) => {
-                        // Find the original scope data
-                        const scopeData = memoryModelData.scopes.find(s => s.id === scopeNode.id)
-                        if (!scopeData) return
-
-                        // Use ELK layout positions
-                        const scopeX = scopeNode.x || 0
-                        const scopeY = scopeNode.y || 0
-                        const actualScopeHeight = calculateScopeHeight(scopeNode.id)
-
-                        const scopeGroup = scopeContainer
-                            .append("g")
-                            .attr("class", "scope")
-                            .attr("data-id", scopeNode.id)
-                            .attr("transform", `translate(${scopeX}, ${scopeY})`)
-                            .style("cursor", "grab")
-                            .call(createScopeDragBehavior(scopeNode, scopeData, actualScopeHeight))
-
-                        // Store scope position for connections - use ELK layout position
-                        const absoluteScopeX = (scopeSection.x || 0) + scopeX + (scopeNode.width || 200) / 2
-                        const absoluteScopeY = (scopeSection.y || 0) + scopeY + actualScopeHeight / 2
-                        nodePositions.set(scopeNode.id, { x: absoluteScopeX, y: absoluteScopeY })
-
-                        // Draw scope rectangle
-                        scopeGroup
-                            .append("rect")
-                            .attr("width", scopeNode.width || 200)
-                            .attr("height", actualScopeHeight)
-                            .attr("rx", 6)
-                            .attr("ry", 6)
-                            .attr("fill", scopeData.color)
-                            .attr("stroke", scopeData.borderColor)
-                            .attr("stroke-width", 2)
-                            .style("cursor", "grab")
-                            .on("mouseover", function () {
-                                d3.select(this).style("cursor", "grab").attr("stroke-width", 3)
-                            })
-                            .on("mouseout", function () {
-                                d3.select(this).style("cursor", "grab").attr("stroke-width", 2)
-                            })
-
-                        // Add scope type badges
-                        const badgeGroup = scopeGroup.append("g").attr("class", "scope-badges")
-
-                        let currentX = 10
-                        const badgeHeight = 20
-                        const badgeSpacing = 8
-
-                        scopeData.scopeTags.forEach((tag) => {
-                            const badgeText = tag
-                            const textWidth = badgeText.length * 7
-
-                            // Determine badge styling based on tag type
-                            let badgeFill = "#f3f4f6"
-                            let badgeStroke = "#d1d5db"
-                            let textFill = "#374151"
-
-                            if (tag === "Current") {
-                                badgeFill = "#059669"
-                                badgeStroke = "#047857"
-                                textFill = "#ffffff"
-                            } else if (tag === "Global Scope") {
-                                badgeFill = "#8b5cf6"
-                                badgeStroke = "#7c3aed"
-                                textFill = "#ffffff"
-                            } else if (tag === "Function Scope") {
-                                badgeFill = "#3b82f6"
-                                badgeStroke = "#1d4ed8"
-                                textFill = "#ffffff"
-                            } else if (tag === "Block Scope") {
-                                badgeFill = "#f59e0b"
-                                badgeStroke = "#d97706"
-                                textFill = "#ffffff"
-                            }
-
-                            // Badge background rectangle
-                            badgeGroup
-                                .append("rect")
-                                .attr("x", currentX)
-                                .attr("y", 10)
-                                .attr("width", textWidth)
-                                .attr("height", badgeHeight)
-                                .attr("rx", 10) // Rounded corners
-                                .attr("ry", 10)
-                                .attr("fill", badgeFill)
-                                .attr("stroke", badgeStroke)
-                                .attr("stroke-width", 1)
-
-                            // Badge text
-                            badgeGroup
-                                .append("text")
-                                .attr("x", currentX)
-                                .attr("y", 24)
-                                .attr("font-weight", "600")
-                                .attr("font-size", "11px")
-                                .attr("fill", textFill)
-                                .attr("text-anchor", "middle")
-                                .attr("transform", `translate(${textWidth / 2}, 0)`)
-                                .text(badgeText)
-
-                            // Update position for next badge
-                            currentX += textWidth + badgeSpacing
-                        })
-
-                        // Draw variables - ensure all variables are drawn regardless of ELK positioning
-                        scopeData.variables.forEach((varData, varIndex: number) => {
-                            const varNodeId = `var-${scopeNode.id}-${varData.name}`
-
-                            const variableGroup = scopeGroup
-                                .append("g")
-                                .attr("class", "variable")
-                                .attr("transform", `translate(10, ${40 + varIndex * 35})`)
-
-                            // Draw file icon
-                            variableGroup
-                                .append("rect")
-                                .attr("width", 16)
-                                .attr("height", 20)
-                                .attr("fill", "white")
-                                .attr("stroke", "black")
-                                .attr("stroke-width", 1)
-
-                            // Draw file icon fold
-                            variableGroup
-                                .append("path")
-                                .attr("d", `M11,0 L11,5 L16,5 L16,0 Z`)
-                                .attr("fill", "white")
-                                .attr("stroke", "black")
-                                .attr("stroke-width", 1)
-
-                            // Add variable name   
-                            const isReference = varData.type === "reference"
-                            const displayText = `${varData.name}${isReference ? "" : `: ${varData.value}`}`
-
-                            variableGroup
-                                .append("text")
-                                .attr("x", 21)
-                                .attr("y", 15)
-                                .attr("font-size", "12px")
-                                .attr("fill", scopeData.textColor)
-                                .text(displayText)
-
-                            // Store variable position for connections - position at the left side of the scope
-                            const varX = (scopeSection.x || 0) + scopeX + 5
-                            const varY = (scopeSection.y || 0) + scopeY + 35 + varIndex * 35 + 15
-                            nodePositions.set(varNodeId, { x: varX, y: varY })
-
-                            // Add a small circle at the connection point for variables (only for reference types)
-                            if (varData.type === "reference") {
-                                variableGroup
-                                    .append("circle")
-                                    .attr("cx", -5)
-                                    .attr("cy", 10)
-                                    .attr("r", 3)
-                                    .attr("fill", "#4299e1")
-                                    .attr("stroke", "none")
-                            }
-
-                            // Add edge data if it's a reference
-                            if (varData.type === "reference" && varData.target) {
-                                edgeData.push({
-                                    source: varNodeId,
-                                    target: varData.target,
-                                    type: "var-ref",
-                                    label: varData.name,
-                                })
-                            }
-                        })
+                    renderScopeSection({
+                        scopeSection,
+                        scopeItems: memoryModelData.scopes,
+                        graphContainer,
+                        nodePositions,
+                        edgeData,
+                        createScopeDragBehavior,
+                        calculateScopeHeight,
                     })
                 }
 
