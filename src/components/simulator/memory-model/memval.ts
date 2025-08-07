@@ -5,7 +5,7 @@ import { JSValue } from "@/types/simulator"
 // Constants for memval rendering
 export const MEMVAL_SECTION_WIDTH = 160
 export const MEMVAL_SECTION_SPACING = 10
-export const MEMVAL_SECTION_PADDING = 20
+export const MEMVAL_SECTION_PADDING = 10
 export const MEMVAL_ITEM_WIDTH = 120
 export const MEMVAL_ITEM_HEIGHT = 30
 
