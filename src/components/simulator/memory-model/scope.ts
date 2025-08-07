@@ -132,17 +132,33 @@ export const renderScopeSection = ({
         .attr("rx", 6) // Rounded corners
         .attr("ry", 6)
 
-    // Draw scope items using ELK layout positions
-    scopeSection.children.forEach((scopeNode: ElkNode) => {
+    // Calculate total height needed for all scope items
+    const totalScopeHeight = scopeItems.reduce((total, scope) => {
+        return total + calculateScopeHeight(scope.id, scopeItems, 100) + SCOPE_SECTION_SPACING
+    }, 0)
+    const actualScopeSectionHeight = scopeSection.height || Math.max(100, totalScopeHeight + 20) // Add padding
+
+    // Draw scope items positioned at the bottom of the container
+    scopeSection.children.forEach((scopeNode: ElkNode, scopeIndex: number) => {
         // Find the original scope data
         const scopeData = scopeItems.find(s => s.id === scopeNode.id)
         if (!scopeData) return
 
-        // Use ELK layout positions
+        // Calculate position at the bottom of the container
+        // Start from the bottom and work upwards
+        const bottomPadding = 10
+        let cumulativeHeight = 0
+
+        // Calculate the Y position by summing up the heights of previous scopes from bottom
+        for (let i = scopeItems.length - 1; i > scopeIndex; i--) {
+            const nextScopeId = scopeItems[i].id
+            cumulativeHeight += calculateScopeHeight(nextScopeId, scopeItems, 100) + SCOPE_SECTION_SPACING
+        }
+
         const scopeX = scopeNode.x || 0
-        const scopeY = scopeNode.y || 0
+        const scopeY = actualScopeSectionHeight - bottomPadding - cumulativeHeight - calculateScopeHeight(scopeNode.id, scopeItems, 100)
         const actualScopeHeight = calculateScopeHeight(scopeNode.id, scopeItems, 100)
-        console.log("actualScopeHeight", actualScopeHeight)
+
         const scopeGroup = scopeContainer
             .append("g")
             .attr("class", "scope")

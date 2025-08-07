@@ -104,9 +104,7 @@ export const renderMemvalSection = ({
     nodePositions,
     edgeData,
 }: MemvalRendererProps) => {
-    if (memvalItems.length === 0 || !memvalSection.children) return
-
-    // Create memval section container
+    // Always create memval section container, even when empty
     const memvalContainer = graphContainer
         .append("g")
         .attr("class", "memval-section")
@@ -125,15 +123,29 @@ export const renderMemvalSection = ({
         .attr("rx", 6) // Rounded corners
         .attr("ry", 6)
 
-    // Draw memval items using ELK layout positions
+    // If no memval items, show a placeholder message
+    if (memvalItems.length === 0 || !memvalSection.children) return
+
+    // Calculate total height needed for all memval items
+    const totalMemvalHeight = memvalItems.length * MEMVAL_ITEM_HEIGHT + (memvalItems.length - 1) * MEMVAL_SECTION_SPACING
+    const actualMemvalSectionHeight = memvalSection.height || Math.max(100, totalMemvalHeight + 20) // Add padding
+
+    // Position memval items at the bottom of the container
     memvalSection.children.forEach((memvalNode: ElkNode, memvalIndex: number) => {
         const memvalData = memvalItems[memvalIndex]
         if (!memvalData) return
 
+        // Calculate position at the bottom of the container
+        // Start from the bottom and work upwards, with reversed index order
+        const bottomPadding = 10
+        const reversedIndex = memvalItems.length - 1 - memvalIndex
+        const itemY = actualMemvalSectionHeight - bottomPadding - totalMemvalHeight + (reversedIndex * (MEMVAL_ITEM_HEIGHT + MEMVAL_SECTION_SPACING))
+        const itemX = (memvalSectionWidth - MEMVAL_ITEM_WIDTH) / 2 // Center horizontally
+
         const memvalGroup = memvalContainer
             .append("g")
             .attr("class", "memval-item")
-            .attr("transform", `translate(${memvalNode.x || 0}, ${memvalNode.y || 0})`)
+            .attr("transform", `translate(${itemX}, ${itemY})`)
 
         // Determine item styling based on type
         const isReference = memvalData.type === "reference"
@@ -183,14 +195,14 @@ export const renderMemvalSection = ({
 
         // Store memval position for layered structure edges
         const memvalId = `memval-${memvalIndex}`
-        const memvalX = (memvalSection.x || 0) + (memvalNode.x || 0) + itemWidth / 2
-        const memvalY = (memvalSection.y || 0) + (memvalNode.y || 0) + itemHeight / 2
+        const memvalX = (memvalSection.x || 0) + itemX + itemWidth / 2
+        const memvalY = (memvalSection.y || 0) + itemY + itemHeight / 2
         nodePositions.set(memvalId, { x: memvalX, y: memvalY })
 
         // Store memval position for connections if it's a reference
         if (isReference) {
-            const memvalRefX = (memvalSection.x || 0) + (memvalNode.x || 0) + itemWidth - 5
-            const memvalRefY = (memvalSection.y || 0) + (memvalNode.y || 0) + itemHeight / 2
+            const memvalRefX = (memvalSection.x || 0) + itemX + itemWidth - 5
+            const memvalRefY = (memvalSection.y || 0) + itemY + itemHeight / 2
             nodePositions.set(`${memvalId}-ref`, { x: memvalRefX, y: memvalRefY })
 
             // Add edge data for memval references

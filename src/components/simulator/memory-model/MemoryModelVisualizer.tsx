@@ -25,10 +25,9 @@ import {
     createScopeNodes,
     createScopeEdges,
     renderScopeSection,
+    calculateScopeHeight,
     SCOPE_SECTION_SPACING,
-    SCOPE_SECTION_PADDING,
     SCOPE_BADGE_HEIGHT,
-    SCOPE_ITEM_HEIGHT,
 } from "./scope"
 
 type HeapObjectData = {
@@ -360,13 +359,7 @@ const MemoryModelVisualizer = () => {
         const centerX = (viewportWidth - initialTotalContentWidth) / 2
         const centerY = (viewportHeight - totalContentHeight) / 2
 
-        // Helper function to calculate scope height based on content
-        const calculateScopeHeight = (scopeId: string): number => {
-            const scopeData = memoryModelData.scopes.find(s => s.id === scopeId)
-            if (!scopeData) return scopeHeight
-            const calculatedHeight = SCOPE_BADGE_HEIGHT + scopeData.variables.length * (SCOPE_ITEM_HEIGHT + SCOPE_SECTION_SPACING) + 2 * SCOPE_SECTION_PADDING
-            return scopeData.variables.length > 0 ? calculatedHeight : scopeHeight
-        }
+
 
         // Create SVG with 100% width and height
         const svg = d3
@@ -453,13 +446,15 @@ const MemoryModelVisualizer = () => {
             // Add memval nodes with layered algorithm (bottom to top)
             const memvalItems = currentStep?.memorySnapshot.memval || []
 
-            // Create memval nodes using the module
+            // Create memval nodes using the module (even if empty, the section will be created)
             const memvalNodes = createMemvalNodes(memvalItems)
             memvalSection.children?.push(...memvalNodes)
 
-            // Add edges between memval items to create layered structure
-            const memvalEdges = createMemvalEdges(memvalItems)
-            graph.edges.push(...memvalEdges)
+            // Add edges between memval items to create layered structure (only if there are items)
+            if (memvalItems.length > 0) {
+                const memvalEdges = createMemvalEdges(memvalItems)
+                graph.edges.push(...memvalEdges)
+            }
 
             // Note: Removed memval layered edges to avoid drawing lines within the section
 
@@ -467,7 +462,7 @@ const MemoryModelVisualizer = () => {
             const scopeItems = memoryModelData.scopes
 
             // Create scope nodes using the module
-            const scopeNodes = createScopeNodes(scopeItems, calculateScopeHeight)
+            const scopeNodes = createScopeNodes(scopeItems)
             scopeSection.children?.push(...scopeNodes)
 
             // Add edges between scopes to create layered structure (bottom to top)
@@ -784,7 +779,7 @@ const MemoryModelVisualizer = () => {
 
                         section.children?.forEach((scopeNode, index) => {
                             // Find the corresponding scope data
-                            const scopeHeight = calculateScopeHeight(scopeNode.id)
+                            const scopeHeight = calculateScopeHeight(scopeNode.id, memoryModelData.scopes, 100)
                             const isFirst = index === 0
                             const isLast = index === (section.children?.length || 0) - 1
                             const spacing = isFirst || isLast ? 10 : 20
@@ -821,11 +816,31 @@ const MemoryModelVisualizer = () => {
                 }
 
                 // Calculate actual section dimensions
-                const actualMemvalSectionWidth = memvalSection.children && memvalSection.children.length > 0 ? calculateSectionWidth(memvalSection) : 0
+                const actualMemvalSectionWidth = calculateSectionWidth(memvalSection) // Always calculate width for memval section
                 const actualScopeSectionWidth = scopeSection.children && scopeSection.children.length > 0 ? calculateSectionWidth(scopeSection) : 0
-                const actualHeapSectionWidth = heapSection.children && heapSection.children.length > 0 ? calculateSectionWidth(heapSection) : 0
 
-                const actualMemvalSectionHeight = memvalSection.children && memvalSection.children.length > 0 ? calculateSectionHeight(memvalSection) : 90
+                // Calculate heap section width based on auto zoom setting
+                let actualHeapSectionWidth: number
+                if (settings.autoZoom) {
+                    // When auto zoom is on, calculate based on content
+                    actualHeapSectionWidth = heapSection.children && heapSection.children.length > 0 ? calculateSectionWidth(heapSection) : 0
+                } else {
+                    // When auto zoom is off, calculate as: containerSize.width - memvalSection.width - scopeSection.width
+                    const availableWidth = containerSize.width - margin.left - margin.right
+                    actualHeapSectionWidth = availableWidth - actualMemvalSectionWidth - actualScopeSectionWidth - (4 * sectionSpacing) // Account for spacing between sections
+                }
+
+                // Set section heights to fit container height if they are smaller
+                if (memvalSection.height && memvalSection.height < containerSize.height) {
+                    memvalSection.height = containerSize.height
+                }
+                if (scopeSection.height && scopeSection.height < containerSize.height) {
+                    scopeSection.height = containerSize.height
+                }
+                if (heapSection.height && heapSection.height < containerSize.height) {
+                    heapSection.height = containerSize.height
+                }
+                const actualMemvalSectionHeight = calculateSectionHeight(scopeSection)
                 const actualScopeSectionHeight = scopeSection.children && scopeSection.children.length > 0 ? calculateSectionHeight(scopeSection) : 0
                 const actualHeapSectionHeight = heapSection.children && heapSection.children.length > 0 ? calculateSectionHeight(heapSection) : 0
                 // Log calculated section dimensions for debugging
@@ -837,26 +852,23 @@ const MemoryModelVisualizer = () => {
 
                 // Position sections using calculated widths - only show sections that have content
                 // New layout: memval -> heap -> scope
-                memvalSection.x = 0
-                heapSection.x = actualMemvalSectionWidth + (actualMemvalSectionWidth > 0 ? 2 * sectionSpacing : 0)
-                scopeSection.x = heapSection.x + actualHeapSectionWidth + (heapSection.x + actualHeapSectionWidth > 0 ? 2 * sectionSpacing : 0)
 
-                memvalSection.y = actualScopeSectionHeight - actualMemvalSectionHeight
+                // Update heap section width to match calculated width when auto zoom is off
+                if (!settings.autoZoom && heapSection.children && heapSection.children.length > 0) {
+                    heapSection.width = actualHeapSectionWidth
+                }
+
+                memvalSection.x = 0
+                memvalSection.x = memvalSection.x + actualMemvalSectionWidth
+                scopeSection.x = memvalSection.x + actualMemvalSectionWidth + actualScopeSectionWidth
+
+                memvalSection.y = 0
                 scopeSection.y = 0
                 heapSection.y = 0
 
-                let spacing = 0
-                if (actualMemvalSectionWidth > 0 && heapSection.x + actualHeapSectionWidth > 0 && scopeSection.x + actualScopeSectionWidth > 0) {
-                    spacing = 2 * sectionSpacing
-                } else if (heapSection.x + actualHeapSectionWidth > 0 && scopeSection.x + actualScopeSectionWidth > 0) {
-                    spacing = 4 * sectionSpacing
-                } else {
-                    spacing = 2 * sectionSpacing
-                }
-
                 // Calculate total content dimensions using actual section widths - only include sections with content
                 // New layout order: memval -> heap -> scope
-                const totalContentWidth = scopeSection.x + actualScopeSectionWidth + spacing
+                const totalContentWidth = actualMemvalSectionWidth + actualHeapSectionWidth + actualScopeSectionWidth
                 const totalContentHeight = Math.max(actualMemvalSectionHeight, actualScopeSectionHeight, actualHeapSectionHeight) + 2 * sectionSpacing
 
                 const newViewportWidth = settings.autoZoom ? Math.max(totalContentWidth + margin.left + margin.right, viewportWidth) : viewportWidth
@@ -865,8 +877,8 @@ const MemoryModelVisualizer = () => {
                 svg.attr("viewBox", `0 0 ${newViewportWidth} ${newViewportHeight}`)
                 // Update content group position with scale 1
                 const scale = 1
-                let centerX = (newViewportWidth - totalContentWidth * newViewportWidth / viewportWidth * scale) / 2
-                let centerY = (newViewportHeight - totalContentHeight * newViewportHeight / viewportHeight * scale) / 2
+                let centerX = 0
+                let centerY = 0
 
                 if (settings.autoZoom) {
                     centerX = (newViewportWidth - totalContentWidth * scale) / 2
@@ -880,10 +892,10 @@ const MemoryModelVisualizer = () => {
                         if (currentScopeNode) {
                             // Calculate the position of the current scope
                             const currentScopeIndex = scopeSection.children.findIndex(scopeNode => scopeNode.id === currentScopeData.id)
-                            const currentScopeHeight = calculateScopeHeight(currentScopeNode.id) + 2 * sectionSpacing
+                            const currentScopeHeight = calculateScopeHeight(currentScopeNode.id, memoryModelData.scopes, 100) + 2 * sectionSpacing
                             const currentScopeY = currentScopeIndex === 0 ? 0 :
                                 scopeSection.children?.slice(0, currentScopeIndex).reduce((total, prevNode) =>
-                                    total + calculateScopeHeight(prevNode.id) + 20, 0) || 0
+                                    total + calculateScopeHeight(prevNode.id, memoryModelData.scopes, 100) + 20, 0) || 0
 
                             // Calculate the center position of the current scope
                             const currentScopeCenterY = (scopeSection.y || 0) + currentScopeY + currentScopeHeight / 2
@@ -897,7 +909,7 @@ const MemoryModelVisualizer = () => {
                 contentGroup.attr("transform", `translate(${centerX}, ${centerY}) scale(1)`)
 
                 const centerTransform = d3.zoomIdentity
-                    .translate(centerX, centerY)
+                    // .translate(centerX, centerY)
                     .scale(scale)
 
                 svg.transition()
@@ -979,19 +991,17 @@ const MemoryModelVisualizer = () => {
                     .attr("fill", "#e53e3e")
 
 
-                // Draw memval items using the module
-                if (currentStep?.memorySnapshot.memval.length > 0 && memvalSection.children) {
-                    const memvalItems = currentStep?.memorySnapshot.memval || []
+                // Draw memval items using the module - always show memval section
+                const memvalItems = currentStep?.memorySnapshot.memval || []
 
-                    renderMemvalSection({
-                        memvalSection,
-                        memvalItems,
-                        graphContainer,
-                        memoryModelData,
-                        nodePositions,
-                        edgeData,
-                    })
-                }
+                renderMemvalSection({
+                    memvalSection,
+                    memvalItems,
+                    graphContainer,
+                    memoryModelData,
+                    nodePositions,
+                    edgeData,
+                })
 
                 // Draw scopes using the module
                 if (scopeSection.children && scopeSection.children.length > 0) {
@@ -1002,7 +1012,6 @@ const MemoryModelVisualizer = () => {
                         nodePositions,
                         edgeData,
                         createScopeDragBehavior,
-                        calculateScopeHeight,
                     })
                 }
 
@@ -1099,16 +1108,42 @@ const MemoryModelVisualizer = () => {
                         }
                     }
 
+                    // Custom force to constrain objects within heap section bounds when auto zoom is off
+                    const constrainToHeapBoundsForce = () => {
+                        const strength = 0.3
+                        return (alpha: number) => {
+                            if (!settings.autoZoom) {
+                                heapNodes.forEach((node) => {
+                                    const nodeRadius = Math.max(node.width, node.height) / 2
+                                    const leftBound = (heapSection.x || 0) + nodeRadius
+                                    const rightBound = (heapSection.x || 0) + actualHeapSectionWidth - nodeRadius
+
+                                    // Constrain X position within bounds
+                                    if ((node.x || 0) < leftBound) {
+                                        if (node.vx !== undefined) {
+                                            node.vx = (node.vx || 0) + strength * alpha * (leftBound - (node.x || 0))
+                                        }
+                                    } else if ((node.x || 0) > rightBound) {
+                                        if (node.vx !== undefined) {
+                                            node.vx = (node.vx || 0) + strength * alpha * (rightBound - (node.x || 0))
+                                        }
+                                    }
+                                })
+                            }
+                        }
+                    }
+
                     // Set up D3 force simulation for heap objects with crossing avoidance
                     const simulation = d3.forceSimulation(heapNodes)
                         .force("collision", d3.forceCollide().radius((d: d3.SimulationNodeDatum) => {
                             const node = d as HeapNodeDatum
                             return Math.max(node.width, node.height) / 2 + 80 // Increased from 40 to 80 for more spacing
                         }).strength(0.8)) // Add strength parameter for stronger collision avoidance
-                        .force("center", d3.forceCenter((heapSection.x || 0) + (heapSection.width || 400) / 2, (heapSection.y || 0) + (heapSection.height || 300) / 2))
-                        .force("x", d3.forceX((heapSection.x || 0) + 100).strength(0.1)) // Reduced from 0.15 to allow more spread
+                        .force("center", d3.forceCenter((heapSection.x || 0) + actualHeapSectionWidth / 2, (heapSection.y || 0) + (heapSection.height || 300) / 2))
+                        .force("x", d3.forceX((heapSection.x || 0) + actualHeapSectionWidth / 2).strength(0.1)) // Center objects in the calculated width
                         .force("y", d3.forceY((heapSection.y || 0) + 100).strength(0.1)) // Reduced from 0.15 to allow more spread
                         .force("avoidCrossings", avoidCrossingsForce())
+                        .force("constrainBounds", constrainToHeapBoundsForce()) // Constrain objects within heap bounds when auto zoom is off
                         .force("repel", d3.forceManyBody().strength(-500)) // Add general repulsion force
                         .alphaDecay(0.01) // Reduced from 0.02 for longer simulation
                         .velocityDecay(0.3) // Reduced from 0.4 for more dynamic movement
