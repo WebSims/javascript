@@ -35,7 +35,7 @@ type ScopeData = {
 export interface ScopeRendererProps {
     scopeSection: ElkNode
     scopeItems: ScopeData[]
-    graphContainer: d3.Selection<SVGGElement, unknown, null, undefined>
+    rootContainer: d3.Selection<SVGGElement, unknown, null, undefined>
     nodePositions: Map<string, { x: number; y: number }>
     edgeData: Array<{
         source: string
@@ -105,7 +105,7 @@ export const calculateScopeHeight = (scopeId: string, scopeItems: ScopeData[], d
 export const renderScopeSection = ({
     scopeSection,
     scopeItems,
-    graphContainer,
+    rootContainer,
     nodePositions,
     edgeData,
     createScopeDragBehavior,
@@ -113,7 +113,7 @@ export const renderScopeSection = ({
     if (scopeItems.length === 0 || !scopeSection.children) return
 
     // Create scope section container
-    const scopeContainer = graphContainer
+    const scopeContainer = rootContainer
         .append("g")
         .attr("class", "scope-section")
         .attr("transform", `translate(${scopeSection.x || 0}, ${scopeSection.y || 0})`)

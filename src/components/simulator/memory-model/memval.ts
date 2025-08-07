@@ -31,7 +31,7 @@ type HeapObjectData = {
 export interface MemvalRendererProps {
     memvalSection: ElkNode
     memvalItems: JSValue[]
-    graphContainer: d3.Selection<SVGGElement, unknown, null, undefined>
+    rootContainer: d3.Selection<SVGGElement, unknown, null, undefined>
     memoryModelData: {
         scopes: unknown[]
         heap: HeapObjectData[]
@@ -99,13 +99,13 @@ export const createMemvalEdges = (memvalItems: JSValue[]): Array<{
 export const renderMemvalSection = ({
     memvalSection,
     memvalItems,
-    graphContainer,
+    rootContainer,
     memoryModelData,
     nodePositions,
     edgeData,
 }: MemvalRendererProps) => {
     // Always create memval section container, even when empty
-    const memvalContainer = graphContainer
+    const memvalContainer = rootContainer
         .append("g")
         .attr("class", "memval-section")
         .attr("transform", `translate(${memvalSection.x || 0}, ${memvalSection.y || 0})`)
