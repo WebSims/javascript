@@ -67,7 +67,12 @@ type ElkGraph = ElkNode & {
     edges: ElkEdge[]
 }
 
-
+export const SCOPE_SECTION_WIDTH = 200
+export const SCOPE_SECTION_SPACING = 10
+export const SCOPE_SECTION_PADDING = 10
+export const SCOPE_BADGE_HEIGHT = 30
+export const SCOPE_ITEM_WIDTH = 180
+export const SCOPE_ITEM_HEIGHT = 20
 
 const MemoryModelVisualizer = () => {
     const { currentStep, steps, settings, toggleAutoZoom } = useSimulatorStore()
@@ -88,11 +93,11 @@ const MemoryModelVisualizer = () => {
         const scopesData: ScopeData[] = []
         const heapData: HeapObjectData[] = []
 
-        // Categorize scopes with depth-based colors (reverse order - global at bottom)
-        const reversedScopes = [...(currentStep?.memorySnapshot.scopes || [])].reverse()
-        reversedScopes.forEach((scope, reversedIndex) => {
-            // Calculate original index for color and current scope detection
-            const originalIndex = (currentStep?.memorySnapshot.scopes.length || 0) - 1 - reversedIndex
+        // Categorize scopes with depth-based colors
+        const scopes = currentStep?.memorySnapshot.scopes || []
+        scopes.forEach((scope, index) => {
+            // Use the actual index for color and current scope detection
+            const originalIndex = index
             const scopeId = `scope-${originalIndex}`
 
             // Get depth-based colors using original depth and max depth
@@ -315,7 +320,6 @@ const MemoryModelVisualizer = () => {
 
         // Define common dimensions
         const scopeHeight = 120
-        const variableHeight = 30
         const objectWidth = 180
         const objectHeight = 120
 
@@ -325,11 +329,10 @@ const MemoryModelVisualizer = () => {
 
         // Calculate scope section dimensions
         const scopeSectionHeight = memoryModelData.scopes.reduce((total, scope) => {
-            const headerHeight = 30
             const variableSpacing = 35
             const bottomPadding = 10
-            const calculatedHeight = headerHeight + scope.variables.length * variableSpacing + bottomPadding
-            return total + Math.max(scopeHeight, calculatedHeight) + 40
+            const calculatedHeight = SCOPE_BADGE_HEIGHT + scope.variables.length * variableSpacing + bottomPadding
+            return total + Math.max(scopeHeight, calculatedHeight) + SCOPE_SECTION_SPACING
         }, 0)
 
         // Calculate heap section dimensions
@@ -356,12 +359,7 @@ const MemoryModelVisualizer = () => {
         const calculateScopeHeight = (scopeId: string): number => {
             const scopeData = memoryModelData.scopes.find(s => s.id === scopeId)
             if (!scopeData) return scopeHeight
-
-            const badgeHeight = 30 // Space for badge (20px height + 10px padding)
-            const variableSpacing = 35 // Space between variables (matches rendering)
-            const bottomPadding = 10 // Bottom padding
-            const calculatedHeight = badgeHeight + scopeData.variables.length * variableSpacing + bottomPadding
-
+            const calculatedHeight = SCOPE_BADGE_HEIGHT + scopeData.variables.length * (SCOPE_ITEM_HEIGHT + SCOPE_SECTION_SPACING) + 2 * SCOPE_SECTION_PADDING
             return scopeData.variables.length > 0 ? calculatedHeight : scopeHeight
         }
 
@@ -425,19 +423,20 @@ const MemoryModelVisualizer = () => {
             // Create a section for memval with layered algorithm from bottom to top
             const memvalSection = createMemvalSection()
 
-            // Create a section for scopes with content-based sizing
+            // Create a section for scopes with layered algorithm from bottom to top
             const scopeSection: ElkNode = {
                 id: "scopeSection",
                 layoutOptions: {
                     "elk.algorithm": "layered",
                     "elk.direction": "UP",
                     "elk.partitioning.activate": "true",
-                    "elk.padding": "[top=20, left=20, bottom=20, right=20]",
-                    "elk.spacing.nodeNode": "20",
-                    "elk.layered.spacing.baseValue": "15",
-                    "elk.layered.nodePlacement.strategy": "BRANDES_KOEPF",
-                    "elk.layered.considerModelOrder.strategy": "PREFER_EDGES",
+                    "elk.padding": `[top=${SCOPE_SECTION_PADDING}, left=${SCOPE_SECTION_PADDING}, bottom=${SCOPE_SECTION_PADDING}, right=${SCOPE_SECTION_PADDING}]`,
+                    "elk.layered.nodePlacement.strategy": "NETWORK_SIMPLEX",
+                    "elk.layered.considerModelOrder.strategy": "NODES_AND_EDGES",
                     "elk.layered.crossingMinimization.strategy": "LAYER_SWEEP",
+                    "elk.layered.spacing.nodeNodeBetweenLayers": `${SCOPE_SECTION_SPACING}`,
+                    "elk.layered.nodePlacement.bk.fixedAlignment": "BALANCED",
+                    "elk.edgeRouting": "SPLINES",
                 },
                 children: [],
             }
@@ -474,33 +473,32 @@ const MemoryModelVisualizer = () => {
 
             // Note: Removed memval layered edges to avoid drawing lines within the section
 
-            // Add scope nodes
-            memoryModelData.scopes.forEach((scope) => {
+            // Add scope nodes with layered algorithm (bottom to top)
+            const scopeItems = memoryModelData.scopes
+
+            // Create scope nodes
+            scopeItems.forEach((scope) => {
                 const scopeNode: ElkNode = {
                     id: scope.id,
-                    width: 300,
+                    width: SCOPE_SECTION_WIDTH,
                     height: calculateScopeHeight(scope.id),
-                    layoutOptions: {
-                        "elk.padding": "[top=5, left=5, bottom=5, right=5]",
-                    },
-                    labels: [{ text: scope.scopeTags.join(" "), width: 120, height: 20 }],
-                    children: [],
+                    labels: [{ text: scope.scopeTags.join(" ") }],
                 }
-
-                // Add variable nodes as children of scope
-                scope.variables.forEach((variable) => {
-                    const varNode: ElkNode = {
-                        id: variable.id,
-                        width: 290,
-                        height: variableHeight,
-                        labels: [{ text: variable.name, width: 80, height: 20 }],
-                    }
-
-                    scopeNode.children?.push(varNode)
-                })
 
                 scopeSection.children?.push(scopeNode)
             })
+
+            // Add edges between scopes to create layered structure (bottom to top)
+            for (let i = 0; i < scopeItems.length - 1; i++) {
+                graph.edges.push({
+                    id: `scope-edge-${i}`,
+                    sources: [scopeItems[i].id],
+                    targets: [scopeItems[i + 1].id],
+                    layoutOptions: {
+                        "elk.layered.priority.direction": "1",
+                    },
+                })
+            }
 
             // Add heap object nodes
             memoryModelData.heap.forEach((object) => {
@@ -521,40 +519,11 @@ const MemoryModelVisualizer = () => {
             graph.children?.push(scopeSection)
             graph.children?.push(heapSection)
 
-            // Add edges from variables to heap objects
-            memoryModelData.scopes.forEach((scope) => {
-                scope.variables.forEach((variable) => {
-                    if (variable.type === "reference" && variable.target) {
-                        graph.edges.push({
-                            id: `${variable.id}_to_${variable.target}`,
-                            sources: [variable.id],
-                            targets: [variable.target],
-                            layoutOptions: {
-                                "elk.layered.priority.direction": "1",
-                            },
-                        })
-                    }
-                })
-            })
+            // Note: Variable-to-heap edges are handled separately in the rendering phase
+            // to avoid ELK layout conflicts with variable nodes that are rendered within scopes
 
-            // Add edges between heap objects
-            memoryModelData.heap.forEach((object) => {
-                if (object.properties) {
-                    object.properties.forEach((prop, propIndex) => {
-                        if (prop.target) {
-                            graph.edges.push({
-                                id: `${object.id}_${prop.name}_to_${prop.target}`,
-                                sources: [object.id],
-                                targets: [prop.target],
-                                layoutOptions: {
-                                    "elk.layered.priority.direction": "1",
-                                },
-                                propIndex,
-                            })
-                        }
-                    })
-                }
-            })
+            // Note: Heap object property edges are handled separately in the rendering phase
+            // to avoid ELK layout conflicts with property nodes that are rendered within heap objects
 
             return graph
         }
@@ -819,7 +788,7 @@ const MemoryModelVisualizer = () => {
                     }
 
                     if (section.id === "scopeSection") {
-                        return 300
+                        return 200
                     }
 
                     // Find the rightmost edge of all children
@@ -1050,32 +1019,51 @@ const MemoryModelVisualizer = () => {
                     })
                 }
 
-                // Draw scopes in a single column - only if there are scopes
+                // Draw scopes using ELK layout positions - only if there are scopes
                 if (scopeSection.children && scopeSection.children.length > 0) {
-                    scopeSection.children.forEach((scopeNode: ElkNode, scopeIndex: number) => {
+                    // Create scope section container
+                    const scopeContainer = graphContainer
+                        .append("g")
+                        .attr("class", "scope-section")
+                        .attr("transform", `translate(${scopeSection.x || 0}, ${scopeSection.y || 0})`)
+
+                    // Add background rectangle for scope section
+                    const scopeSectionWidth = scopeSection.width || 200
+                    const scopeSectionHeight = scopeSection.height || 100
+
+                    scopeContainer
+                        .append("rect")
+                        .attr("class", "scope-section-background")
+                        .attr("width", scopeSectionWidth)
+                        .attr("height", scopeSectionHeight)
+                        .attr("fill", "#f1f3f4") // Slightly darker gray background
+                        .attr("stroke", "none") // No border
+                        .attr("rx", 6) // Rounded corners
+                        .attr("ry", 6)
+
+                    // Draw scope items using ELK layout positions
+                    scopeSection.children.forEach((scopeNode: ElkNode) => {
                         // Find the original scope data
                         const scopeData = memoryModelData.scopes.find(s => s.id === scopeNode.id)
                         if (!scopeData) return
 
-                        // Force single column positioning
-                        const singleColumnX = 0
+                        // Use ELK layout positions
+                        const scopeX = scopeNode.x || 0
+                        const scopeY = scopeNode.y || 0
                         const actualScopeHeight = calculateScopeHeight(scopeNode.id)
-                        const singleColumnY = scopeIndex === 0 ? 0 :
-                            scopeSection.children?.slice(0, scopeIndex).reduce((total, prevNode) =>
-                                total + calculateScopeHeight(prevNode.id) + 20, 0) || 0
 
-                        const scopeGroup = graphContainer
+                        const scopeGroup = scopeContainer
                             .append("g")
                             .attr("class", "scope")
                             .attr("data-id", scopeNode.id)
-                            .attr("transform", `translate(${(scopeSection.x || 0) + singleColumnX}, ${(scopeSection.y || 0) + singleColumnY})`)
+                            .attr("transform", `translate(${scopeX}, ${scopeY})`)
                             .style("cursor", "grab")
                             .call(createScopeDragBehavior(scopeNode, scopeData, actualScopeHeight))
 
-                        // Store scope position for connections - use the actual calculated position like memval
-                        const scopeX = (scopeSection.x || 0) + singleColumnX + (scopeNode.width || 200) / 2
-                        const scopeY = (scopeSection.y || 0) + singleColumnY + actualScopeHeight / 2
-                        nodePositions.set(scopeNode.id, { x: scopeX, y: scopeY })
+                        // Store scope position for connections - use ELK layout position
+                        const absoluteScopeX = (scopeSection.x || 0) + scopeX + (scopeNode.width || 200) / 2
+                        const absoluteScopeY = (scopeSection.y || 0) + scopeY + actualScopeHeight / 2
+                        nodePositions.set(scopeNode.id, { x: absoluteScopeX, y: absoluteScopeY })
 
                         // Draw scope rectangle
                         scopeGroup
@@ -1197,8 +1185,8 @@ const MemoryModelVisualizer = () => {
                                 .text(displayText)
 
                             // Store variable position for connections - position at the left side of the scope
-                            const varX = (scopeSection.x || 0) + singleColumnX + 5
-                            const varY = (scopeSection.y || 0) + singleColumnY + 35 + varIndex * 35 + 15
+                            const varX = (scopeSection.x || 0) + scopeX + 5
+                            const varY = (scopeSection.y || 0) + scopeY + 35 + varIndex * 35 + 15
                             nodePositions.set(varNodeId, { x: varX, y: varY })
 
                             // Add a small circle at the connection point for variables (only for reference types)
