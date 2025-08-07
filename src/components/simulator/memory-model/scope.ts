@@ -52,7 +52,7 @@ export const createScopeSection = (): ElkNode => {
         id: "scopeSection",
         layoutOptions: {
             "elk.algorithm": "layered",
-            "elk.direction": "DOWN",
+            "elk.direction": "UP",
             "elk.partitioning.activate": "true",
             "elk.padding": `[top=${SCOPE_SECTION_PADDING}, left=${SCOPE_SECTION_PADDING}, bottom=${SCOPE_SECTION_PADDING}, right=${SCOPE_SECTION_PADDING}]`,
             "elk.layered.nodePlacement.strategy": "NETWORK_SIMPLEX",
@@ -175,7 +175,7 @@ export const renderScopeSection = ({
         // Draw scope rectangle
         scopeGroup
             .append("rect")
-            .attr("width", scopeNode.width || 200)
+            .attr("width", (scopeNode.width || SCOPE_SECTION_WIDTH) - SCOPE_SECTION_PADDING * 2)
             .attr("height", actualScopeHeight)
             .attr("rx", 6)
             .attr("ry", 6)

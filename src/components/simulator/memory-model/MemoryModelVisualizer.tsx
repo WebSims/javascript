@@ -19,6 +19,7 @@ import {
     createMemvalNodes,
     createMemvalEdges,
     renderMemvalSection,
+    MEMVAL_SECTION_WIDTH,
 } from "./memval"
 import {
     createScopeSection,
@@ -28,6 +29,7 @@ import {
     calculateScopeHeight,
     SCOPE_SECTION_SPACING,
     SCOPE_BADGE_HEIGHT,
+    SCOPE_SECTION_WIDTH,
 } from "./scope"
 
 type HeapObjectData = {
@@ -76,7 +78,7 @@ type ElkGraph = ElkNode & {
     edges: ElkEdge[]
 }
 
-
+const ROOT_MARGIN = { top: 10, right: 10, bottom: 20, left: 10 }
 
 const MemoryModelVisualizer = () => {
     const { currentStep, steps, settings, toggleAutoZoom } = useSimulatorStore()
@@ -319,47 +321,16 @@ const MemoryModelVisualizer = () => {
         // Transform the data into visualization format
         const memoryModelData = transformData()
 
-        // Set up dimensions and calculate content size
-        const margin = { top: 40, right: 40, bottom: 20, left: 40 }
-
         // Define common dimensions
-        const scopeHeight = 120
         const objectWidth = 180
         const objectHeight = 120
 
-        // Calculate initial content dimensions (will be updated after layout)
-        const memvalCount = currentStep?.memorySnapshot.memval?.length || 0
-        const memvalSectionHeight = memvalCount * 50 // 50px per memval item
-
-        // Calculate scope section dimensions
-        const scopeSectionHeight = memoryModelData.scopes.reduce((total, scope) => {
-            const variableSpacing = 35
-            const bottomPadding = 10
-            const calculatedHeight = SCOPE_BADGE_HEIGHT + scope.variables.length * variableSpacing + bottomPadding
-            return total + Math.max(scopeHeight, calculatedHeight) + SCOPE_SECTION_SPACING
-        }, 0)
-
-        // Calculate heap section dimensions
-        const heapSectionHeight = memoryModelData.heap.reduce((total, objData) => {
-            const propCount = objData.properties ? objData.properties.length : 0
-            const objHeight = Math.max(objectHeight, 40 + propCount * 20)
-            return total + objHeight + 50
-        }, 0)
-
         // Calculate initial total content dimensions (will be updated after layout)
-        const sectionSpacing = 40
-        const initialTotalContentWidth = 800 // Initial estimate, will be updated
-        const totalContentHeight = Math.max(memvalSectionHeight, scopeSectionHeight, heapSectionHeight)
+        const sectionSpacing = 20
 
         // Calculate viewport dimensions (use container size or default)
         const viewportWidth = containerSize.width
         const viewportHeight = containerSize.height
-
-        // Calculate centering offsets
-        const centerX = (viewportWidth - initialTotalContentWidth) / 2
-        const centerY = (viewportHeight - totalContentHeight) / 2
-
-
 
         // Create SVG with 100% width and height
         const svg = d3
@@ -367,13 +338,14 @@ const MemoryModelVisualizer = () => {
             .attr("width", "100%")
             .attr("height", "100%")
             .attr("viewBox", `0 0 ${viewportWidth} ${viewportHeight}`)
+            .attr("transform", `translate(${ROOT_MARGIN.left}, ${ROOT_MARGIN.top})`)
 
         // Create zoom behavior - configurable auto zoom
         const zoom = d3.zoom()
             .scaleExtent([0.5, 2])
             .on("zoom", (event) => {
                 const { transform } = event
-                contentGroup.attr("transform", transform)
+                rootContainer.attr("transform", transform)
             })
             .on("start", () => setIsDragging(true))
             .on("end", () => setIsDragging(false))
@@ -382,12 +354,8 @@ const MemoryModelVisualizer = () => {
         // eslint-disable-next-line @typescript-eslint/no-explicit-any
         svg.call(zoom as any)
 
-        // Create a group for content positioning
-        const contentGroup = svg.append("g")
-            .attr("transform", `translate(${centerX}, ${centerY})`)
-
-        // Create a container for the graph
-        const graphContainer = contentGroup.append("g").attr("transform", `translate(${margin.left}, ${margin.top})`)
+        // Create the rootContainer container for the graph
+        const rootContainer = svg.append("g")
 
         // Background rectangles and dividers will be added dynamically after layout
 
@@ -516,7 +484,7 @@ const MemoryModelVisualizer = () => {
                 return path.toString()
             }
 
-            graphContainer.selectAll(".connection").remove()
+            rootContainer.selectAll(".connection").remove()
 
             edgeData.forEach((edge) => {
                 const sourcePos = edge.type === "prop-ref" ? propertyPositions.get(edge.source) : nodePositions.get(edge.source)
@@ -544,7 +512,7 @@ const MemoryModelVisualizer = () => {
                     strokeColor = "#4299e1"
                 }
 
-                graphContainer
+                rootContainer
                     .append("path")
                     .attr("class", "connection")
                     .attr("d", calculatePath(sourcePos, targetPos))
@@ -554,10 +522,10 @@ const MemoryModelVisualizer = () => {
                     .attr("marker-end", `url(#${arrowType})`)
                     .attr("data-source", edge.source)
                     .attr("data-target", edge.target)
-                    .on("mouseover", function () {
+                    .on("mouseover", function (this: SVGPathElement) {
                         d3.select(this).attr("stroke", "#e53e3e").attr("marker-end", "url(#arrow-highlight)")
                     })
-                    .on("mouseout", function () {
+                    .on("mouseout", function (this: SVGPathElement) {
                         d3.select(this)
                             .attr("stroke", strokeColor)
                             .attr("marker-end", `url(#${arrowType})`)
@@ -624,7 +592,7 @@ const MemoryModelVisualizer = () => {
 
                     // Update variable positions
                     scopeData.variables.forEach((varData, varIndex) => {
-                        const varNodeId = `var-${scopeNode.id}-${varData.name}`
+                        const varNodeId = `var-${scopeNode.id} -${varData.name} `
                         nodePositions.set(varNodeId, {
                             x: newX + 5,
                             y: newY + 40 + varIndex * 35 + 10
@@ -696,7 +664,7 @@ const MemoryModelVisualizer = () => {
                     })
 
                     // Update left edge position for memval connections
-                    nodePositions.set(`${objNodeId}-left`, {
+                    nodePositions.set(`${objNodeId} -left`, {
                         x: newX,
                         y: newY + objHeight / 2
                     })
@@ -704,7 +672,7 @@ const MemoryModelVisualizer = () => {
                     // Update property positions
                     objData.properties?.forEach((prop, propIndex) => {
                         if (prop.target) {
-                            const propId = `${objNodeId}_${prop.name}`
+                            const propId = `${objNodeId}_${prop.name} `
                             propertyPositions.set(propId, {
                                 x: newX + 5,
                                 y: newY + 45 + propIndex * 20
@@ -739,25 +707,12 @@ const MemoryModelVisualizer = () => {
 
                 // Calculate actual section widths after layout
                 const calculateSectionWidth = (section: ElkNode): number => {
-                    if (!section.children || section.children.length === 0) {
-                        return (section.width || 200) // Default width if no children
-                    }
-
                     if (section.id === "memvalSection") {
-                        if (!section.children || section.children.length === 0) {
-                            return 160 // Default width if no children
-                        }
-
-                        // Use ELK layout width
-                        const rightmostEdge = Math.max(...section.children.map(child =>
-                            (child.x || 0) + (child.width || 150)
-                        ))
-
-                        return rightmostEdge + 20 // Add some padding
+                        return MEMVAL_SECTION_WIDTH
                     }
 
                     if (section.id === "scopeSection") {
-                        return 200
+                        return SCOPE_SECTION_WIDTH
                     }
 
                     // Find the rightmost edge of all children
@@ -815,34 +770,45 @@ const MemoryModelVisualizer = () => {
                     return bottommostEdge + padding
                 }
 
-                // Calculate actual section dimensions
-                const actualMemvalSectionWidth = calculateSectionWidth(memvalSection) // Always calculate width for memval section
-                const actualScopeSectionWidth = scopeSection.children && scopeSection.children.length > 0 ? calculateSectionWidth(scopeSection) : 0
+                // Calculate section dimensions with improved layout logic
+                const calculateLayoutDimensions = () => {
+                    const memvalWidth = calculateSectionWidth(memvalSection)
+                    const scopeWidth = scopeSection.children && scopeSection.children.length > 0 ? calculateSectionWidth(scopeSection) : 0
 
-                // Calculate heap section width based on auto zoom setting
-                let actualHeapSectionWidth: number
-                if (settings.autoZoom) {
-                    // When auto zoom is on, calculate based on content
-                    actualHeapSectionWidth = heapSection.children && heapSection.children.length > 0 ? calculateSectionWidth(heapSection) : 0
-                } else {
-                    // When auto zoom is off, calculate as: containerSize.width - memvalSection.width - scopeSection.width
-                    const availableWidth = containerSize.width - margin.left - margin.right
-                    actualHeapSectionWidth = availableWidth - actualMemvalSectionWidth - actualScopeSectionWidth - (4 * sectionSpacing) // Account for spacing between sections
+                    // Calculate heap section width as remaining width
+                    const availableWidth = containerSize.width - ROOT_MARGIN.left - ROOT_MARGIN.right
+                    const heapWidth = availableWidth - memvalWidth - scopeWidth
+
+                    return {
+                        memval: { width: memvalWidth, height: calculateSectionHeight(memvalSection) },
+                        scope: { width: scopeWidth, height: scopeSection.children && scopeSection.children.length > 0 ? calculateSectionHeight(scopeSection) : 0 },
+                        heap: { width: heapWidth, height: heapSection.children && heapSection.children.length > 0 ? calculateSectionHeight(heapSection) : 0 }
+                    }
                 }
+
+                const layoutDimensions = calculateLayoutDimensions()
+
+                // Assign calculated dimensions to section objects
+                memvalSection.width = layoutDimensions.memval.width
+                scopeSection.width = layoutDimensions.scope.width
+                heapSection.width = layoutDimensions.heap.width
 
                 // Set section heights to fit container height if they are smaller
-                if (memvalSection.height && memvalSection.height < containerSize.height) {
-                    memvalSection.height = containerSize.height
+                const setSectionHeights = () => {
+                    const sections = [
+                        { section: memvalSection, height: layoutDimensions.memval.height },
+                        { section: scopeSection, height: layoutDimensions.scope.height },
+                        { section: heapSection, height: layoutDimensions.heap.height }
+                    ]
+
+                    sections.forEach(({ section }) => {
+                        if (!section.height || (section.height && section.height < containerSize.height)) {
+                            section.height = containerSize.height
+                        }
+                    })
                 }
-                if (scopeSection.height && scopeSection.height < containerSize.height) {
-                    scopeSection.height = containerSize.height
-                }
-                if (heapSection.height && heapSection.height < containerSize.height) {
-                    heapSection.height = containerSize.height
-                }
-                const actualMemvalSectionHeight = calculateSectionHeight(scopeSection)
-                const actualScopeSectionHeight = scopeSection.children && scopeSection.children.length > 0 ? calculateSectionHeight(scopeSection) : 0
-                const actualHeapSectionHeight = heapSection.children && heapSection.children.length > 0 ? calculateSectionHeight(heapSection) : 0
+
+                setSectionHeights()
                 // Log calculated section dimensions for debugging
                 // console.log('Calculated Section Dimensions:', {
                 //     memval: { width: actualMemvalSectionWidth, height: actualMemvalSectionHeight },
@@ -853,64 +819,80 @@ const MemoryModelVisualizer = () => {
                 // Position sections using calculated widths - only show sections that have content
                 // New layout: memval -> heap -> scope
 
-                // Update heap section width to match calculated width when auto zoom is off
-                if (!settings.autoZoom && heapSection.children && heapSection.children.length > 0) {
-                    heapSection.width = actualHeapSectionWidth
+
+                // Position sections with improved layout logic
+                const positionSections = () => {
+                    // Layout order: memval -> heap -> scope
+                    memvalSection.x = 0
+                    heapSection.x = layoutDimensions.memval.width
+                    scopeSection.x = layoutDimensions.memval.width + layoutDimensions.heap.width
+
+                    // Align all sections to the top
+                    memvalSection.y = 0
+                    scopeSection.y = 0
+                    heapSection.y = 0
                 }
 
-                memvalSection.x = 0
-                memvalSection.x = memvalSection.x + actualMemvalSectionWidth
-                scopeSection.x = memvalSection.x + actualMemvalSectionWidth + actualScopeSectionWidth
+                positionSections()
 
-                memvalSection.y = 0
-                scopeSection.y = 0
-                heapSection.y = 0
-
-                // Calculate total content dimensions using actual section widths - only include sections with content
+                // Calculate total content dimensions using layout dimensions
                 // New layout order: memval -> heap -> scope
-                const totalContentWidth = actualMemvalSectionWidth + actualHeapSectionWidth + actualScopeSectionWidth
-                const totalContentHeight = Math.max(actualMemvalSectionHeight, actualScopeSectionHeight, actualHeapSectionHeight) + 2 * sectionSpacing
+                const totalContentWidth = layoutDimensions.memval.width + layoutDimensions.heap.width + layoutDimensions.scope.width
+                const totalContentHeight = Math.max(layoutDimensions.memval.height, layoutDimensions.scope.height, layoutDimensions.heap.height)
 
-                const newViewportWidth = settings.autoZoom ? Math.max(totalContentWidth + margin.left + margin.right, viewportWidth) : viewportWidth
-                const newViewportHeight = settings.autoZoom ? Math.max(totalContentHeight + margin.top + margin.bottom, viewportHeight) : viewportHeight
+                // Calculate viewport dimensions with improved logic
+                const calculateViewportDimensions = () => {
+                    const newViewportWidth = settings.autoZoom ? Math.max(totalContentWidth + ROOT_MARGIN.left + ROOT_MARGIN.right, viewportWidth) : viewportWidth
+                    const newViewportHeight = settings.autoZoom ? Math.max(totalContentHeight + ROOT_MARGIN.top + ROOT_MARGIN.bottom, viewportHeight) : viewportHeight
 
-                svg.attr("viewBox", `0 0 ${newViewportWidth} ${newViewportHeight}`)
-                // Update content group position with scale 1
-                const scale = 1
-                let centerX = 0
-                let centerY = 0
+                    return { width: newViewportWidth, height: newViewportHeight }
+                }
 
-                if (settings.autoZoom) {
-                    centerX = (newViewportWidth - totalContentWidth * scale) / 2
-                    centerY = (newViewportHeight - totalContentHeight * scale) / 2
-                } else {
-                    // When auto zoom is off, center Y-axis on the current scope
-                    const currentScopeData = memoryModelData.scopes.find(scope => scope.isCurrentScope)
-                    if (currentScopeData && scopeSection.children && scopeSection.children.length > 0) {
-                        // Find the current scope node
-                        const currentScopeNode = scopeSection.children.find(scopeNode => scopeNode.id === currentScopeData.id)
-                        if (currentScopeNode) {
-                            // Calculate the position of the current scope
-                            const currentScopeIndex = scopeSection.children.findIndex(scopeNode => scopeNode.id === currentScopeData.id)
-                            const currentScopeHeight = calculateScopeHeight(currentScopeNode.id, memoryModelData.scopes, 100) + 2 * sectionSpacing
-                            const currentScopeY = currentScopeIndex === 0 ? 0 :
-                                scopeSection.children?.slice(0, currentScopeIndex).reduce((total, prevNode) =>
-                                    total + calculateScopeHeight(prevNode.id, memoryModelData.scopes, 100) + 20, 0) || 0
+                const viewportDimensions = calculateViewportDimensions()
+                svg.attr("viewBox", `0 0 ${viewportDimensions.width} ${viewportDimensions.height} `)
 
-                            // Calculate the center position of the current scope
-                            const currentScopeCenterY = (scopeSection.y || 0) + currentScopeY + currentScopeHeight / 2
+                // Calculate center position with improved logic
+                const calculateCenterPosition = () => {
+                    const scale = 1
+                    let centerX = 0
+                    let centerY = 0
 
-                            // Center the viewport on the current scope
-                            centerY = (newViewportHeight / 2) - currentScopeCenterY
+                    if (settings.autoZoom) {
+                        centerX = (viewportDimensions.width - totalContentWidth * scale) / 2
+                        centerY = (viewportDimensions.height - totalContentHeight * scale) / 2
+                    } else {
+                        // When auto zoom is off, center Y-axis on the current scope
+                        const currentScopeData = memoryModelData.scopes.find(scope => scope.isCurrentScope)
+                        if (currentScopeData && scopeSection.children && scopeSection.children.length > 0) {
+                            // Find the current scope node
+                            const currentScopeNode = scopeSection.children.find(scopeNode => scopeNode.id === currentScopeData.id)
+                            if (currentScopeNode) {
+                                // Calculate the position of the current scope
+                                const currentScopeIndex = scopeSection.children.findIndex(scopeNode => scopeNode.id === currentScopeData.id)
+                                const currentScopeHeight = calculateScopeHeight(currentScopeNode.id, memoryModelData.scopes, 100) + 2 * sectionSpacing
+                                const currentScopeY = currentScopeIndex === 0 ? 0 :
+                                    scopeSection.children?.slice(0, currentScopeIndex).reduce((total, prevNode) =>
+                                        total + calculateScopeHeight(prevNode.id, memoryModelData.scopes, 100) + 20, 0) || 0
+
+                                // Calculate the center position of the current scope
+                                const currentScopeCenterY = (scopeSection.y || 0) + currentScopeY + currentScopeHeight / 2
+
+                                // Center the viewport on the current scope
+                                centerY = (viewportDimensions.height / 2) - currentScopeCenterY
+                            }
                         }
                     }
+
+                    return { x: centerX, y: centerY, scale }
                 }
 
-                contentGroup.attr("transform", `translate(${centerX}, ${centerY}) scale(1)`)
+                const centerPosition = calculateCenterPosition()
+
+                rootContainer.attr("transform", `translate(${centerPosition.x}, ${centerPosition.y}) scale(${centerPosition.scale})`)
 
                 const centerTransform = d3.zoomIdentity
-                    // .translate(centerX, centerY)
-                    .scale(scale)
+                    // .translate(centerPosition.x, centerPosition.y)
+                    .scale(centerPosition.scale)
 
                 svg.transition()
                     .duration(750)
@@ -997,7 +979,7 @@ const MemoryModelVisualizer = () => {
                 renderMemvalSection({
                     memvalSection,
                     memvalItems,
-                    graphContainer,
+                    graphContainer: rootContainer,
                     memoryModelData,
                     nodePositions,
                     edgeData,
@@ -1008,7 +990,7 @@ const MemoryModelVisualizer = () => {
                     renderScopeSection({
                         scopeSection,
                         scopeItems: memoryModelData.scopes,
-                        graphContainer,
+                        graphContainer: rootContainer,
                         nodePositions,
                         edgeData,
                         createScopeDragBehavior,
@@ -1017,6 +999,22 @@ const MemoryModelVisualizer = () => {
 
                 // Draw heap objects with D3 force simulation for optimal positioning
                 if (memoryModelData.heap.length > 0) {
+                    // Add background rectangle for heap section
+                    const heapSectionWidth = layoutDimensions.heap.width
+                    const heapSectionHeight = heapSection.height || containerSize.height
+
+                    rootContainer
+                        .append("rect")
+                        .attr("class", "heap-section-background")
+                        .attr("x", heapSection.x || 0)
+                        .attr("y", heapSection.y || 0)
+                        .attr("width", heapSectionWidth)
+                        .attr("height", heapSectionHeight)
+                        .attr("fill", "#fef7e0") // Light orange background
+                        .attr("stroke", "none") // No border
+                        .attr("rx", 6) // Rounded corners
+                        .attr("ry", 6)
+
                     // Define type for heap nodes with simulation properties
                     type HeapNodeDatum = d3.SimulationNodeDatum & {
                         id: string
@@ -1116,7 +1114,7 @@ const MemoryModelVisualizer = () => {
                                 heapNodes.forEach((node) => {
                                     const nodeRadius = Math.max(node.width, node.height) / 2
                                     const leftBound = (heapSection.x || 0) + nodeRadius
-                                    const rightBound = (heapSection.x || 0) + actualHeapSectionWidth - nodeRadius
+                                    const rightBound = (heapSection.x || 0) + layoutDimensions.heap.width - nodeRadius
 
                                     // Constrain X position within bounds
                                     if ((node.x || 0) < leftBound) {
@@ -1139,8 +1137,8 @@ const MemoryModelVisualizer = () => {
                             const node = d as HeapNodeDatum
                             return Math.max(node.width, node.height) / 2 + 80 // Increased from 40 to 80 for more spacing
                         }).strength(0.8)) // Add strength parameter for stronger collision avoidance
-                        .force("center", d3.forceCenter((heapSection.x || 0) + actualHeapSectionWidth / 2, (heapSection.y || 0) + (heapSection.height || 300) / 2))
-                        .force("x", d3.forceX((heapSection.x || 0) + actualHeapSectionWidth / 2).strength(0.1)) // Center objects in the calculated width
+                        .force("center", d3.forceCenter((heapSection.x || 0) + layoutDimensions.heap.width / 2, (heapSection.y || 0) + (heapSection.height || 300) / 2))
+                        .force("x", d3.forceX((heapSection.x || 0) + layoutDimensions.heap.width / 2).strength(0.1)) // Center objects in the calculated width
                         .force("y", d3.forceY((heapSection.y || 0) + 100).strength(0.1)) // Reduced from 0.15 to allow more spread
                         .force("avoidCrossings", avoidCrossingsForce())
                         .force("constrainBounds", constrainToHeapBoundsForce()) // Constrain objects within heap bounds when auto zoom is off
@@ -1160,7 +1158,7 @@ const MemoryModelVisualizer = () => {
                         const objData = heapNode.data
                         const objNodeId = objData.id
 
-                        const objectGroup = graphContainer
+                        const objectGroup = rootContainer
                             .append("g")
                             .attr("class", "heap-object")
                             .attr("data-id", objNodeId)
@@ -1175,7 +1173,7 @@ const MemoryModelVisualizer = () => {
                         nodePositions.set(objNodeId, { x: (heapNode.x || 0) + heapNode.width, y: (heapNode.y || 0) + heapNode.height / 2 })
 
                         // Store left edge position for memval connections
-                        nodePositions.set(`${objNodeId}-left`, { x: (heapNode.x || 0), y: (heapNode.y || 0) + heapNode.height / 2 })
+                        nodePositions.set(`${objNodeId} -left`, { x: (heapNode.x || 0), y: (heapNode.y || 0) + heapNode.height / 2 })
 
                         // Draw object rectangle
                         objectGroup
@@ -1188,10 +1186,10 @@ const MemoryModelVisualizer = () => {
                             .attr("stroke", objData.borderColor)
                             .attr("stroke-width", 2)
                             .style("cursor", "grab")
-                            .on("mouseover", function () {
+                            .on("mouseover", function (this: SVGRectElement) {
                                 d3.select(this).style("cursor", "grab").attr("stroke-width", 3)
                             })
-                            .on("mouseout", function () {
+                            .on("mouseout", function (this: SVGRectElement) {
                                 d3.select(this).style("cursor", "grab").attr("stroke-width", 2)
                             })
 
@@ -1219,7 +1217,7 @@ const MemoryModelVisualizer = () => {
                                     .append("g")
                                     .attr("class", "property")
                                     .attr("transform", `translate(10, ${35 + i * 20})`)
-                                    .attr("data-property-id", `${objNodeId}_${prop.name}`)
+                                    .attr("data-property-id", `${objNodeId}_${prop.name} `)
 
                                 // Property icon (document icon for references)
                                 if (prop.target) {
@@ -1233,7 +1231,7 @@ const MemoryModelVisualizer = () => {
 
                                     propertyGroup
                                         .append("path")
-                                        .attr("d", `M11,0 L11,5 L16,5 L16,0 Z`)
+                                        .attr("d", `M11, 0 L11, 5 L16, 5 L16, 0 Z`)
                                         .attr("fill", "white")
                                         .attr("stroke", "black")
                                         .attr("stroke-width", 0.5)
@@ -1241,7 +1239,7 @@ const MemoryModelVisualizer = () => {
                                     // Store property position for connections
                                     const propX = (heapNode.x || 0) + 5
                                     const propY = (heapNode.y || 0) + 45 + i * 20
-                                    const propId = `${objNodeId}_${prop.name}`
+                                    const propId = `${objNodeId}_${prop.name} `
                                     propertyPositions.set(propId, { x: propX, y: propY })
 
                                     // Add edge data for property references
@@ -1269,7 +1267,7 @@ const MemoryModelVisualizer = () => {
                                     .attr("x", prop.target ? 20 : 0)
                                     .attr("y", 10)
                                     .attr("font-size", "12px")
-                                    .text(`${prop.name}: ${prop.value}`)
+                                    .text(`${prop.name}: ${prop.value} `)
                             })
                         }
                     })
@@ -1284,68 +1282,6 @@ const MemoryModelVisualizer = () => {
                 console.error("ELK layout error:", error)
             })
     }, [currentStep, transformData, containerSize])
-
-    // Navigation control functions (commented out - not currently used)
-    /*
-    const handleZoomIn = () => {
-        if (!svgRef.current) return
-        const svg = d3.select(svgRef.current)
-        svg.transition()
-            .duration(300)
-            // eslint-disable-next-line @typescript-eslint/no-explicit-any
-            .call(d3.zoom().scaleBy as any, 1.5)
-    }
-     
-    const handleZoomOut = () => {
-        if (!svgRef.current) return
-        const svg = d3.select(svgRef.current)
-        svg.transition()
-            .duration(300)
-            // eslint-disable-next-line @typescript-eslint/no-explicit-any
-            .call(d3.zoom().scaleBy as any, 1 / 1.5)
-    }
-     
-    const handleResetZoom = () => {
-        if (!svgRef.current) return
-        const svg = d3.select(svgRef.current)
-        svg.transition()
-            .duration(750)
-            // eslint-disable-next-line @typescript-eslint/no-explicit-any
-            .call(d3.zoom().transform as any, d3.zoomIdentity)
-    }
-     
-    const handleFitToView = () => {
-        if (!svgRef.current || !currentStep) return
-        const svg = d3.select(svgRef.current)
-        const svgElement = svgRef.current
-     
-        // Get the content bounds
-        const contentGroup = svg.select("g")
-        const node = contentGroup.node() as SVGGElement
-        const bbox = node?.getBBox()
-     
-        if (bbox) {
-            const padding = 40
-            const scale = Math.min(
-                (svgElement.clientWidth - padding) / bbox.width,
-                (svgElement.clientHeight - padding) / bbox.height,
-                1 // Don't scale up beyond 1x
-            )
-     
-            const transform = d3.zoomIdentity
-                .translate(
-                    (svgElement.clientWidth - bbox.width * scale) / 2 - bbox.x * scale,
-                    (svgElement.clientHeight - bbox.height * scale) / 2 - bbox.y * scale
-                )
-                .scale(scale)
-     
-            svg.transition()
-                .duration(750)
-                // eslint-disable-next-line @typescript-eslint/no-explicit-any
-                .call(d3.zoom().transform as any, transform)
-        }
-    }
-    */
 
     return (
         <div ref={containerRef} className="relative w-full h-full">
