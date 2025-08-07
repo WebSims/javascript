@@ -3,10 +3,11 @@ import type { ElkNode as ElkLayoutNode } from "elkjs/lib/elk-api"
 
 // Constants for scope rendering
 export const SCOPE_SECTION_WIDTH = 200
-export const SCOPE_SECTION_SPACING = 20
 export const SCOPE_SECTION_PADDING = 10
+export const SCOPE_SECTION_SPACING = 10
 export const SCOPE_BADGE_HEIGHT = 30
 export const SCOPE_ITEM_HEIGHT = 35
+export const SCOPE_ITEM_SPACING = 5
 
 type ElkNode = Omit<ElkLayoutNode, 'labels' | 'children' | 'edges'> & {
     id: string
@@ -44,7 +45,6 @@ export interface ScopeRendererProps {
         propIndex?: number
     }>
     createScopeDragBehavior: (scopeNode: ElkNode, scopeData: ScopeData, actualScopeHeight: number) => d3.DragBehavior<SVGGElement, unknown, unknown>
-    calculateScopeHeight: (scopeId: string) => number
 }
 
 export const createScopeSection = (): ElkNode => {
@@ -66,11 +66,11 @@ export const createScopeSection = (): ElkNode => {
     }
 }
 
-export const createScopeNodes = (scopeItems: ScopeData[], calculateScopeHeight: (scopeId: string) => number): ElkNode[] => {
+export const createScopeNodes = (scopeItems: ScopeData[]): ElkNode[] => {
     return scopeItems.map((scope) => ({
         id: scope.id,
         width: SCOPE_SECTION_WIDTH,
-        height: calculateScopeHeight(scope.id),
+        height: calculateScopeHeight(scope.id, scopeItems, 100),
         labels: [{ text: scope.scopeTags.join(" ") }],
     }))
 }
@@ -95,6 +95,13 @@ export const createScopeEdges = (scopeItems: ScopeData[]): Array<{
     return edges
 }
 
+export const calculateScopeHeight = (scopeId: string, scopeItems: ScopeData[], defaultHeight: number = 100): number => {
+    const scopeData = scopeItems.find(s => s.id === scopeId)
+    if (!scopeData) return defaultHeight
+    const calculatedHeight = SCOPE_BADGE_HEIGHT + scopeData.variables.length * (SCOPE_ITEM_HEIGHT + SCOPE_ITEM_SPACING) + SCOPE_SECTION_SPACING
+    return scopeData.variables.length > 0 ? calculatedHeight : defaultHeight
+}
+
 export const renderScopeSection = ({
     scopeSection,
     scopeItems,
@@ -102,7 +109,6 @@ export const renderScopeSection = ({
     nodePositions,
     edgeData,
     createScopeDragBehavior,
-    calculateScopeHeight,
 }: ScopeRendererProps) => {
     if (scopeItems.length === 0 || !scopeSection.children) return
 
@@ -135,8 +141,8 @@ export const renderScopeSection = ({
         // Use ELK layout positions
         const scopeX = scopeNode.x || 0
         const scopeY = scopeNode.y || 0
-        const actualScopeHeight = calculateScopeHeight(scopeNode.id)
-
+        const actualScopeHeight = calculateScopeHeight(scopeNode.id, scopeItems, 100)
+        console.log("actualScopeHeight", actualScopeHeight)
         const scopeGroup = scopeContainer
             .append("g")
             .attr("class", "scope")
