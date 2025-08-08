@@ -44,7 +44,6 @@ export interface ScopeRendererProps {
         label?: string
         propIndex?: number
     }>
-    createScopeDragBehavior: (scopeNode: ElkNode, scopeData: ScopeData, actualScopeHeight: number) => d3.DragBehavior<SVGGElement, unknown, unknown>
 }
 
 export const createScopeSection = (): ElkNode => {
@@ -108,7 +107,6 @@ export const renderScopeSection = ({
     rootContainer,
     nodePositions,
     edgeData,
-    createScopeDragBehavior,
 }: ScopeRendererProps) => {
     if (scopeItems.length === 0 || !scopeSection.children) return
 
@@ -164,8 +162,6 @@ export const renderScopeSection = ({
             .attr("class", "scope")
             .attr("data-id", scopeNode.id)
             .attr("transform", `translate(${scopeX}, ${scopeY})`)
-            .style("cursor", "grab")
-            .call(createScopeDragBehavior(scopeNode, scopeData, actualScopeHeight))
 
         // Store scope position for connections - use ELK layout position
         const absoluteScopeX = (scopeSection.x || 0) + scopeX + (scopeNode.width || 200) / 2
@@ -182,13 +178,6 @@ export const renderScopeSection = ({
             .attr("fill", scopeData.color)
             .attr("stroke", scopeData.borderColor)
             .attr("stroke-width", 2)
-            .style("cursor", "grab")
-            .on("mouseover", function () {
-                d3.select(this).style("cursor", "grab").attr("stroke-width", 3)
-            })
-            .on("mouseout", function () {
-                d3.select(this).style("cursor", "grab").attr("stroke-width", 2)
-            })
 
         // Add scope type badges
         const badgeGroup = scopeGroup.append("g").attr("class", "scope-badges")
