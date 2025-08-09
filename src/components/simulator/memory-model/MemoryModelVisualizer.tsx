@@ -75,6 +75,9 @@ type ElkGraph = ElkNode & {
     edges: ElkEdge[]
 }
 
+// Horizontal spacing between major sections (memval | heap | scope)
+const SECTION_HORIZONTAL_GAP = 5
+
 const MemoryModelVisualizer = () => {
     const { currentStep, steps, settings, toggleAutoZoom } = useSimulatorStore()
     const svgRef = useRef<SVGSVGElement>(null)
@@ -311,9 +314,9 @@ const MemoryModelVisualizer = () => {
         // Transform the data into visualization format
         const memoryModelData = transformData()
 
-        // Define common dimensions
-        const objectWidth = 180
-        const objectHeight = 120
+        // Define common dimensions (smaller heap objects and items)
+        const objectWidth = 150
+        const objectHeight = 90
 
         // Calculate viewport dimensions (use container size or default)
         const viewportWidth = containerSize.width
@@ -413,13 +416,13 @@ const MemoryModelVisualizer = () => {
             // Add heap object nodes
             memoryModelData.heap.forEach((object) => {
                 const propCount = object.properties ? object.properties.length : 0
-                const objHeight = Math.max(objectHeight, 40 + propCount * 20)
+                const objHeight = Math.max(objectHeight, 30 + propCount * 16)
 
                 const objNode: ElkNode = {
                     id: object.id,
                     width: objectWidth,
                     height: objHeight,
-                    labels: [{ text: object.type, width: 100, height: 25 }],
+                    labels: [{ text: object.type, width: 100, height: 20 }],
                 }
 
                 heapSection.children?.push(objNode)
@@ -542,8 +545,9 @@ const MemoryModelVisualizer = () => {
                 const actualMemvalSectionWidth = calculateSectionWidth(memvalSection) // Always calculate width for memval section
                 const actualScopeSectionWidth = calculateSectionWidth(scopeSection)
 
-                // Calculate heap section width as remaining width: containerSize.width - memvalSection.width - scopeSection.width
-                let actualHeapSectionWidth = containerSize.width - actualMemvalSectionWidth - actualScopeSectionWidth
+                // Calculate heap section width as remaining width, accounting for horizontal gaps between sections
+                // Layout: [memval] gap [heap] gap [scope]
+                let actualHeapSectionWidth = containerSize.width - actualMemvalSectionWidth - actualScopeSectionWidth - SECTION_HORIZONTAL_GAP * 2
 
                 // Calculate heap section height based on viewport; will grow after layout if needed
                 const heapContentHeight = containerSize.height
@@ -553,12 +557,12 @@ const MemoryModelVisualizer = () => {
                 const fixedSectionsWidth = actualMemvalSectionWidth + actualScopeSectionWidth
                 let sectionsScale = 1
                 if (actualHeapSectionWidth < minHeapWidthNeeded && fixedSectionsWidth > 0) {
-                    const availableForFixed = Math.max(60, containerSize.width - minHeapWidthNeeded)
+                    const availableForFixed = Math.max(60, containerSize.width - minHeapWidthNeeded - SECTION_HORIZONTAL_GAP * 2)
                     sectionsScale = Math.max(0.4, Math.min(1, availableForFixed / fixedSectionsWidth))
                     // Recompute widths with scale
                     const scaledMemvalWidth = Math.round(actualMemvalSectionWidth * sectionsScale)
                     const scaledScopeWidth = Math.round(actualScopeSectionWidth * sectionsScale)
-                    actualHeapSectionWidth = containerSize.width - scaledMemvalWidth - scaledScopeWidth
+                    actualHeapSectionWidth = containerSize.width - scaledMemvalWidth - scaledScopeWidth - SECTION_HORIZONTAL_GAP * 2
                     memvalSection.width = scaledMemvalWidth
                     scopeSection.width = scaledScopeWidth
                     heapSection.width = actualHeapSectionWidth
@@ -578,17 +582,17 @@ const MemoryModelVisualizer = () => {
                 // Set heap section height based on content
                 heapSection.height = heapContentHeight
 
-                // Position sections: memval -> heap -> scope
+                // Position sections with horizontal gaps: memval -> gap -> heap -> gap -> scope
                 memvalSection.x = 0
-                heapSection.x = memvalSection.width
-                scopeSection.x = (memvalSection.width || 0) + (heapSection.width || 0)
+                heapSection.x = (memvalSection.width || 0) + SECTION_HORIZONTAL_GAP
+                scopeSection.x = (memvalSection.width || 0) + SECTION_HORIZONTAL_GAP + (heapSection.width || 0) + SECTION_HORIZONTAL_GAP
 
                 memvalSection.y = 0
                 scopeSection.y = 0
                 heapSection.y = 0
 
                 // Calculate total content dimensions
-                const totalContentWidth = (memvalSection.width || 0) + (heapSection.width || 0) + (scopeSection.width || 0)
+                const totalContentWidth = (memvalSection.width || 0) + SECTION_HORIZONTAL_GAP + (heapSection.width || 0) + SECTION_HORIZONTAL_GAP + (scopeSection.width || 0)
                 const totalContentHeight = containerSize.height
 
                 // Calculate container center
@@ -719,6 +723,7 @@ const MemoryModelVisualizer = () => {
                     nodePositions,
                     edgeData,
                     scale: sectionsScale,
+                    viewportHeight: containerSize.height,
                 })
 
                 // Draw scopes using the module (always render section, even when empty)
@@ -861,7 +866,7 @@ const MemoryModelVisualizer = () => {
                             if (!objData) return
 
                             const propCount = objData.properties ? objData.properties.length : 0
-                            const objHeight = Math.max(objectHeight, 40 + propCount * 20)
+                            const objHeight = Math.max(objectHeight, 30 + propCount * 16)
                             const objWidth = c.width || objectWidth
 
                             // Compute local positions in heap container (base units) and clamp to bounds
@@ -909,7 +914,7 @@ const MemoryModelVisualizer = () => {
                             objectGroup
                                 .append("rect")
                                 .attr("width", objWidth)
-                                .attr("height", 25)
+                                .attr("height", 20)
                                 .attr("rx", 6)
                                 .attr("ry", 6)
                                 .attr("fill", objData.borderColor)
@@ -917,7 +922,7 @@ const MemoryModelVisualizer = () => {
                             objectGroup
                                 .append("text")
                                 .attr("x", 10)
-                                .attr("y", 17)
+                                .attr("y", 14)
                                 .attr("fill", "white")
                                 .attr("font-weight", "bold")
                                 .text(objData.type)
@@ -928,28 +933,28 @@ const MemoryModelVisualizer = () => {
                                     const propertyGroup = objectGroup
                                         .append("g")
                                         .attr("class", "property")
-                                        .attr("transform", `translate(10, ${35 + i * 20})`)
+                                        .attr("transform", `translate(10, ${28 + i * 16})`)
                                         .attr("data-property-id", `${c.id}_${prop.name}`)
 
                                     if (prop.target) {
                                         propertyGroup
                                             .append("rect")
-                                            .attr("width", 12)
-                                            .attr("height", 15)
+                                            .attr("width", 10)
+                                            .attr("height", 12)
                                             .attr("fill", "white")
                                             .attr("stroke", "black")
                                             .attr("stroke-width", 0.5)
 
                                         propertyGroup
                                             .append("path")
-                                            .attr("d", "M11, 0 L11, 5 L16, 5 L16, 0 Z")
+                                            .attr("d", "M9, 0 L9, 4 L14, 4 L14, 0 Z")
                                             .attr("fill", "white")
                                             .attr("stroke", "black")
                                             .attr("stroke-width", 0.5)
 
                                         // Store property position for connections
                                         const propXAbs = (heapSection.x || 0) + sectionsScale * (localX + 5)
-                                        const propYAbs = (heapSection.y || 0) + sectionsScale * (yOffset + localY + 45 + i * 20)
+                                        const propYAbs = (heapSection.y || 0) + sectionsScale * (yOffset + localY + 38 + i * 16)
                                         const propId = `${c.id}_${prop.name}`
                                         propertyPositions.set(propId, { x: propXAbs, y: propYAbs })
 
@@ -965,8 +970,8 @@ const MemoryModelVisualizer = () => {
                                         objectGroup
                                             .append("circle")
                                             .attr("cx", 5)
-                                            .attr("cy", 45 + i * 20)
-                                            .attr("r", 3)
+                                            .attr("cy", 38 + i * 16)
+                                            .attr("r", 2)
                                             .attr("fill", "#ed8936")
                                             .attr("stroke", "none")
                                     }

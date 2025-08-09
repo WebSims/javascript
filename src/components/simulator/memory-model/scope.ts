@@ -260,7 +260,7 @@ export const renderScopeSection = ({
                 .attr("x", currentX)
                 .attr("y", 24)
                 .attr("font-weight", "600")
-                .attr("font-size", "11px")
+                .attr("font-size", "10px")
                 .attr("fill", textFill)
                 .attr("text-anchor", "middle")
                 .attr("transform", `translate(${textWidth / 2}, 0)`)
