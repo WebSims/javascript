@@ -46,6 +46,8 @@ export interface ScopeRendererProps {
     }>
     // Optional visual scale to shrink the whole section uniformly
     scale?: number
+    // Height of the viewport to anchor the section bottom and decide growth
+    viewportHeight: number
 }
 
 export const createScopeSection = (): ElkNode => {
@@ -110,6 +112,7 @@ export const renderScopeSection = ({
     nodePositions,
     edgeData,
     scale = 1,
+    viewportHeight,
 }: ScopeRendererProps) => {
     // Always create scope section container, even when empty
     const scopeContainer = rootContainer
@@ -119,9 +122,31 @@ export const renderScopeSection = ({
 
     // Add background rectangle for scope section
     const visualWidth = scopeSection.width || SCOPE_SECTION_WIDTH
-    const visualHeight = scopeSection.height || 100
     const baseWidth = visualWidth / scale
-    const baseHeight = visualHeight / scale
+
+    // Start with viewport height, then allow content-driven growth (from bottom)
+    let baseHeight = (viewportHeight) / scale
+    const bottomPadding = 10
+    // Calculate total height of all scopes including spacing
+    const totalScopesHeight = scopeItems.reduce((acc, s, idx) => {
+        const h = calculateScopeHeight(s.id, scopeItems, 100)
+        // add spacing between scopes except after the top-most
+        const spacing = idx < scopeItems.length - 1 ? SCOPE_SECTION_SPACING : 0
+        return acc + h + spacing
+    }, 0)
+    const requiredBaseHeight = Math.max(baseHeight, totalScopesHeight + bottomPadding)
+    if (requiredBaseHeight > baseHeight) {
+        baseHeight = requiredBaseHeight
+        // keep scopeSection height in sync in scaled units
+        scopeSection.height = baseHeight * scale
+    }
+
+    // Anchor the section to the bottom of the viewport (grow upward)
+    const bottomAnchorOffset = Math.max(0, (viewportHeight / scale) - baseHeight)
+    scopeContainer.attr(
+        "transform",
+        `translate(${scopeSection.x || 0}, ${(scopeSection.y || 0) + bottomAnchorOffset}) scale(${scale})`
+    )
 
     scopeContainer
         .append("rect")
@@ -168,7 +193,7 @@ export const renderScopeSection = ({
 
         // Store scope position for connections - use ELK layout position
         const absoluteScopeX = (scopeSection.x || 0) + scale * (scopeX + (scopeNode.width || 200) / 2)
-        const absoluteScopeY = (scopeSection.y || 0) + scale * (scopeY + actualScopeHeight / 2)
+        const absoluteScopeY = (scopeSection.y || 0) + scale * (bottomAnchorOffset + scopeY + actualScopeHeight / 2)
         nodePositions.set(scopeNode.id, { x: absoluteScopeX, y: absoluteScopeY })
 
         // Draw scope rectangle
@@ -285,7 +310,7 @@ export const renderScopeSection = ({
 
             // Store variable position for connections - position at the left side of the scope
             const varX = (scopeSection.x || 0) + scale * (scopeX + 5)
-            const varY = (scopeSection.y || 0) + scale * (scopeY + 35 + varIndex * 35 + 15)
+            const varY = (scopeSection.y || 0) + scale * (bottomAnchorOffset + scopeY + 35 + varIndex * 35 + 15)
             nodePositions.set(varNodeId, { x: varX, y: varY })
 
             // Add a small circle at the connection point for variables (only for reference types)

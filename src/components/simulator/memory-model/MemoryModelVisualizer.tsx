@@ -729,6 +729,7 @@ const MemoryModelVisualizer = () => {
                     nodePositions,
                     edgeData,
                     scale: sectionsScale,
+                    viewportHeight: containerSize.height,
                 })
 
                 // Draw heap objects using ELK Force layout with center-x and bottom-y bias
