@@ -558,7 +558,7 @@ const MemoryModelVisualizer = () => {
                 let sectionsScale = 1
                 if (actualHeapSectionWidth < minHeapWidthNeeded && fixedSectionsWidth > 0) {
                     const availableForFixed = Math.max(60, containerSize.width - minHeapWidthNeeded - SECTION_HORIZONTAL_GAP * 2)
-                    sectionsScale = Math.max(0.4, Math.min(1, availableForFixed / fixedSectionsWidth))
+                    sectionsScale = Math.max(0.6, Math.min(1, availableForFixed / fixedSectionsWidth))
                     // Recompute widths with scale
                     const scaledMemvalWidth = Math.round(actualMemvalSectionWidth * sectionsScale)
                     const scaledScopeWidth = Math.round(actualScopeSectionWidth * sectionsScale)
