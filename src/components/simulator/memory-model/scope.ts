@@ -111,9 +111,7 @@ export const renderScopeSection = ({
     edgeData,
     scale = 1,
 }: ScopeRendererProps) => {
-    if (scopeItems.length === 0 || !scopeSection.children) return
-
-    // Create scope section container
+    // Always create scope section container, even when empty
     const scopeContainer = rootContainer
         .append("g")
         .attr("class", "scope-section")
@@ -134,6 +132,9 @@ export const renderScopeSection = ({
         .attr("stroke", "none") // No border
         .attr("rx", 6) // Rounded corners
         .attr("ry", 6)
+
+    // If no scope items or no children, stop after drawing background
+    if (scopeItems.length === 0 || !scopeSection.children) return
 
     // After scaling, baseHeight equals the assigned height for the visual section
     const actualScopeSectionHeight = baseHeight

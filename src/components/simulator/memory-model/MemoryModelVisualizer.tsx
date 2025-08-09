@@ -540,7 +540,7 @@ const MemoryModelVisualizer = () => {
 
                 // Calculate actual section dimensions
                 const actualMemvalSectionWidth = calculateSectionWidth(memvalSection) // Always calculate width for memval section
-                const actualScopeSectionWidth = scopeSection.children && scopeSection.children.length > 0 ? calculateSectionWidth(scopeSection) : 0
+                const actualScopeSectionWidth = calculateSectionWidth(scopeSection)
 
                 // Calculate heap section width as remaining width: containerSize.width - memvalSection.width - scopeSection.width
                 let actualHeapSectionWidth = containerSize.width - actualMemvalSectionWidth - actualScopeSectionWidth
@@ -724,17 +724,15 @@ const MemoryModelVisualizer = () => {
                     scale: sectionsScale,
                 })
 
-                // Draw scopes using the module
-                if (scopeSection.children && scopeSection.children.length > 0) {
-                    renderScopeSection({
-                        scopeSection,
-                        scopeItems: memoryModelData.scopes,
-                        rootContainer,
-                        nodePositions,
-                        edgeData,
-                        scale: sectionsScale,
-                    })
-                }
+                // Draw scopes using the module (always render section, even when empty)
+                renderScopeSection({
+                    scopeSection,
+                    scopeItems: memoryModelData.scopes,
+                    rootContainer,
+                    nodePositions,
+                    edgeData,
+                    scale: sectionsScale,
+                })
 
                 // Draw heap objects using ELK Force layout with center-x and bottom-y bias
                 if (memoryModelData.heap.length > 0 && heapContainer) {
