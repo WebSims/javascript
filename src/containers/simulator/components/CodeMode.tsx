@@ -40,7 +40,7 @@ const CodeMode: React.FC = () => {
       <ResizablePanelGroup direction="vertical">
         <ResizablePanel>
           <ResizablePanelGroup direction="horizontal">
-            <ResizablePanel>
+            <ResizablePanel minSize={20} maxSize={80}>
               <CodeEditor />
             </ResizablePanel>
             <ResizableHandle withHandle className="bg-slate-100 hover:bg-slate-200 transition-colors" />
@@ -86,10 +86,15 @@ const CodeMode: React.FC = () => {
       <ResizableHandle withHandle className="bg-slate-100 hover:bg-slate-200 transition-colors" />
       <ResizablePanel
         defaultSize={minSize}
+        maxSize={isCheatSheetOpen ? 70 : 5}
         minSize={minSize}
-        maxSize={isCheatSheetOpen ? 80 : 5}
+        onResize={(size) => {
+          if (size === 5) {
+            setIsCheatSheetOpen(false)
+          }
+        }}
       >
-        <CheatSheetAccordion onOpenChange={setIsCheatSheetOpen} />
+        <CheatSheetAccordion open={isCheatSheetOpen} onOpenChange={setIsCheatSheetOpen} />
       </ResizablePanel>
     </ResizablePanelGroup >
   )

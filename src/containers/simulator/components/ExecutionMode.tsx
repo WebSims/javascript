@@ -18,9 +18,9 @@ const ExecutionMode: React.FC = () => {
         return (
             <div className='flex flex-col h-full'>
                 <ResizablePanelGroup direction="horizontal">
-                    <ResizablePanel>
+                    <ResizablePanel minSize={20} maxSize={80}>
                         <ResizablePanelGroup direction="vertical">
-                            <ResizablePanel>
+                            <ResizablePanel >
                                 <CodeArea />
                             </ResizablePanel>
                             <ResizableHandle withHandle className="bg-slate-100 hover:bg-slate-200 transition-colors" />
@@ -45,7 +45,7 @@ const ExecutionMode: React.FC = () => {
     return (
         <div className='h-full flex flex-col'>
             <ResizablePanelGroup direction="vertical">
-                <ResizablePanel className='p-1'>
+                <ResizablePanel minSize={30} maxSize={70} className='p-1'>
                     <CodeArea />
                 </ResizablePanel>
                 <ResizableHandle withHandle className="bg-slate-100 hover:bg-slate-200 transition-colors" />

@@ -1,4 +1,4 @@
-import React, { useState } from 'react'
+import React, { useEffect, useState } from 'react'
 import { ChevronDownIcon, ChevronUpIcon, BookOpenIcon } from 'lucide-react'
 
 import { Button } from '@/components/ui/button'
@@ -21,6 +21,10 @@ const CheatSheetAccordion: React.FC<CheatSheetAccordionProps> = ({ open = true, 
     const { isDesktop } = useResponsive()
     const { cheatSheetRef, highlightedId, changeHighlightedId } = useSimulatorStore()
     const [isOpen, setIsOpen] = useState<boolean>(open)
+
+    useEffect(() => {
+        setIsOpen(open)
+    }, [open])
 
     const handleOpenChange = (value: boolean) => {
         setIsOpen(value)
