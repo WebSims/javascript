@@ -746,7 +746,7 @@ const MemoryModelVisualizer = () => {
                         height: baseHeapHeight,
                         layoutOptions: {
                             "elk.algorithm": "force",
-                            "elk.spacing.nodeNode": "80",
+                            "elk.spacing.nodeNode": "40",
                             "elk.padding": "[top=20, left=20, bottom=20, right=20]",
                             "elk.edgeRouting": "POLYLINE",
                         },
