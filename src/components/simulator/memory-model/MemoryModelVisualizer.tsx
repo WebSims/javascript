@@ -686,33 +686,30 @@ const MemoryModelVisualizer = () => {
                 const memvalItems = currentStep?.memorySnapshot.memval || []
 
                 // Prepare heap container with uniform scaling like other sections
-                let heapContainer: d3.Selection<SVGGElement, unknown, null, undefined> | null = null
-                let baseHeapWidth = 0
-                let baseHeapHeight = 0
-                if (memoryModelData.heap.length > 0) {
-                    baseHeapWidth = (heapSection.width || actualHeapSectionWidth) / sectionsScale
-                    baseHeapHeight = (heapSection.height || heapContentHeight) / sectionsScale
+                const baseHeapWidth = (heapSection.width || actualHeapSectionWidth) / sectionsScale
+                let baseHeapHeight = (heapSection.height || heapContentHeight) / sectionsScale
 
-                    heapContainer = rootContainer
-                        .append("g")
-                        .attr("class", "heap-section")
-                        .attr("transform", `translate(${heapSection.x || 0}, ${heapSection.y || 0}) scale(${sectionsScale})`)
+                const heapContainer = rootContainer
+                    .append("g")
+                    .attr("class", "heap-section")
+                    .attr("transform", `translate(${heapSection.x || 0}, ${heapSection.y || 0}) scale(${sectionsScale})`)
 
-                    const heapBackground = heapContainer
-                        .append("rect")
-                        .attr("class", "heap-section-background")
-                        .attr("x", 0)
-                        .attr("y", 0)
-                        .attr("width", baseHeapWidth)
-                        .attr("height", baseHeapHeight)
-                        .attr("fill", "#fefce8")
-                        .attr("stroke", "none")
-                        .attr("rx", 6)
-                        .attr("ry", 6)
-                    // Store on container for later height updates
-                    // @ts-expect-error attach for internal use
-                    heapContainer.node().__background = heapBackground
-                }
+                const heapBackground = heapContainer
+                    .append("rect")
+                    .attr("class", "heap-section-background")
+                    .attr("x", 0)
+                    .attr("y", 0)
+                    .attr("width", baseHeapWidth)
+                    .attr("height", baseHeapHeight)
+                    .attr("fill", "#fefce8")
+                    .attr("stroke", "none")
+                    .attr("rx", 6)
+                    .attr("ry", 6)
+                // Store on container for later height updates
+                // @ts-expect-error attach for internal use
+                heapContainer.node().__background = heapBackground
+                // @ts-expect-error attach for internal use
+                heapContainer.node().__yOffset = 0
 
                 renderMemvalSection({
                     memvalSection,
@@ -735,7 +732,7 @@ const MemoryModelVisualizer = () => {
                 })
 
                 // Draw heap objects using ELK Force layout with center-x and bottom-y bias
-                if (memoryModelData.heap.length > 0 && heapContainer) {
+                if (memoryModelData.heap.length > 0) {
                     // Build a heap-only graph using the same children prepared earlier
                     const heapOnlyGraph: ElkGraph = {
                         id: "heapRoot",
