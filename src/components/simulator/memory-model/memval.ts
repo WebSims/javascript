@@ -46,6 +46,8 @@ export interface MemvalRendererProps {
     }>
     // Optional visual scale to shrink the whole section uniformly
     scale?: number
+    // Height of the viewport to anchor the section bottom and decide growth
+    viewportHeight: number
 }
 
 export const createMemvalSection = (): ElkNode => {
@@ -106,6 +108,7 @@ export const renderMemvalSection = ({
     nodePositions,
     edgeData,
     scale = 1,
+    viewportHeight,
 }: MemvalRendererProps) => {
     // Always create memval section container, even when empty
     const memvalContainer = rootContainer
@@ -115,10 +118,28 @@ export const renderMemvalSection = ({
 
     // Add background rectangle for memval section
     const visualWidth = memvalSection.width || MEMVAL_SECTION_WIDTH
-    const visualHeight = memvalSection.height || 100
     // Draw unscaled sizes so the group scale controls the visual size
     const baseWidth = visualWidth / scale
-    const baseHeight = visualHeight / scale
+
+    // Start with viewport height, then allow content-driven growth (from bottom)
+    let baseHeight = (viewportHeight) / scale
+    const bottomPadding = 10
+    const totalMemvalHeight = memvalItems.length > 0
+        ? memvalItems.length * MEMVAL_ITEM_HEIGHT + (memvalItems.length - 1) * MEMVAL_SECTION_SPACING
+        : 0
+    const requiredBaseHeight = Math.max(baseHeight, totalMemvalHeight + bottomPadding)
+    if (requiredBaseHeight > baseHeight) {
+        baseHeight = requiredBaseHeight
+        // keep memvalSection height in sync in scaled units
+        memvalSection.height = baseHeight * scale
+    }
+
+    // Anchor the section to the bottom of the viewport (grow upward)
+    const bottomAnchorOffset = Math.max(0, (viewportHeight / scale) - baseHeight)
+    memvalContainer.attr(
+        "transform",
+        `translate(${memvalSection.x || 0}, ${(memvalSection.y || 0) + bottomAnchorOffset}) scale(${scale})`
+    )
 
     memvalContainer
         .append("rect")
@@ -132,8 +153,6 @@ export const renderMemvalSection = ({
     // If no memval items, show a placeholder message
     if (memvalItems.length === 0 || !memvalSection.children) return
 
-    // Calculate total height needed for all memval items
-    const totalMemvalHeight = memvalItems.length * MEMVAL_ITEM_HEIGHT + (memvalItems.length - 1) * MEMVAL_SECTION_SPACING
     // Use baseHeight so after scaling the visual height equals the assigned section height
     const actualMemvalSectionHeight = baseHeight
 
@@ -144,7 +163,6 @@ export const renderMemvalSection = ({
 
         // Calculate position at the bottom of the container
         // Start from the bottom and work upwards, with reversed index order
-        const bottomPadding = 10
         const reversedIndex = memvalItems.length - 1 - memvalIndex
         const itemY = actualMemvalSectionHeight - bottomPadding - totalMemvalHeight + (reversedIndex * (MEMVAL_ITEM_HEIGHT + MEMVAL_SECTION_SPACING))
         const itemX = (baseWidth - MEMVAL_ITEM_WIDTH) / 2 // Center horizontally
@@ -203,13 +221,13 @@ export const renderMemvalSection = ({
         // Store memval position for layered structure edges
         const memvalId = `memval-${memvalIndex}`
         const memvalX = (memvalSection.x || 0) + scale * (itemX + itemWidth / 2)
-        const memvalY = (memvalSection.y || 0) + scale * (itemY + itemHeight / 2)
+        const memvalY = (memvalSection.y || 0) + scale * (bottomAnchorOffset + itemY + itemHeight / 2)
         nodePositions.set(memvalId, { x: memvalX, y: memvalY })
 
         // Store memval position for connections if it's a reference
         if (isReference) {
             const memvalRefX = (memvalSection.x || 0) + scale * (itemX + itemWidth - 5)
-            const memvalRefY = (memvalSection.y || 0) + scale * (itemY + itemHeight / 2)
+            const memvalRefY = (memvalSection.y || 0) + scale * (bottomAnchorOffset + itemY + itemHeight / 2)
             nodePositions.set(`${memvalId}-ref`, { x: memvalRefX, y: memvalRefY })
 
             // Add edge data for memval references
