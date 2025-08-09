@@ -44,6 +44,8 @@ export interface ScopeRendererProps {
         label?: string
         propIndex?: number
     }>
+    // Optional visual scale to shrink the whole section uniformly
+    scale?: number
 }
 
 export const createScopeSection = (): ElkNode => {
@@ -107,6 +109,7 @@ export const renderScopeSection = ({
     rootContainer,
     nodePositions,
     edgeData,
+    scale = 1,
 }: ScopeRendererProps) => {
     if (scopeItems.length === 0 || !scopeSection.children) return
 
@@ -114,27 +117,26 @@ export const renderScopeSection = ({
     const scopeContainer = rootContainer
         .append("g")
         .attr("class", "scope-section")
-        .attr("transform", `translate(${scopeSection.x || 0}, ${scopeSection.y || 0})`)
+        .attr("transform", `translate(${scopeSection.x || 0}, ${scopeSection.y || 0}) scale(${scale})`)
 
     // Add background rectangle for scope section
-    const scopeSectionWidth = scopeSection.width || SCOPE_SECTION_WIDTH
-    const scopeSectionHeight = scopeSection.height || 100
+    const visualWidth = scopeSection.width || SCOPE_SECTION_WIDTH
+    const visualHeight = scopeSection.height || 100
+    const baseWidth = visualWidth / scale
+    const baseHeight = visualHeight / scale
 
     scopeContainer
         .append("rect")
         .attr("class", "scope-section-background")
-        .attr("width", scopeSectionWidth)
-        .attr("height", scopeSectionHeight)
+        .attr("width", baseWidth)
+        .attr("height", baseHeight)
         .attr("fill", "#f1f3f4") // Slightly darker gray background
         .attr("stroke", "none") // No border
         .attr("rx", 6) // Rounded corners
         .attr("ry", 6)
 
-    // Calculate total height needed for all scope items
-    const totalScopeHeight = scopeItems.reduce((total, scope) => {
-        return total + calculateScopeHeight(scope.id, scopeItems, 100) + SCOPE_SECTION_SPACING
-    }, 0)
-    const actualScopeSectionHeight = scopeSection.height || Math.max(100, totalScopeHeight + 20) // Add padding
+    // After scaling, baseHeight equals the assigned height for the visual section
+    const actualScopeSectionHeight = baseHeight
 
     // Draw scope items positioned at the bottom of the container
     scopeSection.children.forEach((scopeNode: ElkNode, scopeIndex: number) => {
@@ -164,8 +166,8 @@ export const renderScopeSection = ({
             .attr("transform", `translate(${scopeX}, ${scopeY})`)
 
         // Store scope position for connections - use ELK layout position
-        const absoluteScopeX = (scopeSection.x || 0) + scopeX + (scopeNode.width || 200) / 2
-        const absoluteScopeY = (scopeSection.y || 0) + scopeY + actualScopeHeight / 2
+        const absoluteScopeX = (scopeSection.x || 0) + scale * (scopeX + (scopeNode.width || 200) / 2)
+        const absoluteScopeY = (scopeSection.y || 0) + scale * (scopeY + actualScopeHeight / 2)
         nodePositions.set(scopeNode.id, { x: absoluteScopeX, y: absoluteScopeY })
 
         // Draw scope rectangle
@@ -281,8 +283,8 @@ export const renderScopeSection = ({
                 .text(displayText)
 
             // Store variable position for connections - position at the left side of the scope
-            const varX = (scopeSection.x || 0) + scopeX + 5
-            const varY = (scopeSection.y || 0) + scopeY + 35 + varIndex * 35 + 15
+            const varX = (scopeSection.x || 0) + scale * (scopeX + 5)
+            const varY = (scopeSection.y || 0) + scale * (scopeY + 35 + varIndex * 35 + 15)
             nodePositions.set(varNodeId, { x: varX, y: varY })
 
             // Add a small circle at the connection point for variables (only for reference types)

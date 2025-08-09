@@ -372,17 +372,14 @@ const MemoryModelVisualizer = () => {
             const heapSection: ElkNode = {
                 id: "heapSection",
                 layoutOptions: {
-                    "elk.algorithm": "layered",
-                    "elk.direction": "LEFT",
-                    "elk.partitioning.activate": "true",
+                    // Use ELK Force-directed algorithm for heap
+                    "elk.algorithm": "force",
+                    // Increase spacing to reduce overlap chances
+                    "elk.spacing.nodeNode": "80",
+                    // Keep edges simple within heap if any are later added
+                    "elk.edgeRouting": "POLYLINE",
+                    // Provide padding so force layout has room around borders
                     "elk.padding": "[top=20, left=20, bottom=20, right=20]",
-                    "elk.layered.crossingMinimization.strategy": "LAYER_SWEEP",
-                    "elk.layered.considerModelOrder.strategy": "NODES_AND_EDGES",
-                    "elk.spacing.nodeNode": "50",
-                    "elk.layered.spacing.nodeNodeBetweenLayers": "50",
-                    "elk.layered.nodePlacement.strategy": "NETWORK_SIMPLEX",
-                    "elk.layered.nodePlacement.bk.fixedAlignment": "BALANCED",
-                    "elk.edgeRouting": "SPLINES",
                 },
                 children: [],
             }
@@ -546,17 +543,30 @@ const MemoryModelVisualizer = () => {
                 const actualScopeSectionWidth = scopeSection.children && scopeSection.children.length > 0 ? calculateSectionWidth(scopeSection) : 0
 
                 // Calculate heap section width as remaining width: containerSize.width - memvalSection.width - scopeSection.width
-                const actualHeapSectionWidth = containerSize.width - actualMemvalSectionWidth - actualScopeSectionWidth
+                let actualHeapSectionWidth = containerSize.width - actualMemvalSectionWidth - actualScopeSectionWidth
 
-                // Calculate heap section height based on content
-                const heapContentHeight = memoryModelData.heap.length > 0
-                    ? Math.max(containerSize.height, memoryModelData.heap.length * 200) // Ensure minimum height for growth
-                    : containerSize.height
+                // Calculate heap section height based on viewport; will grow after layout if needed
+                const heapContentHeight = containerSize.height
 
-                // Assign calculated widths to section objects for positioning
-                memvalSection.width = actualMemvalSectionWidth
-                scopeSection.width = actualScopeSectionWidth
-                heapSection.width = actualHeapSectionWidth
+                // Determine if we need to proportionally scale memval and scope sections
+                const minHeapWidthNeeded = objectWidth + 40
+                const fixedSectionsWidth = actualMemvalSectionWidth + actualScopeSectionWidth
+                let sectionsScale = 1
+                if (actualHeapSectionWidth < minHeapWidthNeeded && fixedSectionsWidth > 0) {
+                    const availableForFixed = Math.max(60, containerSize.width - minHeapWidthNeeded)
+                    sectionsScale = Math.max(0.4, Math.min(1, availableForFixed / fixedSectionsWidth))
+                    // Recompute widths with scale
+                    const scaledMemvalWidth = Math.round(actualMemvalSectionWidth * sectionsScale)
+                    const scaledScopeWidth = Math.round(actualScopeSectionWidth * sectionsScale)
+                    actualHeapSectionWidth = containerSize.width - scaledMemvalWidth - scaledScopeWidth
+                    memvalSection.width = scaledMemvalWidth
+                    scopeSection.width = scaledScopeWidth
+                    heapSection.width = actualHeapSectionWidth
+                } else {
+                    memvalSection.width = actualMemvalSectionWidth
+                    scopeSection.width = actualScopeSectionWidth
+                    heapSection.width = actualHeapSectionWidth
+                }
 
                 // Set section heights to fit container height if they are smaller
                 if (!memvalSection.height || memvalSection.height && memvalSection.height < containerSize.height) {
@@ -571,14 +581,14 @@ const MemoryModelVisualizer = () => {
                 // Position sections: memval -> heap -> scope
                 memvalSection.x = 0
                 heapSection.x = memvalSection.width
-                scopeSection.x = memvalSection.width + heapSection.width
+                scopeSection.x = (memvalSection.width || 0) + (heapSection.width || 0)
 
                 memvalSection.y = 0
                 scopeSection.y = 0
                 heapSection.y = 0
 
                 // Calculate total content dimensions
-                const totalContentWidth = actualMemvalSectionWidth + actualHeapSectionWidth + actualScopeSectionWidth
+                const totalContentWidth = (memvalSection.width || 0) + (heapSection.width || 0) + (scopeSection.width || 0)
                 const totalContentHeight = containerSize.height
 
                 // Calculate container center
@@ -675,22 +685,33 @@ const MemoryModelVisualizer = () => {
                 // Draw memval items using the module - always show memval section
                 const memvalItems = currentStep?.memorySnapshot.memval || []
 
-                // Add background rectangle for heap section (drawn first for proper layering)
+                // Prepare heap container with uniform scaling like other sections
+                let heapContainer: d3.Selection<SVGGElement, unknown, null, undefined> | null = null
+                let baseHeapWidth = 0
+                let baseHeapHeight = 0
                 if (memoryModelData.heap.length > 0) {
-                    const heapSectionWidth = actualHeapSectionWidth
-                    const heapSectionHeight = heapSection.height || containerSize.height
+                    baseHeapWidth = (heapSection.width || actualHeapSectionWidth) / sectionsScale
+                    baseHeapHeight = (heapSection.height || heapContentHeight) / sectionsScale
 
-                    rootContainer
+                    heapContainer = rootContainer
+                        .append("g")
+                        .attr("class", "heap-section")
+                        .attr("transform", `translate(${heapSection.x || 0}, ${heapSection.y || 0}) scale(${sectionsScale})`)
+
+                    const heapBackground = heapContainer
                         .append("rect")
                         .attr("class", "heap-section-background")
-                        .attr("x", heapSection.x || 0)
-                        .attr("y", heapSection.y || 0)
-                        .attr("width", heapSectionWidth)
-                        .attr("height", heapSectionHeight)
-                        .attr("fill", "#fefce8") // Light yellow background
-                        .attr("stroke", "none") // No border
-                        .attr("rx", 6) // Rounded corners
+                        .attr("x", 0)
+                        .attr("y", 0)
+                        .attr("width", baseHeapWidth)
+                        .attr("height", baseHeapHeight)
+                        .attr("fill", "#fefce8")
+                        .attr("stroke", "none")
+                        .attr("rx", 6)
                         .attr("ry", 6)
+                    // Store on container for later height updates
+                    // @ts-expect-error attach for internal use
+                    heapContainer.node().__background = heapBackground
                 }
 
                 renderMemvalSection({
@@ -700,6 +721,7 @@ const MemoryModelVisualizer = () => {
                     memoryModelData,
                     nodePositions,
                     edgeData,
+                    scale: sectionsScale,
                 })
 
                 // Draw scopes using the module
@@ -710,331 +732,261 @@ const MemoryModelVisualizer = () => {
                         rootContainer,
                         nodePositions,
                         edgeData,
+                        scale: sectionsScale,
                     })
                 }
 
-                // Draw heap objects with D3 force simulation for optimal positioning
-                if (memoryModelData.heap.length > 0) {
-                    // Define type for heap nodes with simulation properties
-                    type HeapNodeDatum = d3.SimulationNodeDatum & {
-                        id: string
-                        width: number
-                        height: number
-                        data: HeapObjectData
-                        connections: number
+                // Draw heap objects using ELK Force layout with center-x and bottom-y bias
+                if (memoryModelData.heap.length > 0 && heapContainer) {
+                    // Build a heap-only graph using the same children prepared earlier
+                    const heapOnlyGraph: ElkGraph = {
+                        id: "heapRoot",
+                        width: baseHeapWidth,
+                        height: baseHeapHeight,
+                        layoutOptions: {
+                            "elk.algorithm": "force",
+                            "elk.spacing.nodeNode": "80",
+                            "elk.padding": "[top=20, left=20, bottom=20, right=20]",
+                            "elk.edgeRouting": "POLYLINE",
+                        },
+                        children: heapSection.children || [],
+                        edges: [],
                     }
 
-                    // Create force simulation for heap objects
-                    const heapNodes: HeapNodeDatum[] = memoryModelData.heap.map((objData, objIndex) => {
-                        const objNode = heapSection.children?.find(child => child.id === objData.id)
-                        const propCount = objData.properties ? objData.properties.length : 0
-                        const objHeight = Math.max(objectHeight, 40 + propCount * 20)
+                    // Run ELK on the heap-only graph to get force-directed positions
+                    elk.layout(heapOnlyGraph).then((heapLayouted) => {
+                        const children = heapLayouted.children || []
+                        if (children.length === 0) return
 
-                        return {
-                            id: objData.id,
-                            x: (heapSection.x || 0) + (objNode?.x || objIndex * (objectWidth + 50)),
-                            y: (heapSection.y || 0) + (objNode?.y || 0),
-                            width: objNode?.width || objectWidth,
-                            height: objHeight,
-                            data: objData,
-                            connections: 0
+                        // Compute bounding box of heap children (base units)
+                        const minX = Math.min(...children.map(c => (c.x || 0)))
+                        const maxX = Math.max(...children.map(c => (c.x || 0) + (c.width || objectWidth)))
+                        const minY = Math.min(...children.map(c => (c.y || 0)))
+                        const maxY = Math.max(...children.map(c => (c.y || 0) + (c.height || objectHeight)))
+                        const bboxWidth = maxX - minX
+                        const bboxHeight = maxY - minY
+
+                        // If content taller than current heap height, grow from bottom (increase height upward)
+                        const padding = 20
+                        const requiredBaseHeight = Math.max(baseHeapHeight, bboxHeight + padding * 2)
+                        if (requiredBaseHeight > baseHeapHeight) {
+                            baseHeapHeight = requiredBaseHeight
+                            // Update visual background height
+                            const bg = // @ts-expect-error internal handle
+                                (heapContainer.node().__background as d3.Selection<SVGRectElement, unknown, null, undefined>)
+                            if (bg) bg.attr("height", baseHeapHeight)
+                            // Keep section height in sync for absolute position calculations
+                            heapSection.height = baseHeapHeight * sectionsScale
                         }
-                    })
 
-                    // Create connections data for force simulation
-                    const connections: Array<{ source: string; target: string; type: string }> = []
+                        // Bias: center horizontally, bottom-align vertically within heap section (base units)
+                        const targetCenterX = baseHeapWidth / 2
+                        const currentCenterX = minX + bboxWidth / 2
+                        const dx = targetCenterX - currentCenterX
 
-                    // Add variable to heap connections
-                    memoryModelData.scopes.forEach((scope) => {
-                        scope.variables.forEach((variable) => {
-                            if (variable.type === "reference" && variable.target) {
-                                connections.push({
-                                    source: variable.id,
-                                    target: variable.target,
-                                    type: "var-ref"
+                        const heapLeft = 0
+                        const heapTop = 0
+                        const heapRight = heapLeft + baseHeapWidth
+                        const heapBottom = heapTop + baseHeapHeight
+
+                        // Align bottom of bbox to bottom of heap area with padding
+                        const dy = (heapBottom - padding) - maxY
+
+                        // Anchor heap group's bottom to viewport bottom when section grows
+                        const bottomAnchorOffset = Math.max(0, (containerSize.height / sectionsScale) - baseHeapHeight)
+                        heapContainer.attr(
+                            "transform",
+                            `translate(${heapSection.x || 0}, ${(heapSection.y || 0) + bottomAnchorOffset}) scale(${sectionsScale})`
+                        )
+                        // @ts-expect-error internal handle
+                        heapContainer.node().__yOffset = bottomAnchorOffset
+
+                        // Helpers to avoid overlaps and grow section height if needed
+                        type PlacedRect = { x: number; y: number; w: number; h: number }
+                        const placedRects: PlacedRect[] = []
+                        const ySpacing = 32
+                        const intersects = (a: PlacedRect, b: PlacedRect) => {
+                            const aTop = a.y - ySpacing / 2
+                            const aBottom = a.y + a.h + ySpacing / 2
+                            const bTop = b.y - ySpacing / 2
+                            const bBottom = b.y + b.h + ySpacing / 2
+                            const noOverlap = a.x + a.w <= b.x || b.x + b.w <= a.x || aBottom <= bTop || bBottom <= aTop
+                            return !noOverlap
+                        }
+                        const updateBottomAnchor = () => {
+                            const newOffset = Math.max(0, (containerSize.height / sectionsScale) - baseHeapHeight)
+                            heapContainer.attr(
+                                "transform",
+                                `translate(${heapSection.x || 0}, ${(heapSection.y || 0) + newOffset}) scale(${sectionsScale})`
+                            )
+                            // @ts-expect-error internal handle
+                            heapContainer.node().__yOffset = newOffset
+                        }
+                        const growHeightIfNeeded = (required: number) => {
+                            if (required <= baseHeapHeight) return
+                            baseHeapHeight = required
+                            const bg = // @ts-expect-error internal handle
+                                (heapContainer.node().__background as d3.Selection<SVGRectElement, unknown, null, undefined>)
+                            if (bg) bg.attr("height", baseHeapHeight)
+                            heapSection.height = baseHeapHeight * sectionsScale
+                            updateBottomAnchor()
+                        }
+                        const resolveVerticalPosition = (x: number, y: number, w: number, h: number): number => {
+                            const minUp = heapTop + padding
+                            const step = 20
+                            let offset = 0
+                            let tryUp = true // prefer moving upward first to fill from bottom
+                            for (let attempts = 0; attempts < 2000; attempts++) {
+                                const currentHeapBottom = heapTop + baseHeapHeight
+                                const maxDown = currentHeapBottom - padding - h
+                                const candidateY = tryUp ? Math.max(y - offset, minUp) : Math.min(y + offset, maxDown)
+                                const candidate: PlacedRect = { x, y: candidateY, w, h }
+                                const collides = placedRects.some(r => intersects(candidate, r))
+                                if (!collides) return candidateY
+                                tryUp = !tryUp
+                                offset += step
+                                // If we've exceeded available vertical space, grow height and continue
+                                if (candidateY <= minUp || candidateY >= maxDown) {
+                                    const needed = baseHeapHeight + Math.max(h + ySpacing, 60)
+                                    growHeightIfNeeded(needed)
+                                }
+                            }
+                            // As a last resort, place at the bottom with growth
+                            const needed = baseHeapHeight + Math.max(h + ySpacing, 60)
+                            growHeightIfNeeded(needed)
+                            const currentHeapBottom = heapTop + baseHeapHeight
+                            const maxDown = currentHeapBottom - padding - h
+                            return Math.min(Math.max(y, minUp), maxDown)
+                        }
+
+                        // Render each heap object using adjusted positions
+                        children.forEach((c) => {
+                            const objData = memoryModelData.heap.find(h => h.id === c.id)
+                            if (!objData) return
+
+                            const propCount = objData.properties ? objData.properties.length : 0
+                            const objHeight = Math.max(objectHeight, 40 + propCount * 20)
+                            const objWidth = c.width || objectWidth
+
+                            // Compute local positions in heap container (base units) and clamp to bounds
+                            let localX = heapLeft + (c.x || 0) + dx
+                            let localY = heapTop + (c.y || 0) + dy
+
+                            localX = Math.min(Math.max(localX, heapLeft + padding), heapRight - objWidth - padding)
+                            localY = Math.min(Math.max(localY, heapTop + padding), heapBottom - objHeight - padding)
+
+                            // If overlapping with already placed items, move vertically (downwards first, then upwards)
+                            localY = resolveVerticalPosition(localX, localY, objWidth, objHeight)
+                            placedRects.push({ x: localX, y: localY, w: objWidth, h: objHeight })
+
+                            const objectGroup = heapContainer
+                                .append("g")
+                                .attr("class", "heap-object")
+                                .attr("data-id", c.id)
+                                .attr("transform", `translate(${localX}, ${localY})`)
+
+                            // Store object position for connections - use right edge for incoming connections
+                            const yOffset = // @ts-expect-error internal handle
+                                (heapContainer.node().__yOffset as number) || 0
+                            nodePositions.set(c.id, {
+                                x: (heapSection.x || 0) + sectionsScale * (localX + objWidth),
+                                y: (heapSection.y || 0) + sectionsScale * (yOffset + localY + objHeight / 2),
+                            })
+                            // Store left edge position for memval connections
+                            nodePositions.set(`${c.id}-left`, {
+                                x: (heapSection.x || 0) + sectionsScale * (localX),
+                                y: (heapSection.y || 0) + sectionsScale * (yOffset + localY + objHeight / 2),
+                            })
+
+                            // Draw object rectangle
+                            objectGroup
+                                .append("rect")
+                                .attr("width", objWidth)
+                                .attr("height", objHeight)
+                                .attr("rx", 6)
+                                .attr("ry", 6)
+                                .attr("fill", objData.color)
+                                .attr("stroke", objData.borderColor)
+                                .attr("stroke-width", 2)
+
+                            // Add object type header
+                            objectGroup
+                                .append("rect")
+                                .attr("width", objWidth)
+                                .attr("height", 25)
+                                .attr("rx", 6)
+                                .attr("ry", 6)
+                                .attr("fill", objData.borderColor)
+
+                            objectGroup
+                                .append("text")
+                                .attr("x", 10)
+                                .attr("y", 17)
+                                .attr("fill", "white")
+                                .attr("font-weight", "bold")
+                                .text(objData.type)
+
+                            // Add object properties
+                            if (objData.properties) {
+                                objData.properties.forEach((prop, i) => {
+                                    const propertyGroup = objectGroup
+                                        .append("g")
+                                        .attr("class", "property")
+                                        .attr("transform", `translate(10, ${35 + i * 20})`)
+                                        .attr("data-property-id", `${c.id}_${prop.name}`)
+
+                                    if (prop.target) {
+                                        propertyGroup
+                                            .append("rect")
+                                            .attr("width", 12)
+                                            .attr("height", 15)
+                                            .attr("fill", "white")
+                                            .attr("stroke", "black")
+                                            .attr("stroke-width", 0.5)
+
+                                        propertyGroup
+                                            .append("path")
+                                            .attr("d", "M11, 0 L11, 5 L16, 5 L16, 0 Z")
+                                            .attr("fill", "white")
+                                            .attr("stroke", "black")
+                                            .attr("stroke-width", 0.5)
+
+                                        // Store property position for connections
+                                        const propXAbs = (heapSection.x || 0) + sectionsScale * (localX + 5)
+                                        const propYAbs = (heapSection.y || 0) + sectionsScale * (yOffset + localY + 45 + i * 20)
+                                        const propId = `${c.id}_${prop.name}`
+                                        propertyPositions.set(propId, { x: propXAbs, y: propYAbs })
+
+                                        // Add edge data for property references
+                                        edgeData.push({
+                                            source: propId,
+                                            target: prop.target,
+                                            type: "prop-ref",
+                                            label: prop.name,
+                                            propIndex: i,
+                                        })
+
+                                        objectGroup
+                                            .append("circle")
+                                            .attr("cx", 5)
+                                            .attr("cy", 45 + i * 20)
+                                            .attr("r", 3)
+                                            .attr("fill", "#ed8936")
+                                            .attr("stroke", "none")
+                                    }
+
+                                    propertyGroup
+                                        .append("text")
+                                        .attr("x", prop.target ? 20 : 0)
+                                        .attr("y", 10)
+                                        .attr("font-size", "12px")
+                                        .text(`${prop.name}: ${prop.value}`)
                                 })
                             }
                         })
-                    })
 
-                    // Add heap object property connections
-                    memoryModelData.heap.forEach((object) => {
-                        if (object.properties) {
-                            object.properties.forEach((prop) => {
-                                if (prop.target) {
-                                    connections.push({
-                                        source: object.id,
-                                        target: prop.target,
-                                        type: "prop-ref"
-                                    })
-                                }
-                            })
-                        }
-                    })
-
-                    // Count connections for each node
-                    heapNodes.forEach(node => {
-                        node.connections = connections.filter(c => c.target === node.id || c.source === node.id).length
-                    })
-
-                    // Custom force to minimize line crossings and optimize layout
-                    const optimizeLayoutForce = () => {
-                        const strength = 0.3
-                        return (alpha: number) => {
-                            heapNodes.forEach((node1, i) => {
-                                heapNodes.forEach((node2, j) => {
-                                    if (i >= j) return
-
-                                    const dx = (node2.x || 0) - (node1.x || 0)
-                                    const dy = (node2.y || 0) - (node1.y || 0)
-                                    const distance = Math.sqrt(dx * dx + dy * dy) || 1
-
-                                    // Calculate optimal distance based on node sizes and connections
-                                    const optimalDistance = Math.max(
-                                        (node1.width + node2.width) / 2 + 100,
-                                        (node1.height + node2.height) / 2 + 50
-                                    )
-
-                                    // Apply repulsion/attraction based on optimal distance
-                                    const force = strength * alpha * (optimalDistance - distance) / distance
-                                    const fx = (dx / distance) * force
-                                    const fy = (dy / distance) * force
-
-                                    if (node1.vx !== undefined && node1.vy !== undefined) {
-                                        node1.vx = (node1.vx || 0) - fx
-                                        node1.vy = (node1.vy || 0) - fy
-                                    }
-                                    if (node2.vx !== undefined && node2.vy !== undefined) {
-                                        node2.vx = (node2.vx || 0) + fx
-                                        node2.vy = (node2.vy || 0) + fy
-                                    }
-                                })
-                            })
-                        }
-                    }
-
-                    // Custom force to constrain objects within heap section bounds
-                    const constrainToHeapBoundsForce = () => {
-                        const strength = 0.5
-                        return (alpha: number) => {
-                            heapNodes.forEach((node) => {
-                                const nodeRadius = Math.max(node.width, node.height) / 2
-                                const leftBound = (heapSection.x || 0) + nodeRadius + 20
-                                const rightBound = (heapSection.x || 0) + actualHeapSectionWidth - nodeRadius - 20
-                                const topBound = (heapSection.y || 0) + nodeRadius + 20
-                                const bottomBound = (heapSection.y || 0) + heapContentHeight - nodeRadius - 20
-
-                                // Constrain X position within bounds
-                                if ((node.x || 0) < leftBound) {
-                                    if (node.vx !== undefined) {
-                                        node.vx = (node.vx || 0) + strength * alpha * (leftBound - (node.x || 0))
-                                    }
-                                } else if ((node.x || 0) > rightBound) {
-                                    if (node.vx !== undefined) {
-                                        node.vx = (node.vx || 0) + strength * alpha * (rightBound - (node.x || 0))
-                                    }
-                                }
-
-                                // Constrain Y position within bounds
-                                if ((node.y || 0) < topBound) {
-                                    if (node.vy !== undefined) {
-                                        node.vy = (node.vy || 0) + strength * alpha * (topBound - (node.y || 0))
-                                    }
-                                } else if ((node.y || 0) > bottomBound) {
-                                    if (node.vy !== undefined) {
-                                        node.vy = (node.vy || 0) + strength * alpha * (bottomBound - (node.y || 0))
-                                    }
-                                }
-                            })
-                        }
-                    }
-
-                    // Custom force to distribute nodes evenly in the available space
-                    const distributeNodesForce = () => {
-                        const strength = 0.15
-                        return (alpha: number) => {
-                            const totalNodes = heapNodes.length
-                            if (totalNodes === 0) return
-
-                            // Calculate target positions for even distribution
-                            const availableWidth = actualHeapSectionWidth - 40 // Account for padding
-                            const availableHeight = Math.max(heapContentHeight - 40, totalNodes * 150) // Use calculated heap content height
-
-                            // Calculate optimal grid layout
-                            const aspectRatio = availableWidth / availableHeight
-                            const cols = Math.ceil(Math.sqrt(totalNodes * aspectRatio))
-                            const rows = Math.ceil(totalNodes / cols)
-
-                            const cellWidth = availableWidth / cols
-                            const cellHeight = availableHeight / rows
-
-                            heapNodes.forEach((node, index) => {
-                                const row = Math.floor(index / cols)
-                                const col = index % cols
-
-                                const targetX = (heapSection.x || 0) + 20 + col * cellWidth + cellWidth / 2
-                                const targetY = (heapSection.y || 0) + 20 + row * cellHeight + cellHeight / 2
-
-                                const dx = targetX - (node.x || 0)
-                                const dy = targetY - (node.y || 0)
-
-                                if (node.vx !== undefined && node.vy !== undefined) {
-                                    node.vx = (node.vx || 0) + strength * alpha * dx
-                                    node.vy = (node.vy || 0) + strength * alpha * dy
-                                }
-                            })
-                        }
-                    }
-
-                    // Custom force to handle vertical growth and spacing
-                    const verticalGrowthForce = () => {
-                        const strength = 0.3
-                        return (alpha: number) => {
-                            // Sort nodes by Y position to ensure proper vertical distribution
-                            const sortedNodes = [...heapNodes].sort((a, b) => (a.y || 0) - (b.y || 0))
-
-                            sortedNodes.forEach((node, index) => {
-                                const minYSpacing = Math.max(node.height, 120) + 40
-                                const targetY = (heapSection.y || 0) + 20 + index * minYSpacing
-
-                                const dy = targetY - (node.y || 0)
-
-                                if (node.vy !== undefined && Math.abs(dy) > 10) {
-                                    node.vy = (node.vy || 0) + strength * alpha * dy
-                                }
-                            })
-                        }
-                    }
-
-                    // Set up D3 force simulation for heap objects with improved forces
-                    const simulation = d3.forceSimulation(heapNodes)
-                        .force("collision", d3.forceCollide().radius((d: d3.SimulationNodeDatum) => {
-                            const node = d as HeapNodeDatum
-                            return Math.max(node.width, node.height) / 2 + 80
-                        }).strength(0.9))
-                        .force("center", d3.forceCenter(
-                            (heapSection.x || 0) + actualHeapSectionWidth / 2,
-                            (heapSection.y || 0) + heapContentHeight / 2
-                        ))
-                        .force("x", d3.forceX((heapSection.x || 0) + actualHeapSectionWidth / 2).strength(0.1))
-                        .force("y", d3.forceY((heapSection.y || 0) + heapContentHeight / 2).strength(0.05))
-                        .force("optimizeLayout", optimizeLayoutForce())
-                        .force("constrainBounds", constrainToHeapBoundsForce())
-                        .force("distributeNodes", distributeNodesForce())
-                        .force("verticalGrowth", verticalGrowthForce())
-                        .force("repel", d3.forceManyBody().strength(-400))
-                        .alphaDecay(0.015)
-                        .velocityDecay(0.35)
-
-                    // Run simulation to completion with more iterations for better results
-                    simulation.stop()
-                    for (let i = 0; i < 500; ++i) simulation.tick()
-
-                    // Now render heap objects with optimized positions
-                    heapNodes.forEach((heapNode) => {
-                        const objData = heapNode.data
-                        const objNodeId = objData.id
-
-                        const objectGroup = rootContainer
-                            .append("g")
-                            .attr("class", "heap-object")
-                            .attr("data-id", objNodeId)
-                            .attr("transform", `translate(${heapNode.x || 0}, ${heapNode.y || 0})`)
-
-                        // Store object position for connections - use right edge for incoming connections
-                        nodePositions.set(objNodeId, { x: (heapNode.x || 0) + heapNode.width, y: (heapNode.y || 0) + heapNode.height / 2 })
-
-                        // Store left edge position for memval connections
-                        nodePositions.set(`${objNodeId}-left`, { x: (heapNode.x || 0), y: (heapNode.y || 0) + heapNode.height / 2 })
-
-                        // Draw object rectangle
-                        objectGroup
-                            .append("rect")
-                            .attr("width", heapNode.width)
-                            .attr("height", heapNode.height)
-                            .attr("rx", 6)
-                            .attr("ry", 6)
-                            .attr("fill", objData.color)
-                            .attr("stroke", objData.borderColor)
-                            .attr("stroke-width", 2)
-
-                        // Add object type header
-                        objectGroup
-                            .append("rect")
-                            .attr("width", heapNode.width)
-                            .attr("height", 25)
-                            .attr("rx", 6)
-                            .attr("ry", 6)
-                            .attr("fill", objData.borderColor)
-
-                        objectGroup
-                            .append("text")
-                            .attr("x", 10)
-                            .attr("y", 17)
-                            .attr("fill", "white")
-                            .attr("font-weight", "bold")
-                            .text(objData.type)
-
-                        // Add object properties
-                        if (objData.properties) {
-                            objData.properties.forEach((prop, i) => {
-                                const propertyGroup = objectGroup
-                                    .append("g")
-                                    .attr("class", "property")
-                                    .attr("transform", `translate(10, ${35 + i * 20})`)
-                                    .attr("data-property-id", `${objNodeId}_${prop.name}`)
-
-                                // Property icon (document icon for references)
-                                if (prop.target) {
-                                    propertyGroup
-                                        .append("rect")
-                                        .attr("width", 12)
-                                        .attr("height", 15)
-                                        .attr("fill", "white")
-                                        .attr("stroke", "black")
-                                        .attr("stroke-width", 0.5)
-
-                                    propertyGroup
-                                        .append("path")
-                                        .attr("d", "M11, 0 L11, 5 L16, 5 L16, 0 Z")
-                                        .attr("fill", "white")
-                                        .attr("stroke", "black")
-                                        .attr("stroke-width", 0.5)
-
-                                    // Store property position for connections
-                                    const propX = (heapNode.x || 0) + 5
-                                    const propY = (heapNode.y || 0) + 45 + i * 20
-                                    const propId = `${objNodeId}_${prop.name}`
-                                    propertyPositions.set(propId, { x: propX, y: propY })
-
-                                    // Add edge data for property references
-                                    edgeData.push({
-                                        source: propId,
-                                        target: prop.target,
-                                        type: "prop-ref",
-                                        label: prop.name,
-                                        propIndex: i,
-                                    })
-
-                                    // Add a small circle at the connection point
-                                    objectGroup
-                                        .append("circle")
-                                        .attr("cx", 5)
-                                        .attr("cy", 45 + i * 20)
-                                        .attr("r", 3)
-                                        .attr("fill", "#ed8936")
-                                        .attr("stroke", "none")
-                                }
-
-                                // Property name and value
-                                propertyGroup
-                                    .append("text")
-                                    .attr("x", prop.target ? 20 : 0)
-                                    .attr("y", 10)
-                                    .attr("font-size", "12px")
-                                    .text(`${prop.name}: ${prop.value}`)
-                            })
-                        }
+                        // After rendering heap and collecting edges, update connections
+                        updateConnections()
                     })
                 }
 
