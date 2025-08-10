@@ -226,14 +226,14 @@ const MemoryModelVisualizer = () => {
             if (obj.type === HEAP_OBJECT_TYPE.OBJECT) {
                 // Process object properties
                 Object.entries(obj.properties).forEach(([propName, propValue]) => {
-                    const property = formatPropertyValue(propName, propValue, heapData)
+                    const property = formatPropertyValue(propName, propValue)
                     properties.push(property)
                 })
             } else if (obj.type === HEAP_OBJECT_TYPE.ARRAY) {
                 // Process array elements
                 obj.elements.forEach((element, index) => {
                     if (element !== undefined) {
-                        const property = formatPropertyValue(String(index), element, heapData)
+                        const property = formatPropertyValue(String(index), element)
                         properties.push(property)
                     }
                 })

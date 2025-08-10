@@ -64,7 +64,7 @@ export const createHeapNodes = (heapData: HeapObjectData[], objectWidth: number,
     })
 }
 
-export const formatPropertyValue = (propName: string, propValue: JSValue, heapData?: HeapObjectData[]): { name: string; value: string; target?: string } => {
+export const formatPropertyValue = (propName: string, propValue: JSValue): { name: string; value: string; target?: string } => {
     if (propValue.type === "primitive") {
         if (propValue.value === undefined) {
             return { name: propName, value: "undefined" }
@@ -315,11 +315,8 @@ export const renderHeapSection = ({
 
             // Add object type header
             objectGroup
-                .append("rect")
-                .attr("width", objWidth)
-                .attr("height", 20)
-                .attr("rx", 6)
-                .attr("ry", 6)
+                .append("path")
+                .attr("d", `M 0 6 Q 0 0 6 0 L ${objWidth - 6} 0 Q ${objWidth} 0 ${objWidth} 6 L ${objWidth} 20 L 0 20 Z`)
                 .attr("fill", objData.borderColor)
 
             objectGroup
@@ -327,6 +324,7 @@ export const renderHeapSection = ({
                 .attr("x", 10)
                 .attr("y", 14)
                 .attr("fill", "white")
+                .attr("font-size", "14px")
                 .attr("font-weight", "bold")
                 .text(objData.type)
 
