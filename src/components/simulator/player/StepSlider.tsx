@@ -158,12 +158,6 @@ const StepSlider: React.FC = () => {
         }
     }, [isMobile])
 
-    const handleSliderValueChange = useCallback(([value]: number[]) => {
-        changeStep(value)
-        setHoveredStepIndex(value)
-        setIsTooltipOpen(true)
-    }, [changeStep])
-
     // Add global pointer event listeners when dragging on desktop
     React.useEffect(() => {
         if (isDragging && !isMobile) {
@@ -422,7 +416,6 @@ const StepSlider: React.FC = () => {
 
                 <Slider
                     value={[currentStep.index]}
-                    onValueChange={handleSliderValueChange}
                     min={0}
                     max={steps.length > 0 ? steps.length - 1 : 0}
                     step={1}
@@ -432,7 +425,7 @@ const StepSlider: React.FC = () => {
                         '[&_[data-orientation=horizontal]]:transition-all [&_[data-orientation=horizontal]]:duration-200',
                         '[&_[data-orientation=horizontal]]:rounded-none',
                         // Enable pointer events and add hover styles for the thumb
-                        '[&_[role=slider]]:pointer-events-auto',
+                        '[&_[role=slider]]:pointer-events-none',
                         isDragging ? '[&_[role=slider]]:cursor-grabbing' : '[&_[role=slider]]:cursor-pointer',
                         // Classic media player button styling - rectangular donut shape
                         '[&_[role=slider]]:h-3.5',
