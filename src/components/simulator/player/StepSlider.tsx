@@ -366,13 +366,15 @@ const StepSlider: React.FC = () => {
                         // Enable pointer events and add hover styles for the thumb
                         '[&_[role=slider]]:pointer-events-auto',
                         isDragging ? '[&_[role=slider]]:cursor-grabbing' : '[&_[role=slider]]:cursor-pointer',
-                        '[&_[role=slider]]:w-5 [&_[role=slider]]:h-5',
-                        '[&_[role=slider]]:bg-white/70',
+                        // Classic media player button styling - rectangular donut shape
+                        '[&_[role=slider]]:h-3.5',
+                        '[&_[role=slider]]:w-2',
+                        '[&_[role=slider]]:box-content',
+                        '[&_[role=slider]]:rounded-none',
+                        '[&_[role=slider]]:bg-transparent',
+                        '[&_[role=slider]]:border-[7px] [&_[role=slider]]:border-stone-400',
                         // Glass-like effect for filled portion with enhanced contrast
                         '[&_[data-orientation=horizontal]_span[data-orientation=horizontal]]:bg-transparent',
-                        // current step is lest than 50%
-                        // '[&_[data-orientation=horizontal]_span[data-orientation=horizontal]]:rounded-full',
-                        // currentStep.index < steps.length / 2 ? '[&_[data-orientation=horizontal]_span[data-orientation=horizontal]]:-mr-[7px]' : '',
                     )}
                     onPointerDown={handlePointer}
                     onPointerMove={handlePointer}
