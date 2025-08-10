@@ -192,16 +192,16 @@ const MemoryModelVisualizer = () => {
         // Process heap objects first to get type information
         Object.entries(currentStep?.memorySnapshot.heap ?? {}).forEach(([ref, obj]) => {
             const objId = `obj-${ref}`
-            let objType = "OBJECT"
+            let objType = "Object"
             let objColor = "#fefcbf"
             let objBorderColor = "#ecc94b"
 
             if (obj.type === HEAP_OBJECT_TYPE.ARRAY) {
-                objType = "ARRAY"
+                objType = "Array"
                 objColor = "#c6f6d5"
                 objBorderColor = "#68d391"
             } else if (obj.type === HEAP_OBJECT_TYPE.FUNCTION) {
-                objType = "FUNCTION"
+                objType = "Function"
                 objColor = "#bee3f8"
                 objBorderColor = "#63b3ed"
             }
