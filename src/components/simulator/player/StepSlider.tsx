@@ -82,40 +82,82 @@ const StepSlider: React.FC = () => {
 
     const animatedTooltipX = useSpringFollower(tooltipTargetX, { lagMs: 150, snapEps: TOOLTIP_WIDTH })
 
-    // Pointer event handlers for hover and interaction
+    // Pointer event handlers for desktop hover and interaction
     const handlePointerEnter = useCallback(() => {
-        setIsTooltipOpen(true)
-    }, [])
+        if (!isMobile) {
+            setIsTooltipOpen(true)
+        }
+    }, [isMobile])
 
     const handlePointerLeave = useCallback(() => {
-        if (!isDragging) {
+        if (!isMobile && !isDragging) {
             setIsTooltipOpen(false)
             setHoveredStepIndex(null)
         }
-    }, [isDragging])
+    }, [isMobile, isDragging])
 
     const handlePointerMove = useCallback((e: React.PointerEvent) => {
-        const { stepIndex } = getHoveredStepAndHalf(e.clientX)
-        if (stepIndex !== null) {
-            setHoveredStepIndex(stepIndex)
+        if (!isMobile) {
+            const { stepIndex } = getHoveredStepAndHalf(e.clientX)
+            if (stepIndex !== null) {
+                setHoveredStepIndex(stepIndex)
+            }
+            setIsTooltipOpen(true)
         }
-        setIsTooltipOpen(true)
-    }, [getHoveredStepAndHalf])
+    }, [isMobile, getHoveredStepAndHalf])
 
     const handlePointerDown = useCallback((e: React.PointerEvent) => {
-        e.preventDefault()
-        setIsDragging(true)
-        setIsTooltipOpen(true)
-        const { stepIndex } = getHoveredStepAndHalf(e.clientX)
-        if (stepIndex !== null) {
-            changeStep(stepIndex)
-            setHoveredStepIndex(stepIndex)
+        if (!isMobile) {
+            e.preventDefault()
+            setIsDragging(true)
+            setIsTooltipOpen(true)
+            const { stepIndex } = getHoveredStepAndHalf(e.clientX)
+            if (stepIndex !== null) {
+                changeStep(stepIndex)
+                setHoveredStepIndex(stepIndex)
+            }
         }
-    }, [getHoveredStepAndHalf, changeStep])
+    }, [isMobile, getHoveredStepAndHalf, changeStep])
 
     const handlePointerUp = useCallback(() => {
-        setIsDragging(false)
-    }, [])
+        if (!isMobile) {
+            setIsDragging(false)
+        }
+    }, [isMobile])
+
+    // Touch event handlers for mobile
+    const handleTouchStart = useCallback((e: React.TouchEvent) => {
+        if (isMobile) {
+            setIsDragging(true)
+            setIsTooltipOpen(true)
+            const touch = e.touches[0]
+            const { stepIndex } = getHoveredStepAndHalf(touch.clientX)
+            if (stepIndex !== null) {
+                changeStep(stepIndex)
+                setHoveredStepIndex(stepIndex)
+            }
+        }
+    }, [isMobile, getHoveredStepAndHalf, changeStep])
+
+    const handleTouchMove = useCallback((e: React.TouchEvent) => {
+        if (isMobile && isDragging) {
+            const touch = e.touches[0]
+            const { stepIndex } = getHoveredStepAndHalf(touch.clientX)
+            if (stepIndex !== null) {
+                setHoveredStepIndex(stepIndex)
+                changeStep(stepIndex)
+            }
+            setIsTooltipOpen(true)
+        }
+    }, [isMobile, isDragging, getHoveredStepAndHalf, changeStep])
+
+    const handleTouchEnd = useCallback(() => {
+        if (isMobile) {
+            setIsDragging(false)
+            // Keep tooltip open briefly on mobile for better UX
+            setTimeout(() => setIsTooltipOpen(false), 1000)
+        }
+    }, [isMobile])
 
     const handleSliderValueChange = useCallback(([value]: number[]) => {
         changeStep(value)
@@ -123,21 +165,9 @@ const StepSlider: React.FC = () => {
         setIsTooltipOpen(true)
     }, [changeStep])
 
-    // Handle slider drag start/end for tooltip management
-    const handleSliderPointerDown = useCallback(() => {
-        setIsDragging(true)
-        setIsTooltipOpen(true)
-    }, [])
-
-    const handleSliderPointerUp = useCallback(() => {
-        setIsDragging(false)
-        // Keep tooltip open briefly for better UX
-        setTimeout(() => setIsTooltipOpen(false), 1000)
-    }, [])
-
-    // Add global pointer event listeners when dragging
+    // Add global pointer event listeners when dragging on desktop
     React.useEffect(() => {
-        if (isDragging) {
+        if (isDragging && !isMobile) {
             const handleGlobalPointerMove = (e: PointerEvent) => {
                 setIsTooltipOpen(true)
                 const { stepIndex } = getHoveredStepAndHalf(e.clientX)
@@ -175,7 +205,36 @@ const StepSlider: React.FC = () => {
                 document.removeEventListener('pointerup', handleGlobalPointerUp, { capture: true })
             }
         }
-    }, [isDragging, getHoveredStepAndHalf, changeStep])
+    }, [isDragging, isMobile, getHoveredStepAndHalf, changeStep])
+
+    // Add global touch event listeners when dragging on mobile
+    React.useEffect(() => {
+        if (isDragging && isMobile) {
+            const handleGlobalTouchMove = (e: TouchEvent) => {
+                const touch = e.touches[0]
+                const { stepIndex } = getHoveredStepAndHalf(touch.clientX)
+                if (stepIndex !== null) {
+                    setHoveredStepIndex(stepIndex)
+                    changeStep(stepIndex)
+                }
+                setIsTooltipOpen(true)
+            }
+
+            const handleGlobalTouchEnd = () => {
+                setIsDragging(false)
+                // Keep tooltip open briefly on mobile for better UX
+                setTimeout(() => setIsTooltipOpen(false), 1000)
+            }
+
+            document.addEventListener('touchmove', handleGlobalTouchMove, { capture: true })
+            document.addEventListener('touchend', handleGlobalTouchEnd, { capture: true })
+
+            return () => {
+                document.removeEventListener('touchmove', handleGlobalTouchMove, { capture: true })
+                document.removeEventListener('touchend', handleGlobalTouchEnd, { capture: true })
+            }
+        }
+    }, [isDragging, isMobile, getHoveredStepAndHalf, changeStep])
 
     // Show error state when there's an AST error or no current step
     if (astError || !currentStep) {
@@ -203,15 +262,32 @@ const StepSlider: React.FC = () => {
         <div className="lg:flex lg:flex-col h-8 lg:h-24 w-full">
             {/* Extended hover area for desktop only */}
             <div className="relative h-full lg:pt-6 lg:ml-32">
-                <div
-                    className="absolute z-20 left-0 right-0 inset-0 h-full"
-                    onPointerEnter={handlePointerEnter}
-                    onPointerLeave={handlePointerLeave}
-                    onPointerMove={handlePointerMove}
-                    onPointerDown={handlePointerDown}
-                    onPointerUp={handlePointerUp}
-                    style={{ cursor: isDragging ? 'grabbing' : 'pointer', pointerEvents: 'auto' }}
-                />
+                {!isMobile && (
+                    <div
+                        className="absolute z-20 left-0 right-0 inset-0 h-full"
+                        onPointerEnter={handlePointerEnter}
+                        onPointerLeave={handlePointerLeave}
+                        onPointerMove={handlePointerMove}
+                        onPointerDown={handlePointerDown}
+                        onPointerUp={handlePointerUp}
+                        style={{ cursor: isDragging ? 'grabbing' : 'pointer', pointerEvents: 'auto' }}
+                    />
+                )}
+
+                {isMobile && (
+                    <div
+                        className="absolute z-20 left-0 right-0 inset-0 h-full"
+                        onTouchStart={handleTouchStart}
+                        onTouchMove={handleTouchMove}
+                        onTouchEnd={handleTouchEnd}
+                        style={{
+                            touchAction: 'none',
+                            pointerEvents: 'auto',
+                            userSelect: 'none',
+                            WebkitUserSelect: 'none'
+                        }}
+                    />
+                )}
 
                 <div
                     ref={setRefs}
@@ -372,11 +448,7 @@ const StepSlider: React.FC = () => {
                         // Glass-like effect for filled portion with enhanced contrast
                         '[&_[data-orientation=horizontal]_span[data-orientation=horizontal]]:bg-transparent',
                     )}
-                    onPointerEnter={handlePointerEnter}
-                    onPointerLeave={handlePointerLeave}
-                    onPointerMove={handlePointerMove}
-                    onPointerDown={handlePointerDown}
-                    onPointerUp={handlePointerUp}
+                    style={{ touchAction: 'none' }}
                 />
             </div>
 
