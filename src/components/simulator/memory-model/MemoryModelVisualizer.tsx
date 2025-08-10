@@ -274,7 +274,6 @@ const MemoryModelVisualizer = () => {
         if (!currentStep) return
         if (!svgRef.current) return
         if (!containerSize.width || !containerSize.height) return
-        console.log("containerSize", containerSize)
 
         // Clear any existing SVG content
         d3.select(svgRef.current).selectAll("*").remove()
