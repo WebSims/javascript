@@ -276,30 +276,13 @@ export const renderScopeSection = ({
                 .attr("class", "variable")
                 .attr("transform", `translate(10, ${40 + varIndex * 35})`)
 
-            // Draw file icon
-            variableGroup
-                .append("rect")
-                .attr("width", 16)
-                .attr("height", 20)
-                .attr("fill", "white")
-                .attr("stroke", "black")
-                .attr("stroke-width", 1)
-
-            // Draw file icon fold
-            variableGroup
-                .append("path")
-                .attr("d", `M11,0 L11,5 L16,5 L16,0 Z`)
-                .attr("fill", "white")
-                .attr("stroke", "black")
-                .attr("stroke-width", 1)
-
             // Add variable name   
             const isReference = varData.type === "reference"
             const displayText = `${varData.name}${isReference ? " ↗️" : ` = ${varData.value}`}`
 
             variableGroup
                 .append("text")
-                .attr("x", 21)
+                .attr("x", 0)
                 .attr("y", 15)
                 .attr("font-size", "12px")
                 .attr("fill", scopeData.textColor)

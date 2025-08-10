@@ -338,21 +338,6 @@ export const renderHeapSection = ({
                         .attr("data-property-id", `${c.id}_${prop.name}`)
 
                     if (prop.target) {
-                        propertyGroup
-                            .append("rect")
-                            .attr("width", 10)
-                            .attr("height", 12)
-                            .attr("fill", "white")
-                            .attr("stroke", "black")
-                            .attr("stroke-width", 0.5)
-
-                        propertyGroup
-                            .append("path")
-                            .attr("d", "M9, 0 L9, 4 L14, 4 L14, 0 Z")
-                            .attr("fill", "white")
-                            .attr("stroke", "black")
-                            .attr("stroke-width", 0.5)
-
                         // Store property position for connections
                         const propXAbs = (heapSection.x || 0) + scale * (localX + 5)
                         const propYAbs = (heapSection.y || 0) + scale * (yOffset + localY + 38 + i * 16)
@@ -379,7 +364,7 @@ export const renderHeapSection = ({
 
                     propertyGroup
                         .append("text")
-                        .attr("x", prop.target ? 20 : 0)
+                        .attr("x", 0)
                         .attr("y", 10)
                         .attr("font-size", "12px")
                         .text(`${prop.name} ${prop.value}`)
