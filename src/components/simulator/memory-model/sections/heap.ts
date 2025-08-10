@@ -76,20 +76,10 @@ export const formatPropertyValue = (propName: string, propValue: JSValue, heapDa
             return { name: propName, value: String(propValue.value) }
         }
     } else {
-        // It's a reference
-        let refDisplay = 'N/A'
-
-        // If heap data is available, show the object type
-        if (heapData) {
-            const referencedObject = heapData.find(obj => obj.id === `obj-${propValue.ref}`)
-            if (referencedObject) {
-                refDisplay = referencedObject.type
-            }
-        }
-
+        // It's a reference - show just the icon
         return {
             name: propName,
-            value: refDisplay,
+            value: "↗️",
             target: `obj-${propValue.ref}`
         }
     }
@@ -394,7 +384,7 @@ export const renderHeapSection = ({
                         .attr("x", prop.target ? 20 : 0)
                         .attr("y", 10)
                         .attr("font-size", "12px")
-                        .text(`${prop.name}: ${prop.value}`)
+                        .text(`${prop.name} ${prop.value}`)
                 })
             }
         })

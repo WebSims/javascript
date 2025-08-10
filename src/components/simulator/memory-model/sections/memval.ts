@@ -20,22 +20,12 @@ type ElkNode = Omit<ElkLayoutNode, 'labels' | 'children' | 'edges'> & {
     children?: ElkNode[]
 }
 
-type HeapObjectData = {
-    id: string
-    type: string
-    color: string
-    borderColor: string
-    properties: { name: string; value: string; target?: string }[]
-}
+
 
 export interface MemvalRendererProps {
     memvalSection: ElkNode
     memvalItems: JSValue[]
     rootContainer: d3.Selection<SVGGElement, unknown, null, undefined>
-    memoryModelData: {
-        scopes: unknown[]
-        heap: HeapObjectData[]
-    }
     nodePositions: Map<string, { x: number; y: number }>
     edgeData: Array<{
         source: string
@@ -104,7 +94,6 @@ export const renderMemvalSection = ({
     memvalSection,
     memvalItems,
     rootContainer,
-    memoryModelData,
     nodePositions,
     edgeData,
     scale = 1,
@@ -194,12 +183,9 @@ export const renderMemvalSection = ({
         const memvalType = isReference ? "ref" : typeof memvalData.value
         let value = 'N/A'
 
-        // For references, find the referenced object type and show it
+        // For references, show <Reference> with icon
         if (isReference) {
-            const referencedObject = memoryModelData.heap.find(obj => obj.id === `obj-${memvalData.ref}`)
-            if (referencedObject) {
-                value = `${referencedObject.type}`
-            }
+            value = "<Reference> ↗️"
         } else {
             value = memvalData.value as string
         }

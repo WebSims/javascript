@@ -253,14 +253,11 @@ const MemoryModelVisualizer = () => {
             heapObj.properties = properties
         })
 
-        // Enhance scope variable references with object type information
+        // Enhance scope variable references with <Reference> display
         scopesData.forEach(scope => {
             scope.variables.forEach(variable => {
-                if (variable.type === "reference" && variable.target) {
-                    const referencedObject = heapData.find(obj => obj.id === variable.target)
-                    if (referencedObject) {
-                        variable.value = referencedObject.type
-                    }
+                if (variable.type === "reference") {
+                    variable.value = "<Reference>"
                 }
             })
         })
@@ -642,7 +639,6 @@ const MemoryModelVisualizer = () => {
                     memvalSection,
                     memvalItems,
                     rootContainer,
-                    memoryModelData,
                     nodePositions,
                     edgeData,
                     scale: sectionsScale,
