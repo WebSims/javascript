@@ -44,36 +44,20 @@ const StepSlider: React.FC = () => {
         return currentScope?.type === 'function'
     }, [steps])
 
-    // Unified function to get clientX from pointer event
-    const getClientX = useCallback((e: PointerEvent | React.PointerEvent) => {
-        return e.clientX
-    }, [])
-
-    // Helper to get hovered step and half
+    // Helper to get hovered step and half - improved precision for large step counts
     const getHoveredStepAndHalf = useCallback((clientX: number) => {
         if (!containerElement || !containerSize.width) return { stepIndex: null, half: null }
         const rect = containerElement.getBoundingClientRect()
         const x = clientX - rect.left - 10
+
+        // Use more precise calculation for large step counts
         const stepWidth = containerSize.width / (steps.length - 1)
-        let stepIndex = Math.floor(x / stepWidth)
-        stepIndex = Math.max(0, Math.min(stepIndex, steps.length - 1))
-        const stepStart = stepIndex * stepWidth
-        const inRightHalf = x - stepStart > stepWidth / 2
+        const stepIndex = Math.max(0, Math.min(Math.round(x / stepWidth), steps.length - 1))
+
         return {
-            stepIndex: inRightHalf && stepIndex < steps.length - 1 ? stepIndex + 1 : stepIndex,
-            half: inRightHalf ? 'right' : 'left',
+            stepIndex,
+            half: x > (stepIndex * stepWidth + stepWidth / 2) ? 'right' : 'left',
         }
-    }, [containerElement, containerSize.width, steps.length])
-
-    const getStepFromPosition = useCallback((clientX: number) => {
-        if (!containerElement || !containerSize.width) return null
-
-        const rect = containerElement.getBoundingClientRect()
-        const x = clientX - rect.left - 10
-        const stepWidth = (containerSize.width) / (steps.length - 1)
-        const stepIndex = Math.floor(x / stepWidth)
-
-        return Math.max(0, Math.min(stepIndex, steps.length - 1))
     }, [containerElement, containerSize.width, steps.length])
 
     const getStepStartPosition = useCallback((stepIndex: number) => {
@@ -98,39 +82,40 @@ const StepSlider: React.FC = () => {
 
     const animatedTooltipX = useSpringFollower(tooltipTargetX, { lagMs: 150, snapEps: TOOLTIP_WIDTH })
 
-    // Unified pointer event handler for element actions
-    const handlePointer = useCallback((e: React.PointerEvent) => {
-        switch (e.type) {
-            case 'pointerdown': {
-                e.preventDefault()
-                setIsDragging(true)
-                setIsTooltipOpen(true)
-                const stepIndex = getStepFromPosition(getClientX(e))
-                if (stepIndex !== null) {
-                    changeStep(stepIndex)
-                    setHoveredStepIndex(stepIndex)
-                }
-                break
-            }
-            case 'pointermove': {
-                const { stepIndex } = getHoveredStepAndHalf(getClientX(e))
-                if (stepIndex !== null) {
-                    setHoveredStepIndex(stepIndex)
-                }
-                setIsTooltipOpen(true)
-                break
-            }
-            case 'pointerleave': {
-                if (!isDragging) {
-                    setIsTooltipOpen(false)
-                    setHoveredStepIndex(null)
-                }
-                break
-            }
-            default:
-                break
+    // Pointer event handlers for hover and interaction
+    const handlePointerEnter = useCallback(() => {
+        setIsTooltipOpen(true)
+    }, [])
+
+    const handlePointerLeave = useCallback(() => {
+        if (!isDragging) {
+            setIsTooltipOpen(false)
+            setHoveredStepIndex(null)
         }
-    }, [isDragging, getStepFromPosition, getClientX, changeStep, getHoveredStepAndHalf])
+    }, [isDragging])
+
+    const handlePointerMove = useCallback((e: React.PointerEvent) => {
+        const { stepIndex } = getHoveredStepAndHalf(e.clientX)
+        if (stepIndex !== null) {
+            setHoveredStepIndex(stepIndex)
+        }
+        setIsTooltipOpen(true)
+    }, [getHoveredStepAndHalf])
+
+    const handlePointerDown = useCallback((e: React.PointerEvent) => {
+        e.preventDefault()
+        setIsDragging(true)
+        setIsTooltipOpen(true)
+        const { stepIndex } = getHoveredStepAndHalf(e.clientX)
+        if (stepIndex !== null) {
+            changeStep(stepIndex)
+            setHoveredStepIndex(stepIndex)
+        }
+    }, [getHoveredStepAndHalf, changeStep])
+
+    const handlePointerUp = useCallback(() => {
+        setIsDragging(false)
+    }, [])
 
     const handleSliderValueChange = useCallback(([value]: number[]) => {
         changeStep(value)
@@ -138,17 +123,17 @@ const StepSlider: React.FC = () => {
         setIsTooltipOpen(true)
     }, [changeStep])
 
-    const isPointerInSliderArea = useCallback((clientX: number, clientY: number) => {
-        if (!containerElement) return false
+    // Handle slider drag start/end for tooltip management
+    const handleSliderPointerDown = useCallback(() => {
+        setIsDragging(true)
+        setIsTooltipOpen(true)
+    }, [])
 
-        const rect = containerElement.getBoundingClientRect()
-        return (
-            clientX >= rect.left &&
-            clientX <= rect.right &&
-            clientY >= rect.top &&
-            clientY <= rect.bottom
-        )
-    }, [containerElement])
+    const handleSliderPointerUp = useCallback(() => {
+        setIsDragging(false)
+        // Keep tooltip open briefly for better UX
+        setTimeout(() => setIsTooltipOpen(false), 1000)
+    }, [])
 
     // Add global pointer event listeners when dragging
     React.useEffect(() => {
@@ -158,18 +143,27 @@ const StepSlider: React.FC = () => {
                 const { stepIndex } = getHoveredStepAndHalf(e.clientX)
                 if (stepIndex !== null) {
                     setHoveredStepIndex(stepIndex)
-                    // Change step when dragging
                     changeStep(stepIndex)
                 }
             }
 
             const handleGlobalPointerUp = (e: PointerEvent) => {
                 setIsDragging(false)
-                setHoveredStepIndex(null)
 
                 // Check if pointer is outside the slider area
-                if (!isPointerInSliderArea(e.clientX, e.clientY)) {
-                    setIsTooltipOpen(false)
+                if (containerElement) {
+                    const rect = containerElement.getBoundingClientRect()
+                    const isOutside = (
+                        e.clientX < rect.left ||
+                        e.clientX > rect.right ||
+                        e.clientY < rect.top ||
+                        e.clientY > rect.bottom
+                    )
+
+                    if (isOutside) {
+                        setIsTooltipOpen(false)
+                        setHoveredStepIndex(null)
+                    }
                 }
             }
 
@@ -181,7 +175,7 @@ const StepSlider: React.FC = () => {
                 document.removeEventListener('pointerup', handleGlobalPointerUp, { capture: true })
             }
         }
-    }, [isDragging, getHoveredStepAndHalf, isPointerInSliderArea, changeStep])
+    }, [isDragging, getHoveredStepAndHalf, changeStep])
 
     // Show error state when there's an AST error or no current step
     if (astError || !currentStep) {
@@ -207,14 +201,16 @@ const StepSlider: React.FC = () => {
 
     return (
         <div className="lg:flex lg:flex-col h-8 lg:h-24 w-full">
-            {/* Extended hover area */}
+            {/* Extended hover area for desktop only */}
             <div className="relative h-full lg:pt-6 lg:ml-32">
                 <div
                     className="absolute z-20 left-0 right-0 inset-0 h-full"
-                    onPointerDown={handlePointer}
-                    onPointerMove={handlePointer}
-                    onPointerLeave={handlePointer}
-                    style={{ cursor: isDragging ? 'grabbing' : 'pointer', touchAction: 'none' }}
+                    onPointerEnter={handlePointerEnter}
+                    onPointerLeave={handlePointerLeave}
+                    onPointerMove={handlePointerMove}
+                    onPointerDown={handlePointerDown}
+                    onPointerUp={handlePointerUp}
+                    style={{ cursor: isDragging ? 'grabbing' : 'pointer', pointerEvents: 'auto' }}
                 />
 
                 <div
@@ -376,9 +372,11 @@ const StepSlider: React.FC = () => {
                         // Glass-like effect for filled portion with enhanced contrast
                         '[&_[data-orientation=horizontal]_span[data-orientation=horizontal]]:bg-transparent',
                     )}
-                    onPointerDown={handlePointer}
-                    onPointerMove={handlePointer}
-                    onPointerLeave={handlePointer}
+                    onPointerEnter={handlePointerEnter}
+                    onPointerLeave={handlePointerLeave}
+                    onPointerMove={handlePointerMove}
+                    onPointerDown={handlePointerDown}
+                    onPointerUp={handlePointerUp}
                 />
             </div>
 
