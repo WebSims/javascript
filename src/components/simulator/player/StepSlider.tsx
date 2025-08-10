@@ -316,13 +316,11 @@ const StepSlider: React.FC = () => {
                         )
 
                         return (
-                            <>
-                                <div
-                                    key={step.index}
-                                    className='flex-1 h-full'
-                                    style={{ backgroundColor: stepColor.backgroundColor }}
-                                />
-                            </>
+                            <div
+                                key={step.index}
+                                className='flex-1 h-full'
+                                style={{ backgroundColor: stepColor.backgroundColor }}
+                            />
                         )
                     })}
                 </div>
