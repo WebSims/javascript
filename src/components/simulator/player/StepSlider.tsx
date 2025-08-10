@@ -263,7 +263,7 @@ const StepSlider: React.FC = () => {
                     const stepNumber = `${currentStep.index + 1}/${steps.length}`
 
                     return (
-                        <div className="absolute top-8 left-1/4 p-0.5 pl-3 text-sm w-3/4 flex items-center gap-1">
+                        <div className="absolute top-8 left-1/4 p-0.5 pl-3 pr-2.5 text-sm w-3/4 flex items-center gap-1">
                             {stepTag && stepTag.trim() && (
                                 <span className={cn("inline-flex items-center justify-center w-6 h-6 text-gray-800 text-xs font-bold rounded-full", stepClassName)}>
                                     {stepTag}
@@ -384,9 +384,10 @@ const StepSlider: React.FC = () => {
 
             {/* Desktop Description */}
             {!isMobile && (() => {
+                const stepTooltip = getStepTooltip(currentStep.type)
                 return (
                     <div className="px-0.5 pb-2 text-sm flex items-center gap-1">
-                        <span className="flex-1 text-gray-700">Step description here!</span>
+                        <span className="flex-1 text-gray-700">Step description here! ({stepTooltip})</span>
                         <span className="text-xs opacity-75">Step {currentStep.index + 1} of {steps.length}</span>
                     </div>
                 )
