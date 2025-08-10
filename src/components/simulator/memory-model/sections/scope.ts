@@ -204,8 +204,8 @@ export const renderScopeSection = ({
             .attr("rx", 6)
             .attr("ry", 6)
             .attr("fill", scopeData.color)
-            .attr("stroke", scopeData.borderColor)
-            .attr("stroke-width", 2)
+            .attr("stroke", "none")
+            .attr("stroke-width", 0)
 
         // Add scope type badges
         const badgeGroup = scopeGroup.append("g").attr("class", "scope-badges")
@@ -216,28 +216,25 @@ export const renderScopeSection = ({
 
         scopeData.scopeTags.forEach((tag) => {
             const badgeText = tag
-            const textWidth = badgeText.length * 7
+            const textWidth = badgeText.length * 6 // More accurate character width calculation
+            const badgePadding = 4 // Minimal horizontal padding for compact badges
+            const badgeWidth = textWidth + (badgePadding * 2) // Add padding on both sides
 
             // Determine badge styling based on tag type
             let badgeFill = "#f3f4f6"
-            let badgeStroke = "#d1d5db"
             let textFill = "#374151"
 
             if (tag === "Current") {
                 badgeFill = "#059669"
-                badgeStroke = "#047857"
                 textFill = "#ffffff"
             } else if (tag === "Global Scope") {
                 badgeFill = "#8b5cf6"
-                badgeStroke = "#7c3aed"
                 textFill = "#ffffff"
             } else if (tag === "Function Scope") {
                 badgeFill = "#3b82f6"
-                badgeStroke = "#1d4ed8"
                 textFill = "#ffffff"
             } else if (tag === "Block Scope") {
                 badgeFill = "#f59e0b"
-                badgeStroke = "#d97706"
                 textFill = "#ffffff"
             }
 
@@ -246,13 +243,13 @@ export const renderScopeSection = ({
                 .append("rect")
                 .attr("x", currentX)
                 .attr("y", 10)
-                .attr("width", textWidth)
+                .attr("width", badgeWidth)
                 .attr("height", badgeHeight)
                 .attr("rx", 10) // Rounded corners
                 .attr("ry", 10)
                 .attr("fill", badgeFill)
-                .attr("stroke", badgeStroke)
-                .attr("stroke-width", 1)
+                .attr("stroke", "none")
+                .attr("stroke-width", 0)
 
             // Badge text
             badgeGroup
@@ -263,11 +260,11 @@ export const renderScopeSection = ({
                 .attr("font-size", "10px")
                 .attr("fill", textFill)
                 .attr("text-anchor", "middle")
-                .attr("transform", `translate(${textWidth / 2}, 0)`)
+                .attr("transform", `translate(${badgeWidth / 2}, 0)`)
                 .text(badgeText)
 
             // Update position for next badge
-            currentX += textWidth + badgeSpacing
+            currentX += badgeWidth + badgeSpacing
         })
 
         // Draw variables - ensure all variables are drawn regardless of ELK positioning
