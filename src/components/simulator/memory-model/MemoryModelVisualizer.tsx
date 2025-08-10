@@ -20,21 +20,21 @@ import {
     createMemvalEdges,
     renderMemvalSection,
     MEMVAL_SECTION_WIDTH,
-} from "./memval"
+} from "./sections/memval"
 import {
     createScopeSection,
     createScopeNodes,
     createScopeEdges,
     renderScopeSection,
     SCOPE_SECTION_WIDTH,
-} from "./scope"
+} from "./sections/scope"
 import {
     createHeapSection,
     createHeapNodes,
     formatPropertyValue,
     renderHeapSection,
     type HeapObjectData,
-} from "./heap"
+} from "./sections/heap"
 
 
 
