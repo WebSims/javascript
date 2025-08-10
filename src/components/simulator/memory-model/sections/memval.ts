@@ -134,7 +134,7 @@ export const renderMemvalSection = ({
         .append("rect")
         .attr("width", baseWidth)
         .attr("height", baseHeight)
-        .attr("fill", "#f8f9fa") // Light gray background
+        .attr("fill", "#f5f5f5") // Light gray background
         .attr("stroke", "none") // No border
         .attr("rx", 6) // Rounded corners
         .attr("ry", 6)

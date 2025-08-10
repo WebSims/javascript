@@ -153,7 +153,7 @@ export const renderScopeSection = ({
         .attr("class", "scope-section-background")
         .attr("width", baseWidth)
         .attr("height", baseHeight)
-        .attr("fill", "#f1f3f4") // Slightly darker gray background
+        .attr("fill", "#f5f5f5") // Light gray background
         .attr("stroke", "none") // No border
         .attr("rx", 6) // Rounded corners
         .attr("ry", 6)

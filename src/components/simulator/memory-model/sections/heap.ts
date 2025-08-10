@@ -126,7 +126,7 @@ export const renderHeapSection = ({
         .attr("y", 0)
         .attr("width", baseHeapWidth)
         .attr("height", baseHeapHeight)
-        .attr("fill", "#fefce8")
+        .attr("fill", "#f5f5f5")
         .attr("stroke", "none")
         .attr("rx", 6)
         .attr("ry", 6)
