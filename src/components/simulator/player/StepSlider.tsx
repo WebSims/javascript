@@ -154,8 +154,7 @@ const StepSlider: React.FC = () => {
     const handleTouchEnd = useCallback(() => {
         if (isMobile) {
             setIsDragging(false)
-            // Keep tooltip open briefly on mobile for better UX
-            setTimeout(() => setIsTooltipOpen(false), 1000)
+            setIsTooltipOpen(false)
         }
     }, [isMobile])
 
@@ -222,8 +221,7 @@ const StepSlider: React.FC = () => {
 
             const handleGlobalTouchEnd = () => {
                 setIsDragging(false)
-                // Keep tooltip open briefly on mobile for better UX
-                setTimeout(() => setIsTooltipOpen(false), 1000)
+                setIsTooltipOpen(false)
             }
 
             document.addEventListener('touchmove', handleGlobalTouchMove, { capture: true })
