@@ -71,7 +71,7 @@ export const formatPropertyValue = (propName: string, propValue: JSValue, heapDa
         } else if (propValue.value === null) {
             return { name: propName, value: "null" }
         } else if (propValue.value === "not_initialized") {
-            return { name: propName, value: "<TDZ>" }
+            return { name: propName, value: "<TDZ> 🤔" }
         } else {
             return { name: propName, value: String(propValue.value) }
         }

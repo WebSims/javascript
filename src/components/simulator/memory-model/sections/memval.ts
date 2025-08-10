@@ -186,6 +186,8 @@ export const renderMemvalSection = ({
         // For references, show <Reference> with icon
         if (isReference) {
             value = "<Reference> ↗️"
+        } else if (memvalData.value === "not_initialized") {
+            value = "<TDZ> 🤔"
         } else {
             value = memvalData.value as string
         }

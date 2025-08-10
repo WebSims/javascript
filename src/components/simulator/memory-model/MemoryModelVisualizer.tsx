@@ -154,7 +154,7 @@ const MemoryModelVisualizer = () => {
                     } else if (variable.value.value === null) {
                         displayValue = "null"
                     } else if (variable.value.value === "not_initialized") {
-                        displayValue = "TDZ"
+                        displayValue = "<TDZ> 🤔"
                     } else {
                         if (typeof variable.value.value === 'string') {
                             displayValue = `"${variable.value.value}"`
