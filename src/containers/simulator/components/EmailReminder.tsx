@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react'
 import { Button } from '@/components/ui/button'
+import ShareButton from '@/components/ui/share-button'
 import { X } from 'lucide-react'
 import {
     Drawer,
@@ -164,14 +165,23 @@ const EmailReminder: React.FC<EmailReminderProps> = ({ isOpen, onClose }) => {
 
                 <DrawerFooter className="pt-0">
                     {!showEmailForm && !isEmailSent && (
-                        <Button
-                            onClick={handleEmailMeClick}
-                            className="w-full"
-                            tabIndex={0}
-                            aria-label="Email me the link to this page"
-                        >
-                            Email me the link
-                        </Button>
+                        <div className="flex gap-3">
+                            <Button
+                                onClick={handleEmailMeClick}
+                                className="flex-1"
+                                tabIndex={0}
+                                aria-label="Email me the link to this page"
+                            >
+                                Email me the link
+                            </Button>
+                            <ShareButton
+                                variant="outline"
+                                size="icon"
+                                className="flex-shrink-0"
+                                title="JavaScript Simulator"
+                                text="Check out this interactive JavaScript simulator!"
+                            />
+                        </div>
                     )}
 
                     {showEmailForm && !isEmailSent && (
