@@ -1,6 +1,6 @@
 import { useSimulatorStore } from '@/hooks/useSimulatorStore'
 import { Editor, OnMount } from '@monaco-editor/react'
-import React, { useEffect, useRef, useState } from 'react'
+import React, { useEffect, useRef, useState, forwardRef, useImperativeHandle } from 'react'
 import type { editor as MonacoEditor, IDisposable, Uri as MonacoUri } from 'monaco-editor'
 import type * as MonacoType from 'monaco-editor'
 import { Tabs, TabsList, TabsTrigger } from '@radix-ui/react-tabs'
@@ -19,7 +19,11 @@ interface InternalMonacoModel extends MonacoEditor.ITextModel {
     }
 }
 
-const CodeEditor: React.FC = () => {
+export interface CodeEditorRef {
+    focus: () => void
+}
+
+const CodeEditor = forwardRef<CodeEditorRef>((props, ref) => {
     const { files, updateFileContent, activeFile, changeCurrentFile, settings } = useSimulatorStore()
     const fileContent = files[activeFile]
     const navigate = useNavigate()
@@ -31,6 +35,14 @@ const CodeEditor: React.FC = () => {
     const modelSnapshotRef = useRef<unknown>(null)
     const disposablesRef = useRef<IDisposable[]>([])
     const [isEditorReady, setIsEditorReady] = useState(false)
+
+    useImperativeHandle(ref, () => ({
+        focus: () => {
+            if (editorRef.current) {
+                editorRef.current.focus()
+            }
+        }
+    }))
 
     // Add refs for files and activeFile to avoid stale closure in Monaco actions
     const filesRef = useRef(files)
@@ -217,6 +229,6 @@ const CodeEditor: React.FC = () => {
             </div>
         </div>
     )
-}
+})
 
 export default CodeEditor

@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from 'react'
+import React, { useEffect, useState, useRef } from 'react'
 
 import {
   ResizableHandle,
@@ -11,15 +11,26 @@ import CodeArea from '@/components/simulator/code-area/CodeArea'
 import CheatSheetAccordion from './CheatSheetAccordion'
 import { useResponsive } from '@/hooks/useResponsive'
 import { useSimulatorStore } from '@/hooks/useSimulatorStore'
-import CodeEditor from '@/components/code-editor/CodeEditor'
+import CodeEditor, { CodeEditorRef } from '@/components/code-editor/CodeEditor'
 
 const CodeMode: React.FC = () => {
   const { isDesktop } = useResponsive()
   const { updateFileContent, activeFile, files } = useSimulatorStore()
   const fileContent = files[activeFile]
+  const codeEditorRef = useRef<CodeEditorRef>(null)
 
   const [isCheatSheetOpen, setIsCheatSheetOpen] = useState(true)
   const [minSize, setMinSize] = useState(5)
+
+  const handleTabChange = (value: string) => {
+    updateFileContent(activeFile, fileContent)
+    if (value === "EDITOR") {
+      // Use setTimeout to ensure the tab content is rendered before focusing
+      setTimeout(() => {
+        codeEditorRef.current?.focus()
+      }, 0)
+    }
+  }
 
   useEffect(() => {
     if (isCheatSheetOpen) {
@@ -67,7 +78,7 @@ const CodeMode: React.FC = () => {
         <Tabs
           className='h-full'
           defaultValue="PARSED"
-          onValueChange={() => updateFileContent(activeFile, fileContent)}
+          onValueChange={handleTabChange}
         >
           <TabsList>
             <TabsTrigger value="EDITOR">Editor</TabsTrigger>
@@ -75,7 +86,7 @@ const CodeMode: React.FC = () => {
           </TabsList>
           <div className='h-[calc(100%-44px)]'>
             <TabsContent value="EDITOR" className='h-full overflow-auto'>
-              <CodeEditor />
+              <CodeEditor ref={codeEditorRef} />
             </TabsContent>
             <TabsContent value="PARSED" className='h-full overflow-auto'>
               <CodeArea />
