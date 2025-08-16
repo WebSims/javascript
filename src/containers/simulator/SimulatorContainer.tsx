@@ -3,7 +3,7 @@ import { useNavigate, useParams } from 'react-router'
 
 import CodeMode from './components/CodeMode'
 import MainLayout from '@/layouts/MainLayout'
-import ExecutionMode from './components/ExecutionMode'
+import RunMode from './components/RunMode'
 import EmailReminder from './components/EmailReminder'
 
 import { useSimulatorStore } from '@/hooks/useSimulatorStore'
@@ -68,7 +68,7 @@ const SimulatorContainer: React.FC = () => {
   return (
     <MainLayout>
       {currentMode === 'CODE' && <CodeMode />}
-      {currentMode === 'RUN' && <ExecutionMode />}
+      {currentMode === 'RUN' && <RunMode />}
       <EmailReminder
         isOpen={shouldShowDrawer}
         onClose={dismissDrawer}

@@ -11,7 +11,7 @@ import PlayerBar from '@/components/simulator/player/PlayerBar'
 
 import { useResponsive } from '@/hooks/useResponsive'
 
-const ExecutionMode: React.FC = () => {
+const RunMode: React.FC = () => {
     const { isDesktop } = useResponsive()
 
     if (isDesktop) {
@@ -69,4 +69,4 @@ const ExecutionMode: React.FC = () => {
     )
 }
 
-export default ExecutionMode
+export default RunMode
