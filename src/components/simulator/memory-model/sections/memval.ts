@@ -112,11 +112,10 @@ export const renderMemvalSection = ({
 
     // Start with viewport height, then allow content-driven growth (from bottom)
     let baseHeight = (viewportHeight) / scale
-    const bottomPadding = 10
     const totalMemvalHeight = memvalItems.length > 0
         ? memvalItems.length * MEMVAL_ITEM_HEIGHT + (memvalItems.length - 1) * MEMVAL_SECTION_SPACING
         : 0
-    const requiredBaseHeight = Math.max(baseHeight, totalMemvalHeight + bottomPadding)
+    const requiredBaseHeight = Math.max(baseHeight, totalMemvalHeight + MEMVAL_SECTION_PADDING * 2)
     if (requiredBaseHeight > baseHeight) {
         baseHeight = requiredBaseHeight
         // keep memvalSection height in sync in scaled units
@@ -153,7 +152,7 @@ export const renderMemvalSection = ({
         // Calculate position at the bottom of the container
         // Start from the bottom and work upwards, with reversed index order
         const reversedIndex = memvalItems.length - 1 - memvalIndex
-        const itemY = actualMemvalSectionHeight - bottomPadding - totalMemvalHeight + (reversedIndex * (MEMVAL_ITEM_HEIGHT + MEMVAL_SECTION_SPACING))
+        const itemY = actualMemvalSectionHeight - MEMVAL_SECTION_PADDING - totalMemvalHeight + (reversedIndex * (MEMVAL_ITEM_HEIGHT + MEMVAL_SECTION_SPACING))
         const itemX = (baseWidth - MEMVAL_ITEM_WIDTH) / 2 // Center horizontally
 
         const memvalGroup = memvalContainer
