@@ -1,4 +1,4 @@
-import React, { useEffect, useState, useRef } from 'react'
+import React, { useState, useRef } from 'react'
 
 import {
   ResizableHandle,
@@ -47,8 +47,8 @@ const CodeMode: React.FC = () => {
         </ResizablePanel>
         <ResizableHandle withHandle className="bg-slate-100 hover:bg-slate-200 transition-colors" />
         <ResizablePanel
-          defaultSize={minSize}
-          minSize={minSize}
+          defaultSize={30}
+          minSize={30}
           maxSize={isCheatSheetOpen ? 70 : 5}
         >
           <CheatSheetAccordion onOpenChange={setIsCheatSheetOpen} />
