@@ -26,6 +26,7 @@ const useEmailReminderTrigger = ({
     })
     const timerRef = useRef<NodeJS.Timeout | null>(null)
     const focusCheckIntervalRef = useRef<NodeJS.Timeout | null>(null)
+    const debounceTimerRef = useRef<NodeJS.Timeout | null>(null)
 
     // Check if code editor is focused
     const checkCodeEditorFocus = useCallback(() => {
@@ -54,25 +55,40 @@ const useEmailReminderTrigger = ({
         }, delayMs)
     }, [isCodeEditorFocused, hasShownDrawer, isMobile, hasUserInteracted, delayMs])
 
+    // Debounced timer reset function
+    const debouncedTimerReset = useCallback(() => {
+        // Clear existing debounce timer
+        if (debounceTimerRef.current) {
+            clearTimeout(debounceTimerRef.current)
+        }
+
+        // Set new debounce timer
+        debounceTimerRef.current = setTimeout(() => {
+            if (timerRef.current) {
+                clearTimeout(timerRef.current)
+                startDrawerTimer()
+            }
+        }, 300) // 300ms debounce delay
+    }, [startDrawerTimer])
+
     // Handle user interaction events
     const handleUserInteraction = useCallback(() => {
         if (!hasUserInteracted && isMobile) {
             setHasUserInteracted(true)
         } else if (hasUserInteracted && isMobile && !hasShownDrawer) {
-            // Reset the timer if user interacts while countdown is active
-            if (timerRef.current) {
-                clearTimeout(timerRef.current)
-                // Restart the timer
-                startDrawerTimer()
-            }
+            // Use debounced timer reset to prevent excessive restarts
+            debouncedTimerReset()
         }
-    }, [hasUserInteracted, isMobile, hasShownDrawer, startDrawerTimer])
+    }, [hasUserInteracted, isMobile, hasShownDrawer, debouncedTimerReset])
 
     // Dismiss drawer
     const dismissDrawer = useCallback(() => {
         setShouldShowDrawer(false)
         if (timerRef.current) {
             clearTimeout(timerRef.current)
+        }
+        if (debounceTimerRef.current) {
+            clearTimeout(debounceTimerRef.current)
         }
     }, [])
 
@@ -119,6 +135,9 @@ const useEmailReminderTrigger = ({
             if (timerRef.current) {
                 clearTimeout(timerRef.current)
             }
+            if (debounceTimerRef.current) {
+                clearTimeout(debounceTimerRef.current)
+            }
         }
     }, [isMobile, hasUserInteracted, isCodeEditorFocused, hasShownDrawer, startDrawerTimer])
 
@@ -130,6 +149,9 @@ const useEmailReminderTrigger = ({
             }
             if (focusCheckIntervalRef.current) {
                 clearInterval(focusCheckIntervalRef.current)
+            }
+            if (debounceTimerRef.current) {
+                clearTimeout(debounceTimerRef.current)
             }
         }
     }, [])
