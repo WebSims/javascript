@@ -23,9 +23,33 @@ const useResponsive = (options: UseResponsiveOptions = {}): DeviceDetection => {
         includeUserAgent = false
     } = options
 
-    const [isMobile, setIsMobile] = useState(false)
-    const [isMobileDevice, setIsMobileDevice] = useState(false)
-    const [isMobileWidth, setIsMobileWidth] = useState(false)
+    // Initialize state with actual screen size to prevent flash
+    const getInitialState = () => {
+        if (typeof window === 'undefined') return { isMobile: false, isMobileDevice: false, isMobileWidth: false }
+
+        const windowWidth = window.innerWidth
+        const isMobileByWidth = windowWidth <= mobileWidthBreakpoint
+
+        let isMobileByUserAgent = false
+        if (includeUserAgent) {
+            const userAgent = navigator.userAgent || navigator.vendor || (window as Window & typeof globalThis & { opera?: string }).opera || ''
+            const mobileRegex = /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i
+            isMobileByUserAgent = mobileRegex.test(userAgent)
+        }
+
+        const isMobile = isMobileByUserAgent || isMobileByWidth
+
+        return {
+            isMobile,
+            isMobileDevice: isMobileByUserAgent,
+            isMobileWidth: isMobileByWidth
+        }
+    }
+
+    const initialState = getInitialState()
+    const [isMobile, setIsMobile] = useState(initialState.isMobile)
+    const [isMobileDevice, setIsMobileDevice] = useState(initialState.isMobileDevice)
+    const [isMobileWidth, setIsMobileWidth] = useState(initialState.isMobileWidth)
 
     useEffect(() => {
         const checkMobileDevice = () => {

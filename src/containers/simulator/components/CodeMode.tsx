@@ -20,7 +20,6 @@ const CodeMode: React.FC = () => {
   const codeEditorRef = useRef<CodeEditorRef>(null)
 
   const [isCheatSheetOpen, setIsCheatSheetOpen] = useState(true)
-  const [minSize, setMinSize] = useState(5)
 
   const handleTabChange = (value: string) => {
     updateFileContent(activeFile, fileContent)
@@ -31,20 +30,6 @@ const CodeMode: React.FC = () => {
       }, 0)
     }
   }
-
-  useEffect(() => {
-    if (isCheatSheetOpen) {
-      if (isDesktop) {
-        setMinSize(30)
-      } else {
-        setMinSize(50)
-      }
-      const timeout = setTimeout(() => {
-        setMinSize(5)
-      }, 100)
-      return () => clearTimeout(timeout)
-    }
-  }, [isCheatSheetOpen, isDesktop])
 
   if (isDesktop) {
     return (
@@ -96,9 +81,9 @@ const CodeMode: React.FC = () => {
       </ResizablePanel>
       <ResizableHandle withHandle className="bg-slate-100 hover:bg-slate-200 transition-colors" />
       <ResizablePanel
-        defaultSize={minSize}
+        defaultSize={50}
         maxSize={isCheatSheetOpen ? 70 : 5}
-        minSize={minSize}
+        minSize={30}
         onResize={(size) => {
           if (size === 5) {
             setIsCheatSheetOpen(false)
