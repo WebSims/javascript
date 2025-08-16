@@ -453,7 +453,7 @@ execHandlers["ObjectExpression"] = function (astNode, options) {
 
     const properties: Record<string, JSValue> = {}
     for (const property of astNode.properties) {
-        this.traverseExec(property.value, options)
+        this.traverseExec(property, options)
     }
 
     for (let i = astNode.properties.length - 1; i >= 0; i--) {
@@ -468,6 +468,16 @@ execHandlers["ObjectExpression"] = function (astNode, options) {
     this.addEvaluatedStep(astNode)
 }
 
+execHandlers["Property"] = function (astNode, options) {
+    this.traverseExec(astNode.value, options)
+}
+
+execHandlers["FunctionExpression"] = function (astNode) {
+    this.addEvaluatingStep(astNode)
+    this.createHeapObject({ node: astNode })
+    this.pushMemval({ type: "reference", ref: this.getLastRef() })
+    this.addEvaluatedStep(astNode)
+}
 
 execHandlers["MemberExpression"] = function (astNode, options) {
     this.addEvaluatingStep(astNode)
