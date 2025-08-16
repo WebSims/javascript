@@ -126,7 +126,6 @@ export const renderScopeSection = ({
 
     // Start with viewport height, then allow content-driven growth (from bottom)
     let baseHeight = (viewportHeight) / scale
-    const bottomPadding = 10
     // Calculate total height of all scopes including spacing
     const totalScopesHeight = scopeItems.reduce((acc, s, idx) => {
         const h = calculateScopeHeight(s.id, scopeItems, 100)
@@ -134,7 +133,7 @@ export const renderScopeSection = ({
         const spacing = idx < scopeItems.length - 1 ? SCOPE_SECTION_SPACING : 0
         return acc + h + spacing
     }, 0)
-    const requiredBaseHeight = Math.max(baseHeight, totalScopesHeight + bottomPadding)
+    const requiredBaseHeight = Math.max(baseHeight, totalScopesHeight + SCOPE_SECTION_PADDING * 2)
     if (requiredBaseHeight > baseHeight) {
         baseHeight = requiredBaseHeight
         // keep scopeSection height in sync in scaled units
