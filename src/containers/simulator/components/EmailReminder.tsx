@@ -106,7 +106,7 @@ const EmailReminder: React.FC<EmailReminderProps> = ({ isOpen, onClose }) => {
     }
 
     return (
-        <Drawer open={isOpen} onOpenChange={handleClose} dismissible={false}>
+        <Drawer open={isOpen}>
             <DrawerContent>
                 <button
                     onClick={handleClose}
