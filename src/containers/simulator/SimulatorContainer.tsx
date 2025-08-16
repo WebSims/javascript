@@ -4,10 +4,12 @@ import { useNavigate, useParams } from 'react-router'
 import CodeMode from './components/CodeMode'
 import MainLayout from '@/layouts/MainLayout'
 import ExecutionMode from './components/ExecutionMode'
+import EmailReminder from './components/EmailReminder'
 
 import { useSimulatorStore } from '@/hooks/useSimulatorStore'
 import useSimulatorHotkeys from '@/hooks/useSimulatorHotkeys'
 import { useModeToggle } from '@/hooks/useModeToggle'
+import useEmailReminderTrigger from '@/hooks/useEmailReminderTrigger'
 import { isEmpty } from 'lodash'
 
 const exampleFiles = import.meta.glob('/src/examples/**', { query: '?raw', import: 'default', eager: true })
@@ -31,6 +33,7 @@ const SimulatorContainer: React.FC = () => {
   const { exampleId } = useParams()
   const { files, initializeFiles, activeFile } = useSimulatorStore()
   const { currentMode, toggleMode } = useModeToggle()
+  const { shouldShowDrawer, dismissDrawer } = useEmailReminderTrigger()
 
   useEffect(() => {
     if (exampleId) {
@@ -66,6 +69,10 @@ const SimulatorContainer: React.FC = () => {
     <MainLayout>
       {currentMode === 'CODE' && <CodeMode />}
       {currentMode === 'RUN' && <ExecutionMode />}
+      <EmailReminder
+        isOpen={shouldShowDrawer}
+        onClose={dismissDrawer}
+      />
     </MainLayout>
   )
 }
