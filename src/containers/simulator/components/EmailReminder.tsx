@@ -16,7 +16,7 @@ interface EmailReminderProps {
 }
 
 const EMAIL_REMINDER_COUNT_KEY = 'emailReminderCount'
-const MAX_SHOW_COUNT = 2
+const MAX_SHOW_COUNT = 100
 
 const EmailReminder: React.FC<EmailReminderProps> = ({ isOpen, onClose }) => {
     const [showEmailForm, setShowEmailForm] = useState(false)
