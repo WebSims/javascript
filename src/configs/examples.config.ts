@@ -70,6 +70,13 @@ export const EXAMPLES_CONFIG: ExampleConfig[] = [
         description: 'Complex object relationships with circular references',
         category: 'basics',
         active: true
+    },
+    {
+        id: 'module-pattern',
+        title: 'Module Pattern',
+        description: 'JavaScript module pattern with closures and private variables',
+        category: 'functions',
+        active: false
     }
 ]
 
