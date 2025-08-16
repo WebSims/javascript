@@ -15,7 +15,7 @@ interface ShareButtonProps {
 const ShareButton: React.FC<ShareButtonProps> = ({
     url = window.location.href,
     title = document.title,
-    text = 'Check out this JavaScript simulator!',
+    text = '',
     className = '',
     variant = 'outline',
     size = 'default',

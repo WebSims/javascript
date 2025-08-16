@@ -175,11 +175,10 @@ const EmailReminder: React.FC<EmailReminderProps> = ({ isOpen, onClose }) => {
                                 Email me the link
                             </Button>
                             <ShareButton
-                                variant="outline"
+                                variant="default"
                                 size="icon"
                                 className="flex-shrink-0"
-                                title="JavaScript Simulator"
-                                text="Check out this interactive JavaScript simulator!"
+                                title="Visual JavaScript Simulator"
                             />
                         </div>
                     )}
