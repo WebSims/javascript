@@ -80,7 +80,7 @@ const StepSlider: React.FC = () => {
         return baseX
     })()
 
-    const animatedTooltipX = useSpringFollower(tooltipTargetX, { lagMs: 150, snapEps: TOOLTIP_WIDTH })
+    const animatedTooltipX = useSpringFollower(tooltipTargetX, { lagMs: 100, snapEps: TOOLTIP_WIDTH })
 
     // Pointer event handlers for desktop hover and interaction
     const handlePointerEnter = useCallback(() => {
@@ -388,7 +388,7 @@ const StepSlider: React.FC = () => {
                             className="fixed rounded-md bg-gray-900 px-3 py-2 text-sm text-white shadow-lg pointer-events-none border border-gray-700 z-50"
                             style={{
                                 left,
-                                top: containerRect.top - 55,
+                                top: containerRect.top - 60,
                                 transform,
                                 minWidth: `${TOOLTIP_WIDTH}px`,
                             }}
@@ -428,17 +428,15 @@ const StepSlider: React.FC = () => {
                         '[&_[role=slider]]:pointer-events-none',
                         isDragging ? '[&_[role=slider]]:cursor-grabbing' : '[&_[role=slider]]:cursor-pointer',
                         // Classic media player button styling - rectangular donut shape with triangular indicators
-                        '[&_[role=slider]]:h-3.5',
-                        '[&_[role=slider]]:w-2',
-                        '[&_[role=slider]]:box-content',
-                        '[&_[role=slider]]:rounded-none',
+                        '[&_[role=slider]]:px-2.5',
                         '[&_[role=slider]]:bg-transparent',
-                        '[&_[role=slider]]:border-[7px] [&_[role=slider]]:border-stone-400',
+                        '[&_[role=slider]]:border-none',
+                        '[&_[role=slider]]:shadow-none',
                         '[&_[role=slider]]:relative',
                         // Top triangle using ::before pseudo-element
                         '[&_[role=slider]]:before:content-[""]',
                         '[&_[role=slider]]:before:absolute',
-                        '[&_[role=slider]]:before:top-[-14px]',
+                        '[&_[role=slider]]:before:top-[-8px]',
                         '[&_[role=slider]]:before:left-1/2',
                         '[&_[role=slider]]:before:-translate-x-1/2',
                         '[&_[role=slider]]:before:w-0',
@@ -448,12 +446,11 @@ const StepSlider: React.FC = () => {
                         '[&_[role=slider]]:before:border-t-[8px]',
                         '[&_[role=slider]]:before:border-l-transparent',
                         '[&_[role=slider]]:before:border-r-transparent',
-                        '[&_[role=slider]]:before:border-b-stone-400',
-                        '[&_[role=slider]]:before:border-t-stone-600',
+                        '[&_[role=slider]]:before:border-t-red-500',
                         // Bottom triangle using ::after pseudo-element
                         '[&_[role=slider]]:after:content-[""]',
                         '[&_[role=slider]]:after:absolute',
-                        '[&_[role=slider]]:after:bottom-[-14px]',
+                        '[&_[role=slider]]:after:bottom-[-8px]',
                         '[&_[role=slider]]:after:left-1/2',
                         '[&_[role=slider]]:after:-translate-x-1/2',
                         '[&_[role=slider]]:after:w-0',
@@ -463,8 +460,7 @@ const StepSlider: React.FC = () => {
                         '[&_[role=slider]]:after:border-b-[8px]',
                         '[&_[role=slider]]:after:border-l-transparent',
                         '[&_[role=slider]]:after:border-r-transparent',
-                        '[&_[role=slider]]:after:border-t-stone-400',
-                        '[&_[role=slider]]:after:border-b-stone-600',
+                        '[&_[role=slider]]:after:border-b-red-500',
                         // Glass-like effect for filled portion with enhanced contrast
                         '[&_[data-orientation=horizontal]_span[data-orientation=horizontal]]:bg-transparent',
                     )}
