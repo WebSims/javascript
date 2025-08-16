@@ -40,13 +40,6 @@ const useEmailReminderTrigger = ({
         }
     }, [codeEditorSelector])
 
-    // Handle user interaction events
-    const handleUserInteraction = useCallback(() => {
-        if (!hasUserInteracted && isMobile) {
-            setHasUserInteracted(true)
-        }
-    }, [hasUserInteracted, isMobile])
-
     // Start timer when conditions are met
     const startDrawerTimer = useCallback(() => {
         if (timerRef.current) {
@@ -60,6 +53,20 @@ const useEmailReminderTrigger = ({
             }
         }, delayMs)
     }, [isCodeEditorFocused, hasShownDrawer, isMobile, hasUserInteracted, delayMs])
+
+    // Handle user interaction events
+    const handleUserInteraction = useCallback(() => {
+        if (!hasUserInteracted && isMobile) {
+            setHasUserInteracted(true)
+        } else if (hasUserInteracted && isMobile && !hasShownDrawer) {
+            // Reset the timer if user interacts while countdown is active
+            if (timerRef.current) {
+                clearTimeout(timerRef.current)
+                // Restart the timer
+                startDrawerTimer()
+            }
+        }
+    }, [hasUserInteracted, isMobile, hasShownDrawer, startDrawerTimer])
 
     // Dismiss drawer
     const dismissDrawer = useCallback(() => {
