@@ -157,12 +157,12 @@ const EmailReminder: React.FC<EmailReminderProps> = ({ isOpen, onClose }) => {
                             ? 'Check your email for the link to this page.'
                             : showEmailForm
                                 ? 'Enter your email address to receive the link.'
-                                : 'If you want more details and explanation, open this page on a computer.'
+                                : 'For more details and explanation, open this page on a computer.'
                         }
                     </DrawerDescription>
                 </DrawerHeader>
 
-                <DrawerFooter>
+                <DrawerFooter className="pt-0">
                     {!showEmailForm && !isEmailSent && (
                         <Button
                             onClick={handleEmailMeClick}
