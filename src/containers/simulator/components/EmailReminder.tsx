@@ -24,6 +24,7 @@ const EmailReminder: React.FC<EmailReminderProps> = ({ isOpen, onClose }) => {
     const [isLoading, setIsLoading] = useState(false)
     const [isEmailSent, setIsEmailSent] = useState(false)
     const [shouldRender, setShouldRender] = useState(false)
+    const [isDragging, setIsDragging] = useState(false)
 
     // Check if drawer should be shown based on counter
     useEffect(() => {
@@ -75,10 +76,7 @@ const EmailReminder: React.FC<EmailReminderProps> = ({ isOpen, onClose }) => {
 
             setIsEmailSent(true)
             setTimeout(() => {
-                onClose()
-                setShowEmailForm(false)
-                setEmail('')
-                setIsEmailSent(false)
+                handleExplicitClose()
             }, 2000)
         } catch (error) {
             console.error('Error sending email:', error)
@@ -94,6 +92,30 @@ const EmailReminder: React.FC<EmailReminderProps> = ({ isOpen, onClose }) => {
         setIsEmailSent(false)
     }
 
+    const handleDragStart = () => {
+        setIsDragging(true)
+    }
+
+    const handleDragEnd = () => {
+        // Reset dragging state after a short delay to allow for potential close
+        setTimeout(() => {
+            setIsDragging(false)
+        }, 100)
+    }
+
+    const handleExplicitClose = () => {
+        setIsDragging(true) // Allow explicit close
+        handleClose()
+    }
+
+    const handleOpenChange = (open: boolean) => {
+        // Only allow closing if we're dragging or explicitly closing
+        if (!open && isDragging) {
+            handleClose()
+            setIsDragging(false)
+        }
+    }
+
     const handleKeyDown = (e: React.KeyboardEvent) => {
         if (e.key === 'Enter' && showEmailForm && !isLoading) {
             handleSendEmail()
@@ -106,10 +128,20 @@ const EmailReminder: React.FC<EmailReminderProps> = ({ isOpen, onClose }) => {
     }
 
     return (
-        <Drawer open={isOpen}>
-            <DrawerContent>
+        <Drawer
+            open={isOpen}
+            onOpenChange={handleOpenChange}
+            shouldScaleBackground={false}
+        >
+            <DrawerContent
+                onPointerDown={handleDragStart}
+                onTouchStart={handleDragStart}
+                onPointerUp={handleDragEnd}
+                onTouchEnd={handleDragEnd}
+                onPointerCancel={handleDragEnd}
+            >
                 <button
-                    onClick={handleClose}
+                    onClick={handleExplicitClose}
                     className="absolute right-4 top-4 rounded-sm opacity-70 ring-offset-background transition-opacity hover:opacity-100 focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2 disabled:pointer-events-none z-10"
                     tabIndex={0}
                     aria-label="Close drawer"
