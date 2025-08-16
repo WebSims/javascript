@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react'
 
 const MOBILE_BREAKPOINT = 1024 // Standard breakpoint for tablets
-const MOBILE_WIDTH_BREAKPOINT = 768 // Width breakpoint for mobile detection
+const MOBILE_WIDTH_BREAKPOINT = 1024 // Width breakpoint for mobile detection
 
 interface DeviceDetection {
     isMobile: boolean
@@ -20,7 +20,7 @@ const useResponsive = (options: UseResponsiveOptions = {}): DeviceDetection => {
     const {
         breakpoint = MOBILE_BREAKPOINT,
         mobileWidthBreakpoint = MOBILE_WIDTH_BREAKPOINT,
-        includeUserAgent = true
+        includeUserAgent = false
     } = options
 
     const [isMobile, setIsMobile] = useState(false)
