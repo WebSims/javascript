@@ -182,11 +182,10 @@ export const renderMemvalSection = ({
         const memvalType = isReference ? "ref" : typeof memvalData.value
         let value = 'N/A'
 
-        // For references, show <Reference> with icon
         if (isReference) {
-            value = "<Reference> ↗️"
+            value = "<Reference>"
         } else if (memvalData.value === "not_initialized") {
-            value = "<TDZ> 🤔"
+            value = "<TDZ>"
         } else {
             value = memvalData.value as string
         }

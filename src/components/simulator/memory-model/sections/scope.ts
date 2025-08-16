@@ -277,7 +277,7 @@ export const renderScopeSection = ({
 
             // Add variable name   
             const isReference = varData.type === "reference"
-            const displayText = `${varData.name}${isReference ? " ↗️" : ` = ${varData.value}`}`
+            const displayText = `${varData.name} ${isReference ? "= <Reference>" : `= ${varData.value}`}`
 
             variableGroup
                 .append("text")

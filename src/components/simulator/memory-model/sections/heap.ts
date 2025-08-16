@@ -71,15 +71,14 @@ export const formatPropertyValue = (propName: string, propValue: JSValue): { nam
         } else if (propValue.value === null) {
             return { name: propName, value: "null" }
         } else if (propValue.value === "not_initialized") {
-            return { name: propName, value: "<TDZ> 🤔" }
+            return { name: propName, value: "<TDZ>" }
         } else {
             return { name: propName, value: String(propValue.value) }
         }
     } else {
-        // It's a reference - show just the icon
         return {
             name: propName,
-            value: "↗️",
+            value: "<Reference>",
             target: `obj-${propValue.ref}`
         }
     }
@@ -367,7 +366,7 @@ export const renderHeapSection = ({
                         .attr("x", 0)
                         .attr("y", 10)
                         .attr("font-size", "12px")
-                        .text(`${prop.name} ${prop.value}`)
+                        .text(`${prop.name}: ${prop.value}`)
                 })
             }
         })
