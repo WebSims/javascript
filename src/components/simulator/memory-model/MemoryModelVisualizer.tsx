@@ -79,10 +79,34 @@ type ElkGraph = ElkNode & {
 // Horizontal spacing between major sections (memval | heap | scope)
 const SECTION_HORIZONTAL_GAP = 5
 
+type ArrowState = {
+    sourcePos: { x: number; y: number } | null
+    targetPos: { x: number; y: number } | null
+    direction: { dx: number; dy: number } | null
+}
+
 const MemoryModelVisualizer = () => {
     const { currentStep, steps, settings, toggleAutoZoom } = useSimulatorStore()
     const svgRef = useRef<SVGSVGElement>(null)
     const [containerRef, containerSize] = useElementSize<HTMLDivElement>()
+
+    // Refs for mutable data to prevent re-renders
+    const currentStepRef = useRef(currentStep)
+    const stepsRef = useRef(steps)
+    const isInitializedRef = useRef(false)
+    const isUpdatingRef = useRef(false)
+    const d3ContainerRef = useRef<d3.Selection<SVGGElement, unknown, null, undefined> | null>(null)
+    const zoomRef = useRef<d3.ZoomBehavior<Element, unknown> | null>(null)
+
+    // Add refs for arrow state tracking
+    const previousArrowStatesRef = useRef<Map<string, ArrowState>>(new Map())
+    const currentArrowStatesRef = useRef<Map<string, ArrowState>>(new Map())
+
+    // Update refs when props change
+    useEffect(() => {
+        currentStepRef.current = currentStep
+        stepsRef.current = steps
+    }, [currentStep, steps])
 
     const getMaxDepth = useMemo(() => {
         return Math.max(...steps.map(step => step.scopeIndex))
@@ -90,14 +114,16 @@ const MemoryModelVisualizer = () => {
 
     // Transform snapshot data into visualization format
     const transformData = useCallback(() => {
+        const currentStepData = currentStepRef.current
+        const stepsData = stepsRef.current
         const scopesData: ScopeData[] = []
         const heapData: HeapObjectData[] = []
 
         // Categorize scopes with depth-based colors (reverse order - global at bottom)
-        const reversedScopes = [...(currentStep?.memorySnapshot.scopes || [])].reverse()
+        const reversedScopes = [...(currentStepData?.memorySnapshot.scopes || [])].reverse()
         reversedScopes.forEach((scope, reversedIndex) => {
             // Calculate original index for color and current scope detection
-            const originalIndex = (currentStep?.memorySnapshot.scopes.length || 0) - 1 - reversedIndex
+            const originalIndex = (currentStepData?.memorySnapshot.scopes.length || 0) - 1 - reversedIndex
             const scopeId = `scope-${originalIndex}`
 
             // Get depth-based colors using original depth and max depth
@@ -126,9 +152,9 @@ const MemoryModelVisualizer = () => {
 
             // Add current scope indicator
             // For POP_SCOPE steps, use the parent scope (next step's scopeIndex)
-            const effectiveScopeIndex = currentStep?.type === EXEC_STEP_TYPE.POP_SCOPE && currentStep.index < steps.length - 1
-                ? steps[currentStep.index + 1].scopeIndex
-                : currentStep?.scopeIndex
+            const effectiveScopeIndex = currentStepData?.type === EXEC_STEP_TYPE.POP_SCOPE && currentStepData.index < stepsData.length - 1
+                ? stepsData[currentStepData.index + 1].scopeIndex
+                : currentStepData?.scopeIndex
             const isCurrentScope = originalIndex === effectiveScopeIndex
             if (isCurrentScope) {
                 scopeTags.push("Current")
@@ -190,7 +216,7 @@ const MemoryModelVisualizer = () => {
         })
 
         // Process heap objects first to get type information
-        Object.entries(currentStep?.memorySnapshot.heap ?? {}).forEach(([ref, obj]) => {
+        Object.entries(currentStepData?.memorySnapshot.heap ?? {}).forEach(([ref, obj]) => {
             const objId = `obj-${ref}`
             let objType = "Object"
             let objColor = "#fefcbf"
@@ -216,7 +242,7 @@ const MemoryModelVisualizer = () => {
         })
 
         // Now process heap object properties with type information available
-        Object.entries(currentStep?.memorySnapshot.heap ?? {}).forEach(([ref, obj]) => {
+        Object.entries(currentStepData?.memorySnapshot.heap ?? {}).forEach(([ref, obj]) => {
             const objId = `obj-${ref}`
             const heapObj = heapData.find(h => h.id === objId)
             if (!heapObj) return
@@ -266,20 +292,197 @@ const MemoryModelVisualizer = () => {
             scopes: scopesData,
             heap: heapData
         }
-    }, [currentStep, getMaxDepth, steps])
+    }, [getMaxDepth])
 
 
 
-    useEffect(() => {
-        if (!currentStep) return
-        if (!svgRef.current) return
+    // Function to detect if arrow direction has changed
+    const hasArrowDirectionChanged = useCallback((edgeId: string, currentState: ArrowState): boolean => {
+        const previousState = previousArrowStatesRef.current.get(edgeId)
+        if (!previousState) return true // New arrow, consider it changed
+
+        // Check if source or target positions changed
+        if (!previousState.sourcePos || !previousState.targetPos || !currentState.sourcePos || !currentState.targetPos) {
+            return true
+        }
+
+        // Check if positions changed significantly (more than 0.5 pixel for precision)
+        const sourceChanged = Math.abs(previousState.sourcePos.x - currentState.sourcePos.x) > 0.5 ||
+            Math.abs(previousState.sourcePos.y - currentState.sourcePos.y) > 0.5
+        const targetChanged = Math.abs(previousState.targetPos.x - currentState.targetPos.x) > 0.5 ||
+            Math.abs(previousState.targetPos.y - currentState.targetPos.y) > 0.5
+
+        return sourceChanged || targetChanged
+    }, [])
+
+    // Function to update connections with arrow state tracking
+    const updateConnections = useCallback((
+        rootContainer: d3.Selection<SVGGElement, unknown, null, undefined>,
+        nodePositions: Map<string, { x: number; y: number }>,
+        propertyPositions: Map<string, { x: number; y: number }>,
+        edgeData: Array<{ source: string; target: string; type: string; label?: string; propIndex?: number }>
+    ) => {
+        // Define the calculatePath function for exactly straight lines
+        const calculatePath = (
+            source: { x: number; y: number },
+            target: { x: number; y: number }
+        ): string => {
+            const path = d3.path()
+
+            // Draw exactly straight line from source to target
+            path.moveTo(source.x, source.y)
+            path.lineTo(target.x, target.y)
+
+            return path.toString()
+        }
+
+        // Clear current arrow states
+        currentArrowStatesRef.current.clear()
+
+        // Track which arrows need to be updated vs created
+        const arrowsToUpdate = new Map<string, { element: d3.Selection<SVGPathElement, unknown, null, undefined>, newPath: string }>()
+        const arrowsToCreate = new Array<{ edge: typeof edgeData[0], sourcePos: { x: number; y: number }, targetPos: { x: number; y: number } }>()
+
+        edgeData.forEach((edge) => {
+            const sourcePos = edge.type === "prop-ref" ? propertyPositions.get(edge.source) : nodePositions.get(edge.source)
+            const targetPos = nodePositions.get(edge.target)
+
+            if (!sourcePos || !targetPos) return
+
+            // Create unique edge ID for tracking
+            const edgeId = `${edge.source}-${edge.target}-${edge.type}`
+
+            // Calculate current arrow state
+            const currentState: ArrowState = {
+                sourcePos,
+                targetPos,
+                direction: {
+                    dx: targetPos.x - sourcePos.x,
+                    dy: targetPos.y - sourcePos.y
+                }
+            }
+
+            // Store current state
+            currentArrowStatesRef.current.set(edgeId, currentState)
+
+            // Check if arrow already exists and if its position has changed
+            const existingArrow = d3.select(svgRef.current!).select(`[data-edge-id="${edgeId}"]`)
+            const hasChanged = hasArrowDirectionChanged(edgeId, currentState)
+
+            if (existingArrow.size() > 0 && !hasChanged) {
+                // Arrow exists and hasn't changed - keep it as is
+                return
+            } else if (existingArrow.size() > 0 && hasChanged) {
+                // Arrow exists but has changed - update it
+                const newPath = calculatePath(sourcePos, targetPos)
+                arrowsToUpdate.set(edgeId, { element: existingArrow as unknown as d3.Selection<SVGPathElement, unknown, null, undefined>, newPath })
+            } else {
+                // Arrow doesn't exist - create it
+                arrowsToCreate.push({ edge, sourcePos, targetPos })
+            }
+        })
+
+        // Remove arrows that no longer exist
+        const currentArrowIds = new Set(currentArrowStatesRef.current.keys())
+        const existingArrowIds = new Set<string>()
+
+        d3.select(svgRef.current!).selectAll("[data-edge-id]").each(function () {
+            const edgeId = d3.select(this).attr("data-edge-id")
+            if (edgeId) {
+                existingArrowIds.add(edgeId)
+            }
+        })
+
+        for (const edgeId of existingArrowIds) {
+            if (!currentArrowIds.has(edgeId)) {
+                d3.select(svgRef.current!).select(`[data-edge-id="${edgeId}"]`).remove()
+            }
+        }
+
+        // Update existing arrows that have changed
+        arrowsToUpdate.forEach(({ element, newPath }) => {
+            element.attr("d", newPath)
+                .style("pointer-events", "all")
+                .style("z-index", "1000")
+
+            // Move updated arrow to the end of the container to ensure it's on top
+            const container = rootContainer.node()
+            const arrowNode = element.node()
+            if (container && arrowNode) {
+                container.appendChild(arrowNode)
+            }
+        })
+
+        // Log optimization stats
+        if (arrowsToUpdate.size > 0 || arrowsToCreate.length > 0) {
+            console.log(`Arrow optimization: ${arrowsToUpdate.size} updated, ${arrowsToCreate.length} created, ${edgeData.length - arrowsToUpdate.size - arrowsToCreate.length} unchanged`)
+        }
+
+        // Create new arrows
+        arrowsToCreate.forEach(({ edge, sourcePos, targetPos }) => {
+            const edgeId = `${edge.source}-${edge.target}-${edge.type}`
+
+            let arrowType
+            let strokeColor
+
+            if (edge.type === "var-ref") {
+                arrowType = "arrow-var-ref"
+                strokeColor = "#4299e1"
+            } else if (edge.type === "prop-ref") {
+                arrowType = "arrow-prop-ref"
+                strokeColor = "#ed8936"
+            } else if (edge.type === "memval-ref") {
+                arrowType = "arrow-memval-ref"
+                strokeColor = "#8b5cf6"
+            } else if (edge.type === "memval-layered") {
+                arrowType = "arrow-memval-layered"
+                strokeColor = "#10b981"
+            } else {
+                arrowType = "arrow-var-ref"
+                strokeColor = "#4299e1"
+            }
+
+            // Create the arrow path and move it to the top
+            const arrowElement = rootContainer
+                .append("path")
+                .attr("class", "connection")
+                .attr("d", calculatePath(sourcePos, targetPos))
+                .attr("stroke", strokeColor)
+                .attr("stroke-width", 1.5)
+                .attr("fill", "none")
+                .attr("marker-end", `url(#${arrowType})`)
+                .attr("data-source", edge.source)
+                .attr("data-target", edge.target)
+                .attr("data-edge-id", edgeId)
+                .style("pointer-events", "all")
+                .style("z-index", "1000")
+                .on("mouseover", function () {
+                    d3.select(this).attr("stroke", "#e53e3e").attr("marker-end", "url(#arrow-highlight)")
+                })
+                .on("mouseout", function () {
+                    d3.select(this)
+                        .attr("stroke", strokeColor)
+                        .attr("marker-end", `url(#${arrowType})`)
+                })
+
+            // Move arrow to the end of the container to ensure it's on top
+            rootContainer.node()?.appendChild(arrowElement.node()!)
+        })
+
+        // Update previous states for next comparison
+        previousArrowStatesRef.current = new Map(currentArrowStatesRef.current)
+    }, [hasArrowDirectionChanged])
+
+    // Function to render the complete visualization
+    const renderVisualization = useCallback((memoryModelData: ReturnType<typeof transformData>) => {
+        if (!svgRef.current || !d3ContainerRef.current) return
         if (!containerSize.width || !containerSize.height) return
 
-        // Clear any existing SVG content
-        d3.select(svgRef.current).selectAll("*").remove()
+        const currentStepData = currentStepRef.current
+        if (!currentStepData) return
 
-        // Transform the data into visualization format
-        const memoryModelData = transformData()
+        // Clear existing content (this will be called after fade-out transition)
+        d3ContainerRef.current.selectAll("*").remove()
 
         // Define common dimensions (smaller heap objects and items)
         const objectWidth = 150
@@ -342,7 +545,7 @@ const MemoryModelVisualizer = () => {
             const heapSection = createHeapSection()
 
             // Add memval nodes with layered algorithm (bottom to top)
-            const memvalItems = currentStep?.memorySnapshot.memval || []
+            const memvalItems = currentStepData?.memorySnapshot.memval || []
 
             // Create memval nodes using the module (even if empty, the section will be created)
             const memvalNodes = createMemvalNodes(memvalItems)
@@ -386,71 +589,6 @@ const MemoryModelVisualizer = () => {
 
         const elkGraph = createElkGraph()
         const elk = new ELK()
-
-        // Function to update connections
-        const updateConnections = () => {
-            // Define the calculatePath function for exactly straight lines
-            const calculatePath = (
-                source: { x: number; y: number },
-                target: { x: number; y: number }
-            ): string => {
-                const path = d3.path()
-
-                // Draw exactly straight line from source to target
-                path.moveTo(source.x, source.y)
-                path.lineTo(target.x, target.y)
-
-                return path.toString()
-            }
-
-            rootContainer.selectAll(".connection").remove()
-
-            edgeData.forEach((edge) => {
-                const sourcePos = edge.type === "prop-ref" ? propertyPositions.get(edge.source) : nodePositions.get(edge.source)
-                const targetPos = nodePositions.get(edge.target)
-
-                if (!sourcePos || !targetPos) return
-
-                let arrowType
-                let strokeColor
-
-                if (edge.type === "var-ref") {
-                    arrowType = "arrow-var-ref"
-                    strokeColor = "#4299e1"
-                } else if (edge.type === "prop-ref") {
-                    arrowType = "arrow-prop-ref"
-                    strokeColor = "#ed8936"
-                } else if (edge.type === "memval-ref") {
-                    arrowType = "arrow-memval-ref"
-                    strokeColor = "#8b5cf6"
-                } else if (edge.type === "memval-layered") {
-                    arrowType = "arrow-memval-layered"
-                    strokeColor = "#10b981"
-                } else {
-                    arrowType = "arrow-var-ref"
-                    strokeColor = "#4299e1"
-                }
-
-                rootContainer
-                    .append("path")
-                    .attr("class", "connection")
-                    .attr("d", calculatePath(sourcePos, targetPos))
-                    .attr("stroke", strokeColor)
-                    .attr("stroke-width", 1.5)
-                    .attr("fill", "none")
-                    .attr("marker-end", `url(#${arrowType})`)
-                    .attr("data-source", edge.source)
-                    .attr("data-target", edge.target)
-                    .on("mouseover", function () {
-                        d3.select(this).attr("stroke", "#e53e3e").attr("marker-end", "url(#arrow-highlight)")
-                    })
-                    .on("mouseout", function () {
-                        d3.select(this)
-                            .attr("stroke", strokeColor)
-                            .attr("marker-end", `url(#${arrowType})`)
-                    })
-            })
-        }
 
         // Run the layout algorithm
         elk
@@ -630,7 +768,7 @@ const MemoryModelVisualizer = () => {
 
 
                 // Draw memval items using the module - always show memval section
-                const memvalItems = currentStep?.memorySnapshot.memval || []
+                const memvalItems = currentStepData?.memorySnapshot.memval || []
 
 
 
@@ -669,7 +807,7 @@ const MemoryModelVisualizer = () => {
                     objectHeight,
                 }).then(() => {
                     // Initial draw of connections after all modules have rendered
-                    updateConnections()
+                    updateConnections(rootContainer, nodePositions, propertyPositions, edgeData)
                 })
 
 
@@ -677,7 +815,131 @@ const MemoryModelVisualizer = () => {
             .catch((error) => {
                 console.error("ELK layout error:", error)
             })
-    }, [currentStep, transformData, containerSize])
+    }, [containerSize])
+
+    // Function to update visualization without recreating everything
+    const updateVisualization = useCallback(() => {
+        if (!currentStepRef.current) return
+        if (!d3ContainerRef.current) return
+
+        // Transform the data into visualization format
+        const memoryModelData = transformData()
+
+        // Check if we need to do a full re-render or just update data
+        const currentContainer = d3ContainerRef.current
+        const hasExistingContent = currentContainer.selectAll(".heap-object, .scope-object, .memval-object").size() > 0
+
+        if (!hasExistingContent) {
+            // First time rendering, do full render
+            renderVisualization(memoryModelData)
+            return
+        }
+
+        // Use smooth transitions to prevent flashing
+        renderVisualizationWithTransitions(memoryModelData)
+    }, [transformData, renderVisualization])
+
+    // Function to render with smooth transitions to prevent flashing
+    const renderVisualizationWithTransitions = useCallback((memoryModelData: ReturnType<typeof transformData>) => {
+        if (!svgRef.current || !d3ContainerRef.current) return
+        if (!containerSize.width || !containerSize.height) return
+
+        const currentStepData = currentStepRef.current
+        if (!currentStepData) return
+
+        // Simple approach: fade out, update, fade in
+        const container = d3ContainerRef.current
+
+        // Fade out existing content
+        container
+            .selectAll("*")
+            .transition()
+            .duration(100)
+            .style("opacity", 0)
+            .on("end", function () {
+                // Remove old content
+                d3.select(this).remove()
+
+                // Render new content
+                renderVisualization(memoryModelData)
+
+                // Fade in new content
+                container
+                    .selectAll("*")
+                    .style("opacity", 0)
+                    .transition()
+                    .duration(150)
+                    .style("opacity", 1)
+            })
+    }, [containerSize, renderVisualization])
+
+
+
+    // Initialize D3 visualization once
+    useEffect(() => {
+        if (!svgRef.current) return
+        if (!containerSize.width || !containerSize.height) return
+        if (isInitializedRef.current) return
+
+        // Create SVG with 100% width and height
+        const svg = d3
+            .select(svgRef.current)
+            .attr("width", "100%")
+            .attr("height", "100%")
+
+        // Create zoom behavior - configurable auto zoom
+        const zoom = d3.zoom()
+            .scaleExtent([0.5, 2])
+            .on("zoom", (event) => {
+                const { transform } = event
+                if (d3ContainerRef.current) {
+                    d3ContainerRef.current.attr("transform", transform)
+                }
+            })
+
+        // Apply zoom behavior to SVG
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        svg.call(zoom as any)
+        zoomRef.current = zoom
+
+        // Create a container for the graph within the root container
+        d3ContainerRef.current = svg.append("g")
+
+        isInitializedRef.current = true
+    }, [containerSize.width, containerSize.height])
+
+    // Update visualization when step changes with debouncing to prevent rapid re-renders
+    useEffect(() => {
+        if (!isInitializedRef.current) return
+        if (isUpdatingRef.current) return // Prevent concurrent updates
+
+        // Debounce the update to prevent rapid re-renders
+        const timeoutId = setTimeout(() => {
+            isUpdatingRef.current = true
+            updateVisualization()
+            // Reset the flag after a short delay to allow for transitions
+            setTimeout(() => {
+                isUpdatingRef.current = false
+            }, 300)
+        }, 50) // Small delay to batch rapid step changes
+
+        return () => clearTimeout(timeoutId)
+    }, [currentStep, updateVisualization])
+
+    // Add effect to handle arrow direction changes
+    useEffect(() => {
+        if (!isInitializedRef.current) return
+
+        // Check if arrows need updating when step changes
+        // This will trigger a re-render of arrows when their from/to directions change
+        const checkArrowChanges = () => {
+            // Clear previous arrow states to force re-rendering
+            previousArrowStatesRef.current.clear()
+            currentArrowStatesRef.current.clear()
+        }
+
+        checkArrowChanges()
+    }, [currentStep])
 
     return (
         <div ref={containerRef} className="relative w-full h-full">
@@ -686,7 +948,7 @@ const MemoryModelVisualizer = () => {
                     <div className="w-full h-full">
                         <svg
                             ref={svgRef}
-                            className="w-full h-full"
+                            className="w-full h-full [&_*]:transition-opacity [&_*]:duration-200"
                         />
                     </div>
                 </ContextMenuTrigger>
