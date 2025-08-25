@@ -22,6 +22,7 @@ const StepSlider: React.FC = () => {
     const { isMobile } = useResponsive()
     const [stepsContainerRef, containerSize] = useElementSize<HTMLDivElement>()
     const [isDragging, setIsDragging] = useState(false)
+    const [isPointerDown, setIsPointerDown] = useState(false)
     const [containerElement, setContainerElement] = useState<HTMLDivElement | null>(null)
     const [hoveredStepIndex, setHoveredStepIndex] = useState<number | null>(null)
     const [isTooltipOpen, setIsTooltipOpen] = useState(false)
@@ -66,21 +67,35 @@ const StepSlider: React.FC = () => {
         return stepIndex * stepWidth
     }, [containerSize.width, steps.length])
 
-    // Spring follower for tooltip animation
-    // Calculate target position for spring follower
-    const tooltipTargetX = (() => {
+    // Calculate tooltip position for hover and pointer down (immediate)
+    const immediateTooltipX = (() => {
         if (!containerElement || !containerSize.width || !currentStep) return 0
 
         const containerRect = containerElement.getBoundingClientRect()
-        const stepIndex = isDragging ? currentStep.index : (hoveredStepIndex !== null ? hoveredStepIndex : currentStep.index)
-        const baseX = isDragging
-            ? containerRect.left + getStepStartPosition(currentStep.index) + 10
-            : containerRect.left + getStepStartPosition(stepIndex) + 10
+        const stepIndex = hoveredStepIndex !== null ? hoveredStepIndex : currentStep.index
+        const baseX = containerRect.left + getStepStartPosition(stepIndex) + 10
 
         return baseX
     })()
 
-    const animatedTooltipX = useSpringFollower(tooltipTargetX, { lagMs: 100, snapEps: TOOLTIP_WIDTH })
+    // Calculate tooltip position for dragging (animated)
+    const dragTooltipX = (() => {
+        if (!containerElement || !containerSize.width || !currentStep) return 0
+
+        const containerRect = containerElement.getBoundingClientRect()
+        const baseX = containerRect.left + getStepStartPosition(currentStep.index) + 10
+
+        return baseX
+    })()
+
+    // Use spring follower only for dragging transitions
+    const animatedDragTooltipX = useSpringFollower(
+        dragTooltipX,
+        { lagMs: 200, snapEps: TOOLTIP_WIDTH }
+    )
+
+    // For hover and pointer down, use immediate position; for dragging, use animated position
+    const finalTooltipX = isDragging ? animatedDragTooltipX : immediateTooltipX
 
     // Pointer event handlers for desktop hover and interaction
     const handlePointerEnter = useCallback(() => {
@@ -99,17 +114,17 @@ const StepSlider: React.FC = () => {
     const handlePointerMove = useCallback((e: React.PointerEvent) => {
         if (!isMobile) {
             const { stepIndex } = getHoveredStepAndHalf(e.clientX)
-            if (stepIndex !== null) {
+            if (stepIndex !== null && stepIndex !== hoveredStepIndex) {
                 setHoveredStepIndex(stepIndex)
             }
             setIsTooltipOpen(true)
         }
-    }, [isMobile, getHoveredStepAndHalf])
+    }, [isMobile, getHoveredStepAndHalf, hoveredStepIndex])
 
     const handlePointerDown = useCallback((e: React.PointerEvent) => {
         if (!isMobile) {
             e.preventDefault()
-            setIsDragging(true)
+            setIsPointerDown(true)
             setIsTooltipOpen(true)
             const { stepIndex } = getHoveredStepAndHalf(e.clientX)
             if (stepIndex !== null) {
@@ -160,8 +175,12 @@ const StepSlider: React.FC = () => {
 
     // Add global pointer event listeners when dragging on desktop
     React.useEffect(() => {
-        if (isDragging && !isMobile) {
+        if (isPointerDown && !isMobile) {
             const handleGlobalPointerMove = (e: PointerEvent) => {
+                // Start actual dragging on first move
+                if (!isDragging) {
+                    setIsDragging(true)
+                }
                 setIsTooltipOpen(true)
                 const { stepIndex } = getHoveredStepAndHalf(e.clientX)
                 if (stepIndex !== null) {
@@ -170,24 +189,10 @@ const StepSlider: React.FC = () => {
                 }
             }
 
-            const handleGlobalPointerUp = (e: PointerEvent) => {
+            const handleGlobalPointerUp = () => {
                 setIsDragging(false)
-
-                // Check if pointer is outside the slider area
-                if (containerElement) {
-                    const rect = containerElement.getBoundingClientRect()
-                    const isOutside = (
-                        e.clientX < rect.left ||
-                        e.clientX > rect.right ||
-                        e.clientY < rect.top ||
-                        e.clientY > rect.bottom
-                    )
-
-                    if (isOutside) {
-                        setIsTooltipOpen(false)
-                        setHoveredStepIndex(null)
-                    }
-                }
+                setIsPointerDown(false)
+                // Don't hide tooltip on pointer up - only hide on pointer leave
             }
 
             document.addEventListener('pointermove', handleGlobalPointerMove, { capture: true })
@@ -198,7 +203,7 @@ const StepSlider: React.FC = () => {
                 document.removeEventListener('pointerup', handleGlobalPointerUp, { capture: true })
             }
         }
-    }, [isDragging, isMobile, getHoveredStepAndHalf, changeStep])
+    }, [isPointerDown, isDragging, isMobile, getHoveredStepAndHalf, changeStep])
 
     // Add global touch event listeners when dragging on mobile
     React.useEffect(() => {
@@ -351,8 +356,8 @@ const StepSlider: React.FC = () => {
                     const stepNumber = `${stepIndex + 1}/${steps.length}`
                     const stepClassName = getStepClassName(tooltipStep.type, tooltipStep)
 
-                    // Use animated position from spring follower
-                    const baseX = animatedTooltipX
+                    // Use final tooltip position (immediate for hover, animated for dragging)
+                    const baseX = finalTooltipX
 
                     // Calculate boundaries
                     const leftBoundary = containerRect.left
