@@ -102,9 +102,6 @@ const MemoryModelVisualizer = () => {
     const previousArrowStatesRef = useRef<Map<string, ArrowState>>(new Map())
     const currentArrowStatesRef = useRef<Map<string, ArrowState>>(new Map())
 
-    // Add ref for background cleanup timeout
-    const backgroundCleanupTimeoutRef = useRef<NodeJS.Timeout | null>(null)
-
     // Update refs when props change
     useEffect(() => {
         currentStepRef.current = currentStep
@@ -478,25 +475,14 @@ const MemoryModelVisualizer = () => {
 
     // Function to render the complete visualization
     const renderVisualization = useCallback((memoryModelData: ReturnType<typeof transformData>) => {
-        if (!svgRef.current) return
+        if (!svgRef.current || !d3ContainerRef.current) return
         if (!containerSize.width || !containerSize.height) return
 
         const currentStepData = currentStepRef.current
         if (!currentStepData) return
 
-        console.log("Rendering visualization for step:", currentStepData.index)
-
-        const svg = d3.select(svgRef.current)
-
-        // Instead of clearing everything, fade out old content and keep it as background
-        const existingContent = svg.selectAll("g:not(.background-layer)")
-        if (existingContent.size() > 0) {
-            existingContent
-                .transition()
-                .duration(200)
-                .style("opacity", 0.3)
-                .attr("class", "background-layer")
-        }
+        // Clear existing content (this will be called after fade-out transition)
+        d3ContainerRef.current.selectAll("*").remove()
 
         // Define common dimensions (smaller heap objects and items)
         const objectWidth = 150
@@ -506,28 +492,12 @@ const MemoryModelVisualizer = () => {
         const viewportWidth = containerSize.width
         const viewportHeight = containerSize.height
 
-        // Recreate SVG with 100% width and height
-        svg
+        // Create SVG with 100% width and height
+        const svg = d3
+            .select(svgRef.current)
             .attr("width", "100%")
             .attr("height", "100%")
             .attr("viewBox", `0 0 ${viewportWidth} ${viewportHeight}`)
-
-        // Create a container for the graph within the root container FIRST
-        const rootContainer = svg.append("g")
-
-        // Update the container reference
-        d3ContainerRef.current = rootContainer
-
-        // Clean up old background elements after a delay
-        if (backgroundCleanupTimeoutRef.current) {
-            clearTimeout(backgroundCleanupTimeoutRef.current)
-        }
-        backgroundCleanupTimeoutRef.current = setTimeout(() => {
-            if (svgRef.current) {
-                d3.select(svgRef.current).selectAll(".background-layer").remove()
-            }
-            backgroundCleanupTimeoutRef.current = null
-        }, 1000) // Remove background after 1 second
 
         // Create zoom behavior - configurable auto zoom
         const zoom = d3.zoom()
@@ -535,35 +505,14 @@ const MemoryModelVisualizer = () => {
             .on("zoom", (event) => {
                 const { transform } = event
                 rootContainer.attr("transform", transform)
-
-                // Clear background elements when user interacts with the view
-                svg.selectAll(".background-layer").remove()
-            })
-            .on("start", () => {
-                // Clear background elements when zoom/pan starts
-                svg.selectAll(".background-layer").remove()
             })
 
         // Apply zoom behavior to SVG
         // eslint-disable-next-line @typescript-eslint/no-explicit-any
         svg.call(zoom as any)
 
-        // Add mouse event handlers to clear background on interaction
-        svg
-            .on("mousedown", () => {
-                svg.selectAll(".background-layer").remove()
-                if (backgroundCleanupTimeoutRef.current) {
-                    clearTimeout(backgroundCleanupTimeoutRef.current)
-                    backgroundCleanupTimeoutRef.current = null
-                }
-            })
-            .on("wheel", () => {
-                svg.selectAll(".background-layer").remove()
-                if (backgroundCleanupTimeoutRef.current) {
-                    clearTimeout(backgroundCleanupTimeoutRef.current)
-                    backgroundCleanupTimeoutRef.current = null
-                }
-            })
+        // Create a container for the graph within the root container
+        const rootContainer = svg.append("g")
 
         // Background rectangles and dividers will be added dynamically after layout
 
@@ -871,17 +820,58 @@ const MemoryModelVisualizer = () => {
     // Function to update visualization without recreating everything
     const updateVisualization = useCallback(() => {
         if (!currentStepRef.current) return
-
-        console.log("Updating visualization for step:", currentStepRef.current.index)
+        if (!d3ContainerRef.current) return
 
         // Transform the data into visualization format
         const memoryModelData = transformData()
 
-        // Always do full render since we're clearing everything
-        renderVisualization(memoryModelData)
+        // Check if we need to do a full re-render or just update data
+        const currentContainer = d3ContainerRef.current
+        const hasExistingContent = currentContainer.selectAll(".heap-object, .scope-object, .memval-object").size() > 0
+
+        if (!hasExistingContent) {
+            // First time rendering, do full render
+            renderVisualization(memoryModelData)
+            return
+        }
+
+        // Use smooth transitions to prevent flashing
+        renderVisualizationWithTransitions(memoryModelData)
     }, [transformData, renderVisualization])
 
+    // Function to render with smooth transitions to prevent flashing
+    const renderVisualizationWithTransitions = useCallback((memoryModelData: ReturnType<typeof transformData>) => {
+        if (!svgRef.current || !d3ContainerRef.current) return
+        if (!containerSize.width || !containerSize.height) return
 
+        const currentStepData = currentStepRef.current
+        if (!currentStepData) return
+
+        // Simple approach: fade out, update, fade in
+        const container = d3ContainerRef.current
+
+        // Fade out existing content
+        container
+            .selectAll("*")
+            .transition()
+            .duration(100)
+            .style("opacity", 0)
+            .on("end", function () {
+                // Remove old content
+                d3.select(this).remove()
+
+                // Render new content
+                renderVisualization(memoryModelData)
+
+                // Fade in new content
+                container
+                    .selectAll("*")
+                    .style("opacity", 0)
+                    .transition()
+                    .duration(150)
+                    .style("opacity", 1)
+            })
+    }, [containerSize, renderVisualization])
 
 
 
@@ -891,10 +881,29 @@ const MemoryModelVisualizer = () => {
         if (!containerSize.width || !containerSize.height) return
         if (isInitializedRef.current) return
 
-        // Store zoom reference for later use
+        // Create SVG with 100% width and height
+        const svg = d3
+            .select(svgRef.current)
+            .attr("width", "100%")
+            .attr("height", "100%")
+
+        // Create zoom behavior - configurable auto zoom
         const zoom = d3.zoom()
             .scaleExtent([0.5, 2])
+            .on("zoom", (event) => {
+                const { transform } = event
+                if (d3ContainerRef.current) {
+                    d3ContainerRef.current.attr("transform", transform)
+                }
+            })
+
+        // Apply zoom behavior to SVG
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        svg.call(zoom as any)
         zoomRef.current = zoom
+
+        // Create a container for the graph within the root container
+        d3ContainerRef.current = svg.append("g")
 
         isInitializedRef.current = true
     }, [containerSize.width, containerSize.height])
@@ -908,7 +917,7 @@ const MemoryModelVisualizer = () => {
         const timeoutId = setTimeout(() => {
             isUpdatingRef.current = true
             updateVisualization()
-            // Reset the flag after a short delay
+            // Reset the flag after a short delay to allow for transitions
             setTimeout(() => {
                 isUpdatingRef.current = false
             }, 300)
@@ -921,19 +930,16 @@ const MemoryModelVisualizer = () => {
     useEffect(() => {
         if (!isInitializedRef.current) return
 
-        // Clear arrow states when step changes to force re-rendering
-        previousArrowStatesRef.current.clear()
-        currentArrowStatesRef.current.clear()
-    }, [currentStep])
-
-    // Cleanup effect to clear background timeout
-    useEffect(() => {
-        return () => {
-            if (backgroundCleanupTimeoutRef.current) {
-                clearTimeout(backgroundCleanupTimeoutRef.current)
-            }
+        // Check if arrows need updating when step changes
+        // This will trigger a re-render of arrows when their from/to directions change
+        const checkArrowChanges = () => {
+            // Clear previous arrow states to force re-rendering
+            previousArrowStatesRef.current.clear()
+            currentArrowStatesRef.current.clear()
         }
-    }, [])
+
+        checkArrowChanges()
+    }, [currentStep])
 
     return (
         <div ref={containerRef} className="relative w-full h-full">
