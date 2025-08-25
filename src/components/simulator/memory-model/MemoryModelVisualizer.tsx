@@ -83,10 +83,18 @@ const MemoryModelVisualizer = () => {
     const { currentStep, steps, settings, toggleAutoZoom } = useSimulatorStore()
     const svgRef = useRef<SVGSVGElement>(null)
     const [containerRef, containerSize] = useElementSize<HTMLDivElement>()
+    const previousStepRef = useRef<number | null>(null)
 
     const getMaxDepth = useMemo(() => {
         return Math.max(...steps.map(step => step.scopeIndex))
     }, [steps])
+
+    // Special function for single step changes
+    const handleSingleStepChange = useCallback(() => {
+        console.log("Special function: Single step change detected - TODO: Complete this function in the future")
+        // TODO: Implement special logic for single step changes
+        // This function will be completed in the future as requested
+    }, [])
 
     // Transform snapshot data into visualization format
     const transformData = useCallback(() => {
@@ -178,7 +186,7 @@ const MemoryModelVisualizer = () => {
 
             scopesData.push({
                 id: scopeId,
-                name: scopeTags.join(" "),
+                name: `Scope ${originalIndex}`,
                 scopeTags,
                 scopeType,
                 isCurrentScope,
@@ -268,9 +276,8 @@ const MemoryModelVisualizer = () => {
         }
     }, [currentStep, getMaxDepth, steps])
 
-
-
-    useEffect(() => {
+    // D3 rendering function
+    const renderD3Visualization = useCallback(() => {
         if (!currentStep) return
         if (!svgRef.current) return
         if (!containerSize.width || !containerSize.height) return
@@ -405,11 +412,24 @@ const MemoryModelVisualizer = () => {
 
             rootContainer.selectAll(".connection").remove()
 
+            console.log(`Drawing ${edgeData.length} connections:`, edgeData)
+            console.log('Node positions:', Array.from(nodePositions.entries()))
+            console.log('Property positions:', Array.from(propertyPositions.entries()))
+
             edgeData.forEach((edge) => {
                 const sourcePos = edge.type === "prop-ref" ? propertyPositions.get(edge.source) : nodePositions.get(edge.source)
                 const targetPos = nodePositions.get(edge.target)
 
-                if (!sourcePos || !targetPos) return
+                if (!sourcePos || !targetPos) {
+                    console.warn(`Missing position for edge: ${edge.source} -> ${edge.target}`, {
+                        sourcePos: sourcePos ? 'found' : 'missing',
+                        targetPos: targetPos ? 'found' : 'missing',
+                        sourceInNodePositions: nodePositions.has(edge.source),
+                        sourceInPropertyPositions: propertyPositions.has(edge.source),
+                        targetInNodePositions: nodePositions.has(edge.target)
+                    })
+                    return
+                }
 
                 let arrowType
                 let strokeColor
@@ -614,48 +634,46 @@ const MemoryModelVisualizer = () => {
                     .attr("d", "M0,-4L8,0L0,4")
                     .attr("fill", "#10b981")
 
-                // Highlighted arrow (red)
+                // Highlight arrow (red)
                 defs
                     .append("marker")
                     .attr("id", "arrow-highlight")
                     .attr("viewBox", "0 -5 10 10")
                     .attr("refX", 8)
                     .attr("refY", 0)
-                    .attr("markerWidth", 8)
-                    .attr("markerHeight", 8)
+                    .attr("markerWidth", 6)
+                    .attr("markerHeight", 6)
                     .attr("orient", "auto")
                     .append("path")
-                    .attr("d", "M0,-5L10,0L0,5")
+                    .attr("d", "M0,-4L8,0L0,4")
                     .attr("fill", "#e53e3e")
 
 
                 // Draw memval items using the module - always show memval section
                 const memvalItems = currentStep?.memorySnapshot.memval || []
 
-
-
+                // Render sections sequentially to ensure edgeData is populated
                 renderMemvalSection({
                     memvalSection,
                     memvalItems,
-                    rootContainer,
                     nodePositions,
                     edgeData,
-                    scale: sectionsScale,
-                    viewportHeight: containerSize.height,
+                    rootContainer,
+                    viewportHeight: containerSize.height
                 })
 
-                // Draw scopes using the module (always render section, even when empty)
+                // Draw scope items using the module
                 renderScopeSection({
                     scopeSection,
                     scopeItems: memoryModelData.scopes,
-                    rootContainer,
                     nodePositions,
                     edgeData,
                     scale: sectionsScale,
-                    viewportHeight: containerSize.height,
+                    rootContainer,
+                    viewportHeight: containerSize.height
                 })
 
-                // Draw heap objects using the module
+                // Draw heap items using the module (async)
                 renderHeapSection({
                     heapSection,
                     heapData: memoryModelData.heap,
@@ -663,21 +681,42 @@ const MemoryModelVisualizer = () => {
                     nodePositions,
                     propertyPositions,
                     edgeData,
-                    scale: sectionsScale,
+                    scale: 1,
                     viewportHeight: containerSize.height,
                     objectWidth,
-                    objectHeight,
+                    objectHeight
                 }).then(() => {
-                    // Initial draw of connections after all modules have rendered
+                    // Update connections after all sections are rendered
                     updateConnections()
                 })
-
-
             })
             .catch((error) => {
                 console.error("ELK layout error:", error)
             })
     }, [currentStep, transformData, containerSize])
+
+    // Handle step changes
+    useEffect(() => {
+        if (currentStep && previousStepRef.current !== null) {
+            const stepChange = Math.abs(currentStep.index - previousStepRef.current)
+
+            if (stepChange === 1) {
+                // Single step change - run special function but don't change diagram
+                handleSingleStepChange()
+            } else {
+                // Multiple step change or other change - do current render
+                renderD3Visualization()
+            }
+        } else if (currentStep) {
+            // Initial render when there's no previous step
+            renderD3Visualization()
+        }
+
+        // Update previous step reference
+        if (currentStep) {
+            previousStepRef.current = currentStep.index
+        }
+    }, [currentStep, handleSingleStepChange, renderD3Visualization])
 
     return (
         <div ref={containerRef} className="relative w-full h-full">
@@ -706,4 +745,4 @@ const MemoryModelVisualizer = () => {
     )
 }
 
-export default MemoryModelVisualizer 
+export default MemoryModelVisualizer
