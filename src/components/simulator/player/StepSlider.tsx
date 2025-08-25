@@ -189,10 +189,25 @@ const StepSlider: React.FC = () => {
                 }
             }
 
-            const handleGlobalPointerUp = () => {
+            const handleGlobalPointerUp = (e: PointerEvent) => {
                 setIsDragging(false)
                 setIsPointerDown(false)
-                // Don't hide tooltip on pointer up - only hide on pointer leave
+
+                // Check if pointer is outside the slider area
+                if (containerElement) {
+                    const rect = containerElement.getBoundingClientRect()
+                    const isOutside = (
+                        e.clientX < rect.left ||
+                        e.clientX > rect.right ||
+                        e.clientY < rect.top ||
+                        e.clientY > rect.bottom
+                    )
+
+                    if (isOutside) {
+                        setIsTooltipOpen(false)
+                        setHoveredStepIndex(null)
+                    }
+                }
             }
 
             document.addEventListener('pointermove', handleGlobalPointerMove, { capture: true })
