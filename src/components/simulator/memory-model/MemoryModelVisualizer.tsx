@@ -2,7 +2,7 @@ import { useCallback, useEffect, useMemo, useRef } from "react"
 import * as d3 from "d3"
 import ELK from "elkjs/lib/elk.bundled.js"
 import type { ElkNode as ElkLayoutNode, ElkEdge as ElkLayoutEdge } from "elkjs/lib/elk-api"
-import { HEAP_OBJECT_TYPE, EXEC_STEP_TYPE } from "@/types/simulator"
+import { HEAP_OBJECT_TYPE, EXEC_STEP_TYPE, type MemvalChange, type Memval } from "@/types/simulator"
 import { useSimulatorStore } from "@/hooks/useSimulatorStore"
 import { getStepColorByDepth } from "@/helpers/steps"
 import useElementSize from "@/hooks/useElementSize"
@@ -19,6 +19,10 @@ import {
     createMemvalNodes,
     createMemvalEdges,
     renderMemvalSection,
+    addMemvalItem,
+    removeMemvalItem,
+    MEMVAL_ITEM_HEIGHT,
+    MEMVAL_ITEM_WIDTH,
     MEMVAL_SECTION_WIDTH,
 } from "./sections/memval"
 import {
@@ -35,7 +39,6 @@ import {
     renderHeapSection,
     type HeapObjectData,
 } from "./sections/heap"
-
 
 
 type ScopeData = {
@@ -79,22 +82,234 @@ type ElkGraph = ElkNode & {
 // Horizontal spacing between major sections (memval | heap | scope)
 const SECTION_HORIZONTAL_GAP = 5
 
-const MemoryModelVisualizer = () => {
+export const MemoryModelVisualizer = () => {
     const { currentStep, steps, settings, toggleAutoZoom } = useSimulatorStore()
     const svgRef = useRef<SVGSVGElement>(null)
     const [containerRef, containerSize] = useElementSize<HTMLDivElement>()
     const previousStepRef = useRef<number | null>(null)
+    const rootContainerRef = useRef<d3.Selection<SVGGElement, unknown, null, undefined> | null>(null)
+    const nodePositionsRef = useRef<Map<string, { x: number; y: number }>>(new Map())
+    const propertyPositionsRef = useRef<Map<string, { x: number; y: number }>>(new Map())
 
     const getMaxDepth = useMemo(() => {
         return Math.max(...steps.map(step => step.scopeIndex))
     }, [steps])
 
-    // Special function for single step changes
-    const handleSingleStepChange = useCallback(() => {
-        console.log("Special function: Single step change detected - TODO: Complete this function in the future")
-        // TODO: Implement special logic for single step changes
-        // This function will be completed in the future as requested
+
+    // Utility function to get memval items from d3 DOM elements
+    const getMemvalItemsFromD3 = useCallback(() => {
+        const svg = d3.select(svgRef.current)
+        if (svg.empty()) {
+            console.warn("SVG element not found")
+            return []
+        }
+
+        const memvalContainer = svg.select(".memval-section")
+        if (memvalContainer.empty()) {
+            console.warn("Memval section container not found")
+            return []
+        }
+
+        const memvalItems = memvalContainer.selectAll(".memval-item")
+
+        return memvalItems.nodes()
     }, [])
+
+
+    const calculatePath = useCallback((
+        source: { x: number; y: number },
+        target: { x: number; y: number }
+    ): string => {
+        const path = d3.path()
+        path.moveTo(source.x, source.y)
+        path.lineTo(target.x, target.y)
+        return path.toString()
+    }, [])
+
+    const drawConnection = useCallback((
+        sourcePos: { x: number; y: number },
+        targetPos: { x: number; y: number },
+        type: 'var-ref' | 'prop-ref' | 'memval-ref' | 'memval-layered',
+        id: string
+    ) => {
+        const rootContainer = rootContainerRef.current
+        if (!rootContainer) return
+
+        let arrowType: string
+        let strokeColor: string
+
+        if (type === "var-ref") {
+            arrowType = "arrow-var-ref"
+            strokeColor = "#4299e1"
+        } else if (type === "prop-ref") {
+            arrowType = "arrow-prop-ref"
+            strokeColor = "#ed8936"
+        } else if (type === "memval-ref") {
+            arrowType = "arrow-memval-ref"
+            strokeColor = "#8b5cf6"
+        } else if (type === "memval-layered") {
+            arrowType = "arrow-memval-layered"
+            strokeColor = "#10b981"
+        } else {
+            arrowType = "arrow-var-ref"
+            strokeColor = "#4299e1"
+        }
+
+        rootContainer
+            .append("path")
+            .attr("class", "connection connection-memval")
+            .attr("id", id)
+            .attr("d", calculatePath(sourcePos, targetPos))
+            .attr("stroke", strokeColor)
+            .attr("stroke-width", 1.5)
+            .attr("fill", "none")
+            .attr("marker-end", `url(#${arrowType})`)
+    }, [calculatePath])
+
+    /*
+     * Usage Examples:
+     * 
+     * 1. Get memval items from data source:
+     *    const { items, count } = getCurrentMemvalItems()
+     *    console.log(`Found ${count} memval items:`, items)
+     * 
+     * 2. Get memval items from d3 DOM elements:
+     *    const { items, count } = getMemvalItemsFromD3()
+     *    console.log(`Found ${count} rendered memval items:`, items)
+     * 
+     * 3. Get comprehensive memval information:
+     *    const memvalInfo = getAllMemvalInfo()
+     *    console.log('Data count:', memvalInfo.fromData.count)
+     *    console.log('D3 DOM count:', memvalInfo.fromD3DOM.count)
+     *    console.log('Are counts consistent?', memvalInfo.summary.isConsistent)
+     */
+
+    // Special function for single step changes with sequential animation
+    const handleMemvalChanges = useCallback((direction: 'forward' | 'backward') => {
+        console.log(`Handling memval changes for ${direction} step`)
+
+        const svg = d3.select(svgRef.current)
+        if (svg.empty()) {
+            console.warn("SVG element not found")
+            return
+        }
+
+        const memvalContainer = svg.select(".memval-section")
+        if (memvalContainer.empty()) {
+            console.warn("Memval section container not found")
+            return
+        }
+
+        let changesToProcess: MemvalChange[] = []
+
+        if (direction === 'forward' && currentStep?.memvalChanges) {
+            changesToProcess = currentStep.memvalChanges
+        } else if (direction === 'backward' && previousStepRef.current !== null) {
+            const previousStep = steps.find(step => step.index === previousStepRef.current)
+            if (previousStep?.memvalChanges) {
+                // To reverse the changes, we invert the operation and reverse the order
+                changesToProcess = [...previousStep.memvalChanges].reverse().map(change => ({
+                    ...change,
+                    type: change.type === 'push' ? 'pop' : 'push',
+                }))
+            }
+        }
+
+        if (changesToProcess.length === 0) {
+            return
+        }
+
+        // Process memvalChanges sequentially with proper animation callbacks
+        const processMemvalChangesSequentially = (changes: MemvalChange[], index = 0) => {
+            if (index >= changes.length) {
+                console.log("All memval changes processed sequentially")
+                return
+            }
+
+            const item = changes[index]
+            console.log(`Processing memval change ${index + 1}/${changes.length}:`, item)
+
+            if (item.type === 'push') {
+                console.log("Adding item to current chart:", item.value)
+
+                // Add the new memval item using the addMemvalItem function with completion callback
+                addMemvalItem(
+                    memvalContainer as unknown as d3.Selection<SVGGElement, unknown, null, undefined>,
+                    item.value,
+                    containerSize.height / 1,
+                    (memvalGroup) => {
+                        if (item.value.type === 'reference') {
+                            const containerTransform = memvalContainer.attr('transform')
+                            let sectionX = 0
+                            let sectionY = 0
+                            if (containerTransform) {
+                                const translateMatch = containerTransform.match(/translate\(([^,]+),([^)]+)\)/)
+                                if (translateMatch) {
+                                    sectionX = parseFloat(translateMatch[1])
+                                    sectionY = parseFloat(translateMatch[2])
+                                }
+                            }
+
+                            const itemTransform = memvalGroup.attr('transform')
+                            const [localX, localY] = itemTransform.replace(/translate\(|\)/g, "").split(',').map(Number)
+
+                            const sourcePos = {
+                                x: sectionX + localX + MEMVAL_ITEM_WIDTH - 5,
+                                y: sectionY + localY + MEMVAL_ITEM_HEIGHT / 2
+                            }
+
+                            const targetId = `obj-${item.value.ref}-left`
+                            const targetPos = nodePositionsRef.current.get(targetId)
+
+                            if (targetPos) {
+                                const memvalIndex = memvalGroup.attr('data-memval-index')
+                                const connectionId = `connection-memval-${memvalIndex}`
+                                drawConnection(sourcePos, targetPos, 'memval-ref', connectionId)
+                            }
+                        }
+                        console.log("Fade-in animation completed for:", item.value)
+                        processMemvalChangesSequentially(changes, index + 1)
+                    },
+                    direction === 'backward' ? 'fade-in' : 'slide-in'
+                )
+
+                console.log("Successfully added new memval item with fade-in animation:", item.value)
+
+            } else if (item.type === 'pop') {
+                console.log("Removing item from current chart:", item.value)
+
+                // Get current memval items to find the index to remove
+                const memvalItems = getMemvalItemsFromD3()
+                const itemIndex = memvalItems.length - 1
+
+                if (item.value.type === 'reference') {
+                    const connectionId = `connection-memval-${itemIndex}`
+                    rootContainerRef.current?.select(`#${connectionId}`).remove()
+                }
+
+                // Remove the memval item using the removeMemvalItem function with completion callback
+                removeMemvalItem(
+                    memvalContainer as unknown as d3.Selection<SVGGElement, unknown, null, undefined>,
+                    itemIndex,
+                    containerSize.height / 1,
+                    () => {
+                        console.log("Fade-out animation completed for:", item.value)
+                        // Process next change after animation completes
+                        processMemvalChangesSequentially(changes, index + 1)
+                    }
+                )
+
+                console.log("Successfully removed memval item with fade-out animation:", item.value)
+
+            } else {
+                // For other types, process immediately without animation delay
+                processMemvalChangesSequentially(changes, index + 1)
+            }
+        }
+
+        // Start processing changes sequentially
+        processMemvalChangesSequentially(changesToProcess)
+    }, [currentStep, getMemvalItemsFromD3, containerSize.height, steps, drawConnection])
 
     // Transform snapshot data into visualization format
     const transformData = useCallback(() => {
@@ -277,7 +492,7 @@ const MemoryModelVisualizer = () => {
     }, [currentStep, getMaxDepth, steps])
 
     // D3 rendering function
-    const renderD3Visualization = useCallback(() => {
+    const renderD3Visualization = useCallback((memvalOverride?: Memval[]) => {
         if (!currentStep) return
         if (!svgRef.current) return
         if (!containerSize.width || !containerSize.height) return
@@ -308,7 +523,7 @@ const MemoryModelVisualizer = () => {
             .scaleExtent([0.5, 2])
             .on("zoom", (event) => {
                 const { transform } = event
-                rootContainer.attr("transform", transform)
+                rootContainerRef.current?.attr("transform", transform)
             })
 
         // Apply zoom behavior to SVG
@@ -317,6 +532,7 @@ const MemoryModelVisualizer = () => {
 
         // Create a container for the graph within the root container
         const rootContainer = svg.append("g")
+        rootContainerRef.current = rootContainer
 
         // Background rectangles and dividers will be added dynamically after layout
 
@@ -344,12 +560,13 @@ const MemoryModelVisualizer = () => {
 
             // Create a section for scopes with layered algorithm from bottom to top
             const scopeSection = createScopeSection()
+            scopeSection.layoutOptions = { 'elk.algorithm': 'layered', 'elk.direction': 'UP' }
 
             // Create a section for heap with content-based sizing
             const heapSection = createHeapSection()
 
             // Add memval nodes with layered algorithm (bottom to top)
-            const memvalItems = currentStep?.memorySnapshot.memval || []
+            const memvalItems = memvalOverride ?? (currentStep?.memorySnapshot.memval || [])
 
             // Create memval nodes using the module (even if empty, the section will be created)
             const memvalNodes = createMemvalNodes(memvalItems)
@@ -397,20 +614,9 @@ const MemoryModelVisualizer = () => {
         // Function to update connections
         const updateConnections = () => {
             // Define the calculatePath function for exactly straight lines
-            const calculatePath = (
-                source: { x: number; y: number },
-                target: { x: number; y: number }
-            ): string => {
-                const path = d3.path()
+            // This function is now defined globally or passed as a prop
 
-                // Draw exactly straight line from source to target
-                path.moveTo(source.x, source.y)
-                path.lineTo(target.x, target.y)
-
-                return path.toString()
-            }
-
-            rootContainer.selectAll(".connection").remove()
+            rootContainerRef.current?.selectAll(".connection").remove()
 
             console.log(`Drawing ${edgeData.length} connections:`, edgeData)
             console.log('Node positions:', Array.from(nodePositions.entries()))
@@ -451,8 +657,8 @@ const MemoryModelVisualizer = () => {
                     strokeColor = "#4299e1"
                 }
 
-                rootContainer
-                    .append("path")
+                rootContainerRef.current
+                    ?.append("path")
                     .attr("class", "connection")
                     .attr("d", calculatePath(sourcePos, targetPos))
                     .attr("stroke", strokeColor)
@@ -650,14 +856,12 @@ const MemoryModelVisualizer = () => {
 
 
                 // Draw memval items using the module - always show memval section
-                const memvalItems = currentStep?.memorySnapshot.memval || []
+                const memvalItems = memvalOverride ?? (currentStep?.memorySnapshot.memval || [])
 
                 // Render sections sequentially to ensure edgeData is populated
                 renderMemvalSection({
                     memvalSection,
                     memvalItems,
-                    nodePositions,
-                    edgeData,
                     rootContainer,
                     viewportHeight: containerSize.height
                 })
@@ -687,36 +891,225 @@ const MemoryModelVisualizer = () => {
                     objectHeight
                 }).then(() => {
                     // Update connections after all sections are rendered
+                    nodePositionsRef.current = nodePositions
+                    propertyPositionsRef.current = propertyPositions
                     updateConnections()
                 })
             })
             .catch((error) => {
                 console.error("ELK layout error:", error)
             })
-    }, [currentStep, transformData, containerSize])
+    }, [currentStep, transformData, containerSize, calculatePath])
+
+    const rerenderScopesAndHeap = useCallback((memvalForLayout: Memval[]) => {
+        if (!currentStep || !rootContainerRef.current) return
+
+        rootContainerRef.current.selectAll(".scope-section, .heap-section, .connection").remove()
+
+        const memoryModelData = transformData()
+        const objectWidth = 150
+        const objectHeight = 90
+        const nodePositions = new Map()
+        const propertyPositions = new Map()
+        const edgeData: Array<{ source: string; target: string; type: string; label?: string; propIndex?: number }> = []
+
+        const createElkGraph = (): ElkGraph => {
+            const graph: ElkGraph = {
+                id: "root",
+                children: [],
+                edges: [],
+            }
+
+            const memvalSection = createMemvalSection()
+            const scopeSection = createScopeSection()
+            scopeSection.layoutOptions = { 'elk.algorithm': 'layered', 'elk.direction': 'UP' }
+            const heapSection = createHeapSection()
+
+            const memvalItems = memvalForLayout ?? []
+            const memvalNodes = createMemvalNodes(memvalItems)
+            memvalSection.children?.push(...memvalNodes)
+
+            if (memvalItems.length > 0) {
+                const memvalEdges = createMemvalEdges(memvalItems)
+                graph.edges.push(...memvalEdges)
+            }
+
+            const scopeItems = memoryModelData.scopes
+            const scopeNodes = createScopeNodes(scopeItems)
+            scopeSection.children?.push(...scopeNodes)
+
+            const scopeEdges = createScopeEdges(scopeItems)
+            graph.edges.push(...scopeEdges)
+
+            const heapNodes = createHeapNodes(memoryModelData.heap, objectWidth, objectHeight)
+            heapSection.children?.push(...heapNodes)
+
+            graph.children?.push(memvalSection)
+            graph.children?.push(scopeSection)
+            graph.children?.push(heapSection)
+
+            return graph
+        }
+
+        const elkGraph = createElkGraph()
+        const elk = new ELK()
+
+        const updateConnections = () => {
+            rootContainerRef.current?.selectAll(".connection").remove()
+
+            edgeData.forEach((edge) => {
+                const sourcePos = edge.type === "prop-ref" ? propertyPositions.get(edge.source) : nodePositions.get(edge.source)
+                const targetPos = nodePositions.get(edge.target)
+
+                if (!sourcePos || !targetPos) {
+                    return
+                }
+
+                let arrowType, strokeColor
+                if (edge.type === "var-ref") {
+                    arrowType = "arrow-var-ref"
+                    strokeColor = "#4299e1"
+                } else if (edge.type === "prop-ref") {
+                    arrowType = "arrow-prop-ref"
+                    strokeColor = "#ed8936"
+                } else if (edge.type === "memval-ref") {
+                    arrowType = "arrow-memval-ref"
+                    strokeColor = "#8b5cf6"
+                } else if (edge.type === "memval-layered") {
+                    arrowType = "arrow-memval-layered"
+                    strokeColor = "#10b981"
+                } else {
+                    arrowType = "arrow-var-ref"
+                    strokeColor = "#4299e1"
+                }
+
+                rootContainerRef.current
+                    ?.append("path")
+                    .attr("class", "connection")
+                    .attr("d", calculatePath(sourcePos, targetPos))
+                    .attr("stroke", strokeColor)
+                    .attr("stroke-width", 1.5)
+                    .attr("fill", "none")
+                    .attr("marker-end", `url(#${arrowType})`)
+                    .attr("data-source", edge.source)
+                    .attr("data-target", edge.target)
+                    .on("mouseover", function () {
+                        d3.select(this).attr("stroke", "#e53e3e").attr("marker-end", "url(#arrow-highlight)")
+                    })
+                    .on("mouseout", function () {
+                        d3.select(this)
+                            .attr("stroke", strokeColor)
+                            .attr("marker-end", `url(#${arrowType})`)
+                    })
+            })
+        }
+
+        elk.layout(elkGraph).then((layoutedGraph) => {
+            const memvalSection = layoutedGraph.children?.find(section => section.id === "memvalSection")
+            const scopeSection = layoutedGraph.children?.find(section => section.id === "scopeSection")
+            const heapSection = layoutedGraph.children?.find(section => section.id === "heapSection")
+
+            if (!memvalSection || !scopeSection || !heapSection) return
+
+            const calculateSectionWidth = (section: ElkNode): number => {
+                if (section.id === "memvalSection") return MEMVAL_SECTION_WIDTH
+                if (section.id === "scopeSection") return SCOPE_SECTION_WIDTH
+                const children = section.children ?? []
+                if (children.length === 0) return 0
+                const rightmostEdge = Math.max(...children.map(child => (child.x || 0) + (child.width || 200)))
+                return rightmostEdge + 160
+            }
+
+            const actualMemvalSectionWidth = calculateSectionWidth(memvalSection)
+            const actualScopeSectionWidth = calculateSectionWidth(scopeSection)
+            let actualHeapSectionWidth = containerSize.width - actualMemvalSectionWidth - actualScopeSectionWidth - SECTION_HORIZONTAL_GAP * 2
+            const heapContentHeight = containerSize.height
+
+            const minHeapWidthNeeded = objectWidth + 40
+            const fixedSectionsWidth = actualMemvalSectionWidth + actualScopeSectionWidth
+            let sectionsScale = 1
+            if (actualHeapSectionWidth < minHeapWidthNeeded && fixedSectionsWidth > 0) {
+                const availableForFixed = Math.max(60, containerSize.width - minHeapWidthNeeded - SECTION_HORIZONTAL_GAP * 2)
+                sectionsScale = Math.max(0.6, Math.min(1, availableForFixed / fixedSectionsWidth))
+                const scaledMemvalWidth = Math.round(actualMemvalSectionWidth * sectionsScale)
+                const scaledScopeWidth = Math.round(actualScopeSectionWidth * sectionsScale)
+                actualHeapSectionWidth = containerSize.width - scaledMemvalWidth - scaledScopeWidth - SECTION_HORIZONTAL_GAP * 2
+                memvalSection.width = scaledMemvalWidth
+                scopeSection.width = scaledScopeWidth
+                heapSection.width = actualHeapSectionWidth
+            } else {
+                memvalSection.width = actualMemvalSectionWidth
+                scopeSection.width = actualScopeSectionWidth
+                heapSection.width = actualHeapSectionWidth
+            }
+
+            if (!memvalSection.height || memvalSection.height < containerSize.height) {
+                memvalSection.height = containerSize.height
+            }
+            if (!scopeSection.height || scopeSection.height < containerSize.height) {
+                scopeSection.height = containerSize.height
+            }
+            heapSection.height = heapContentHeight
+
+            memvalSection.x = 0
+            heapSection.x = (memvalSection.width || 0) + SECTION_HORIZONTAL_GAP
+            scopeSection.x = (memvalSection.width || 0) + SECTION_HORIZONTAL_GAP + (heapSection.width || 0) + SECTION_HORIZONTAL_GAP
+            memvalSection.y = 0
+            scopeSection.y = 0
+            heapSection.y = 0
+
+            if (rootContainerRef.current) {
+                renderScopeSection({
+                    scopeSection,
+                    scopeItems: memoryModelData.scopes,
+                    nodePositions,
+                    edgeData,
+                    scale: sectionsScale,
+                    rootContainer: rootContainerRef.current,
+                    viewportHeight: containerSize.height
+                })
+
+                renderHeapSection({
+                    heapSection,
+                    heapData: memoryModelData.heap,
+                    rootContainer: rootContainerRef.current,
+                    nodePositions,
+                    propertyPositions,
+                    edgeData,
+                    scale: 1,
+                    viewportHeight: containerSize.height,
+                    objectWidth,
+                    objectHeight
+                }).then(() => {
+                    nodePositionsRef.current = nodePositions
+                    propertyPositionsRef.current = propertyPositions
+                    updateConnections()
+                })
+            }
+        })
+    }, [currentStep, transformData, containerSize, calculatePath])
 
     // Handle step changes
     useEffect(() => {
         if (currentStep && previousStepRef.current !== null) {
-            const stepChange = Math.abs(currentStep.index - previousStepRef.current)
+            const stepChange = currentStep.index - previousStepRef.current
 
-            if (stepChange === 1) {
-                // Single step change - run special function but don't change diagram
-                handleSingleStepChange()
+            if (Math.abs(stepChange) === 1) {
+                const previousStep = steps.find(s => s.index === previousStepRef.current)
+                const prevMemval = previousStep?.memorySnapshot.memval || []
+                rerenderScopesAndHeap(prevMemval)
+                handleMemvalChanges(stepChange > 0 ? 'forward' : 'backward')
             } else {
-                // Multiple step change or other change - do current render
                 renderD3Visualization()
             }
         } else if (currentStep) {
-            // Initial render when there's no previous step
             renderD3Visualization()
         }
 
-        // Update previous step reference
         if (currentStep) {
             previousStepRef.current = currentStep.index
         }
-    }, [currentStep, handleSingleStepChange, renderD3Visualization])
+    }, [currentStep, handleMemvalChanges, renderD3Visualization, rerenderScopesAndHeap, steps])
 
     return (
         <div ref={containerRef} className="relative w-full h-full">
