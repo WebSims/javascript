@@ -87,7 +87,9 @@ export const MemoryModelVisualizer = () => {
     const svgRef = useRef<SVGSVGElement>(null)
     const [containerRef, containerSize] = useElementSize<HTMLDivElement>()
     const previousStepRef = useRef<number | null>(null)
+    const animationTimeoutRef = useRef<NodeJS.Timeout | null>(null)
     const rootContainerRef = useRef<d3.Selection<SVGGElement, unknown, null, undefined> | null>(null)
+    const memvalContainerRef = useRef<d3.Selection<SVGGElement, unknown, null, undefined> | null>(null)
     const nodePositionsRef = useRef<Map<string, { x: number; y: number }>>(new Map())
     const propertyPositionsRef = useRef<Map<string, { x: number; y: number }>>(new Map())
 
@@ -188,14 +190,8 @@ export const MemoryModelVisualizer = () => {
     const handleMemvalChanges = useCallback((direction: 'forward' | 'backward') => {
         console.log(`Handling memval changes for ${direction} step`)
 
-        const svg = d3.select(svgRef.current)
-        if (svg.empty()) {
-            console.warn("SVG element not found")
-            return
-        }
-
-        const memvalContainer = svg.select(".memval-section")
-        if (memvalContainer.empty()) {
+        const memvalContainer = memvalContainerRef.current
+        if (!memvalContainer) {
             console.warn("Memval section container not found")
             return
         }
@@ -234,7 +230,7 @@ export const MemoryModelVisualizer = () => {
 
                 // Add the new memval item using the addMemvalItem function with completion callback
                 addMemvalItem(
-                    memvalContainer as unknown as d3.Selection<SVGGElement, unknown, null, undefined>,
+                    memvalContainer,
                     item.value,
                     containerSize.height / 1,
                     (memvalGroup) => {
@@ -289,7 +285,7 @@ export const MemoryModelVisualizer = () => {
 
                 // Remove the memval item using the removeMemvalItem function with completion callback
                 removeMemvalItem(
-                    memvalContainer as unknown as d3.Selection<SVGGElement, unknown, null, undefined>,
+                    memvalContainer,
                     itemIndex,
                     containerSize.height / 1,
                     () => {
@@ -533,6 +529,7 @@ export const MemoryModelVisualizer = () => {
         // Create a container for the graph within the root container
         const rootContainer = svg.append("g")
         rootContainerRef.current = rootContainer
+        memvalContainerRef.current = rootContainer.append("g").attr("class", "memval-section")
 
         // Background rectangles and dividers will be added dynamically after layout
 
@@ -859,12 +856,15 @@ export const MemoryModelVisualizer = () => {
                 const memvalItems = memvalOverride ?? (currentStep?.memorySnapshot.memval || [])
 
                 // Render sections sequentially to ensure edgeData is populated
-                renderMemvalSection({
-                    memvalSection,
-                    memvalItems,
-                    rootContainer,
-                    viewportHeight: containerSize.height
-                })
+                if (memvalContainerRef.current) {
+                    renderMemvalSection({
+                        memvalSection,
+                        memvalItems,
+                        memvalContainer: memvalContainerRef.current,
+                        scale: sectionsScale,
+                        viewportHeight: containerSize.height
+                    })
+                }
 
                 // Draw scope items using the module
                 renderScopeSection({
@@ -901,7 +901,7 @@ export const MemoryModelVisualizer = () => {
             })
     }, [currentStep, transformData, containerSize, calculatePath])
 
-    const rerenderScopesAndHeap = useCallback((memvalForLayout: Memval[]) => {
+    const rerenderScopesAndHeap = useCallback(() => {
         if (!currentStep || !rootContainerRef.current) return
 
         rootContainerRef.current.selectAll(".scope-section, .heap-section, .connection").remove()
@@ -925,7 +925,7 @@ export const MemoryModelVisualizer = () => {
             scopeSection.layoutOptions = { 'elk.algorithm': 'layered', 'elk.direction': 'UP' }
             const heapSection = createHeapSection()
 
-            const memvalItems = memvalForLayout ?? []
+            const memvalItems = currentStep?.memorySnapshot.memval || []
             const memvalNodes = createMemvalNodes(memvalItems)
             memvalSection.children?.push(...memvalNodes)
 
@@ -1091,14 +1091,37 @@ export const MemoryModelVisualizer = () => {
 
     // Handle step changes
     useEffect(() => {
-        if (currentStep && previousStepRef.current !== null) {
+        if (animationTimeoutRef.current) {
+            clearTimeout(animationTimeoutRef.current)
+            animationTimeoutRef.current = null
+            d3.select(svgRef.current).selectAll('*').interrupt()
+
+            // After interrupting, force a full re-render to get a consistent state
+            renderD3Visualization()
+        } else if (currentStep && previousStepRef.current !== null) {
             const stepChange = currentStep.index - previousStepRef.current
 
             if (Math.abs(stepChange) === 1) {
-                const previousStep = steps.find(s => s.index === previousStepRef.current)
-                const prevMemval = previousStep?.memorySnapshot.memval || []
-                rerenderScopesAndHeap(prevMemval)
-                handleMemvalChanges(stepChange > 0 ? 'forward' : 'backward')
+                rerenderScopesAndHeap()
+                const direction = stepChange > 0 ? 'forward' : 'backward'
+                handleMemvalChanges(direction)
+
+                let changes: MemvalChange[] = []
+                if (direction === 'forward' && currentStep?.memvalChanges) {
+                    changes = currentStep.memvalChanges
+                } else if (direction === 'backward' && previousStepRef.current !== null) {
+                    const previousStep = steps.find(step => step.index === previousStepRef.current)
+                    if (previousStep?.memvalChanges) {
+                        changes = previousStep.memvalChanges
+                    }
+                }
+
+                // Estimate duration based on the number of memval changes
+                const estimatedDuration = (changes.length || 1) * 500 + 200
+
+                animationTimeoutRef.current = setTimeout(() => {
+                    animationTimeoutRef.current = null
+                }, estimatedDuration)
             } else {
                 renderD3Visualization()
             }

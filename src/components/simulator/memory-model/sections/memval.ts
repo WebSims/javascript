@@ -25,7 +25,7 @@ type ElkNode = Omit<ElkLayoutNode, 'labels' | 'children' | 'edges'> & {
 export interface MemvalRendererProps {
     memvalSection: ElkNode
     memvalItems: JSValue[]
-    rootContainer: d3.Selection<SVGGElement, unknown, null, undefined>
+    memvalContainer: d3.Selection<SVGGElement, unknown, null, undefined>
     // Optional visual scale to shrink the whole section uniformly
     scale?: number
     // Height of the viewport to anchor the section bottom and decide growth
@@ -93,23 +93,25 @@ export const addMemvalItem = (
     memvalData: JSValue,
     viewportHeight: number,
     onComplete?: (group: d3.Selection<SVGGElement, unknown, null, undefined>) => void,
-    animationType: 'slide-in' | 'fade-in' = 'slide-in'
+    animationType?: 'slide-in' | 'fade-in'
 ) => {
+    const transform = memvalContainer.attr("transform")
+    const scaleMatch = transform ? transform.match(/scale\(([^)]+)\)/) : null
+    const scale = scaleMatch ? parseFloat(scaleMatch[1]) : 1
     // Get current memval items to calculate positioning
     const memvalItemsEl = memvalContainer.selectAll(".memval-item")
     const memvalItems = memvalItemsEl.nodes()
     const existingItemsCount = memvalItems.length
 
     // Calculate section height based on existing items
-    const scale = 1
     const existingMemvalHeight = existingItemsCount * MEMVAL_ITEM_HEIGHT + (existingItemsCount - 1) * MEMVAL_SECTION_SPACING
-    const requiredBaseHeight = Math.max(viewportHeight, existingMemvalHeight + MEMVAL_SECTION_PADDING * 2)
+    const requiredBaseHeight = Math.max(viewportHeight / scale, existingMemvalHeight + MEMVAL_SECTION_PADDING * 2)
     const actualMemvalSectionHeight = requiredBaseHeight
 
     // Calculate position at the bottom of the container
     // Start from the bottom and work upwards, with reversed index order
     const itemY = actualMemvalSectionHeight - MEMVAL_SECTION_PADDING - (existingItemsCount + 1) * (MEMVAL_ITEM_HEIGHT + MEMVAL_SECTION_SPACING)
-    const itemX = (MEMVAL_SECTION_WIDTH / scale - MEMVAL_ITEM_WIDTH) / 2 // Center horizontally
+    const itemX = (MEMVAL_SECTION_WIDTH - MEMVAL_ITEM_WIDTH) / 2 // Center horizontally
 
     const startX = -MEMVAL_ITEM_WIDTH
 
@@ -118,10 +120,12 @@ export const addMemvalItem = (
         .attr("class", "memval-item")
         .attr("data-memval-index", existingItemsCount)
 
-    if (animationType === 'slide-in') {
-        memvalGroup.attr("transform", `translate(${startX}, ${itemY})`)
-    } else {
-        memvalGroup.attr("transform", `translate(${itemX}, ${itemY})`).style("opacity", 0)
+    if (animationType) {
+        if (animationType === 'slide-in') {
+            memvalGroup.attr("transform", `translate(${startX}, ${itemY})`)
+        } else {
+            memvalGroup.attr("transform", `translate(${itemX}, ${itemY})`).style("opacity", 0)
+        }
     }
 
     // Determine item styling based on type
@@ -267,16 +271,18 @@ const repositionRemainingMemvalItems = (
 
     if (memvalNodes.length === 0) return
 
+    const transform = memvalContainer.attr("transform")
+    const scaleMatch = transform ? transform.match(/scale\(([^)]+)\)/) : null
+    const scale = scaleMatch ? parseFloat(scaleMatch[1]) : 1
     // Calculate section height based on remaining items
-    const scale = 1
     const remainingMemvalHeight = memvalNodes.length * MEMVAL_ITEM_HEIGHT + (memvalNodes.length - 1) * MEMVAL_SECTION_SPACING
-    const requiredBaseHeight = Math.max(viewportHeight, remainingMemvalHeight + MEMVAL_SECTION_PADDING * 2)
+    const requiredBaseHeight = Math.max(viewportHeight / scale, remainingMemvalHeight + MEMVAL_SECTION_PADDING * 2)
     const actualMemvalSectionHeight = requiredBaseHeight
 
     // Reposition each remaining item
     memvalNodes.forEach((node, index) => {
         const itemY = actualMemvalSectionHeight - MEMVAL_SECTION_PADDING - (index + 1) * (MEMVAL_ITEM_HEIGHT + MEMVAL_SECTION_SPACING)
-        const itemX = (MEMVAL_SECTION_WIDTH / scale - MEMVAL_ITEM_WIDTH) / 2 // Center horizontally
+        const itemX = (MEMVAL_SECTION_WIDTH - MEMVAL_ITEM_WIDTH) / 2 // Center horizontally
 
         d3.select(node)
             .transition()
@@ -289,14 +295,14 @@ const repositionRemainingMemvalItems = (
 export const renderMemvalSection = ({
     memvalSection,
     memvalItems,
-    rootContainer,
+    memvalContainer,
     scale = 1,
     viewportHeight,
 }: MemvalRendererProps) => {
-    // Always create memval section container, even when empty
-    const memvalContainer = rootContainer
-        .append("g")
-        .attr("class", "memval-section")
+    // Clear the container for a full rerender
+    memvalContainer.selectAll("*").remove()
+
+    memvalContainer
         .attr("transform", `translate(${memvalSection.x || 0}, ${memvalSection.y || 0}) scale(${scale})`)
 
     // Add background rectangle for memval section
@@ -343,7 +349,9 @@ export const renderMemvalSection = ({
         addMemvalItem(
             memvalContainer,
             memvalData,
-            viewportHeight
+            viewportHeight,
+            undefined, // No callback needed for initial render
+            'fade-in' // Use fade-in for initial render
         )
     })
 
