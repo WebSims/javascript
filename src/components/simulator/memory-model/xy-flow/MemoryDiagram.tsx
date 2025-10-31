@@ -1,4 +1,3 @@
-import React from 'react'
 import { ReactFlow, useNodesState, useEdgesState, Node } from '@xyflow/react'
 import '@xyflow/react/dist/style.css'
 import _ from 'lodash'

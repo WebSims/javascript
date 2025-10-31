@@ -5,7 +5,7 @@ import { ResizablePanelGroup } from '@/components/ui/resizable'
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
 
 import CodeArea from '@/components/simulator/code-area/CodeArea'
-import MemoryModelVisualizer from '@/components/simulator/memory-model/MemoryModelVisualizer'
+import MemoryModelVisualizer from '@/components/simulator/memory-model/jsx-visualizer'
 import ConsoleOutput from '@/components/simulator/console-output/ConsoleOutput'
 import PlayerBar from '@/components/simulator/player/PlayerBar'
 
