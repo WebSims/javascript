@@ -1,3 +1,6 @@
+import { ArcherElement } from "react-archer"
+import type { ArcherContainerProps } from "react-archer"
+
 interface HeapProperty {
     name: string
     value: string
@@ -8,6 +11,7 @@ interface HeapObject {
     id: string
     type: string
     properties?: HeapProperty[]
+    referencedBy?: string[]
     x?: number
     y?: number
 }
@@ -49,33 +53,82 @@ const Heap = ({ heap }: HeapProps) => {
                 <div className="flex flex-col-reverse justify-end space-y-reverse space-y-2 min-h-0">
                     {heap.map(heapObj => {
                         const colors = getTypeColors(heapObj.type)
+
+                        // Get scope variables that reference this heap object (from data)
+                        const scopeVarTargets = heapObj.referencedBy || []
+                        const heapRelations: ArcherContainerProps['relations'] = scopeVarTargets.length > 0
+                            ? scopeVarTargets.map(varId => ({
+                                targetId: varId,
+                                targetAnchor: 'left' as const,
+                                sourceAnchor: 'right' as const,
+                                style: {
+                                    strokeColor: '#7c3aed',
+                                    strokeWidth: 2
+                                }
+                            }))
+                            : undefined
+
+                        if (heapRelations) {
+                            console.log(`Heap object ${heapObj.id} → scope variables`, scopeVarTargets)
+                        }
+
                         return (
-                            <div
+                            <ArcherElement
                                 key={heapObj.id}
-                                className="p-3 border-2 rounded flex-shrink-0 transition-all"
-                                style={{
-                                    backgroundColor: colors.bg,
-                                    borderColor: colors.border
-                                }}
+                                id={heapObj.id}
+                                relations={heapRelations}
                             >
-                                <div className="font-semibold mb-2" style={{ color: colors.text }}>
-                                    {heapObj.id} <span className="text-xs font-normal">({heapObj.type})</span>
+                                <div
+                                    className="p-3 border-2 rounded flex-shrink-0 transition-all"
+                                    style={{
+                                        backgroundColor: colors.bg,
+                                        borderColor: colors.border
+                                    }}
+                                >
+                                    <div className="font-semibold mb-2" style={{ color: colors.text }}>
+                                        {heapObj.id} <span className="text-xs font-normal">({heapObj.type})</span>
+                                    </div>
+                                    {heapObj.properties && heapObj.properties.length > 0 ? (
+                                        <div className="space-y-1">
+                                            {heapObj.properties.map(prop => {
+                                                const propId = `${heapObj.id}-prop-${prop.name}`
+                                                const propRelations: ArcherContainerProps['relations'] = prop.targetRef
+                                                    ? [{
+                                                        targetId: prop.targetRef,
+                                                        targetAnchor: 'left' as const,
+                                                        sourceAnchor: 'right' as const,
+                                                        style: {
+                                                            strokeColor: '#ea580c',
+                                                            strokeWidth: 2
+                                                        }
+                                                    }]
+                                                    : undefined
+
+                                                if (propRelations) {
+                                                    console.log(`Heap property ${propId} → ${prop.targetRef}`, propRelations)
+                                                }
+
+                                                return (
+                                                    <ArcherElement
+                                                        key={prop.name}
+                                                        id={propId}
+                                                        relations={propRelations}
+                                                    >
+                                                        <div className="text-sm">
+                                                            <span className="font-medium">{prop.name}:</span>{" "}
+                                                            <span className={`${prop.targetRef ? 'text-orange-600 font-medium' : 'text-blue-600'}`}>
+                                                                {prop.value}
+                                                            </span>
+                                                        </div>
+                                                    </ArcherElement>
+                                                )
+                                            })}
+                                        </div>
+                                    ) : (
+                                        <p className="text-xs text-gray-500 italic">No properties</p>
+                                    )}
                                 </div>
-                                {heapObj.properties && heapObj.properties.length > 0 ? (
-                                    <ul className="space-y-1">
-                                        {heapObj.properties.map(prop => (
-                                            <li key={prop.name} className="text-sm">
-                                                <span className="font-medium">{prop.name}:</span>{" "}
-                                                <span className={`${prop.targetRef ? 'text-orange-600 font-medium' : 'text-blue-600'}`}>
-                                                    {prop.value}
-                                                </span>
-                                            </li>
-                                        ))}
-                                    </ul>
-                                ) : (
-                                    <p className="text-xs text-gray-500 italic">No properties</p>
-                                )}
-                            </div>
+                            </ArcherElement>
                         )
                     })}
                 </div>

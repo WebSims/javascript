@@ -1,3 +1,6 @@
+import { ArcherElement } from "react-archer"
+import type { ArcherContainerProps } from "react-archer"
+
 interface Scope {
     id: string
     name: string
@@ -36,16 +39,25 @@ const Scope = ({ scopes }: ScopeProps) => {
                         >
                             <div className="font-semibold mb-1 text-gray-800">{scope.name}</div>
                             {scope.variables.length > 0 ? (
-                                <ul className="space-y-1">
-                                    {scope.variables.map(variable => (
-                                        <li key={variable.name} className="text-sm">
-                                            <span className="font-medium">{variable.name}:</span>{" "}
-                                            <span className={`${variable.targetRef ? 'text-purple-600 font-medium' : 'text-blue-600'}`}>
-                                                {variable.value}
-                                            </span>
-                                        </li>
-                                    ))}
-                                </ul>
+                                <div className="space-y-1">
+                                    {scope.variables.map(variable => {
+                                        const varId = `${scope.id}-var-${variable.name}`
+
+                                        return (
+                                            <ArcherElement
+                                                key={variable.name}
+                                                id={varId}
+                                            >
+                                                <div className="text-sm">
+                                                    <span className="font-medium">{variable.name}:</span>{" "}
+                                                    <span className={`${variable.targetRef ? 'text-purple-600 font-medium' : 'text-blue-600'}`}>
+                                                        {variable.value}
+                                                    </span>
+                                                </div>
+                                            </ArcherElement>
+                                        )
+                                    })}
+                                </div>
                             ) : (
                                 <p className="text-xs text-gray-500 italic">No variables</p>
                             )}

@@ -40,6 +40,7 @@ export interface MemValItem {
     id: string
     value: string
     type: string
+    targetRef?: string
     x?: number
     y?: number
     animation?: 'slide-in' | 'fade-out' | 'none' | 'fade-in'
@@ -55,6 +56,7 @@ export interface HeapObject {
     id: string
     type: string
     properties?: HeapProperty[]
+    referencedBy?: string[]  // IDs of scope variables that reference this heap object
     x?: number
     y?: number
 }
@@ -78,11 +80,6 @@ export interface VisualizationData {
     memval: MemValItem[]
     heap: HeapObject[]
     scopes: ScopeData[]
-    connections: Array<{
-        source: string
-        target: string
-        type: 'var-ref' | 'prop-ref' | 'memval-ref'
-    }>
 }
 
 const MEMVAL_ITEM_WIDTH = 120
@@ -105,7 +102,7 @@ export const transformMemorySnapshot = (
     const memvalItems: MemValItem[] = []
     const heapObjects: HeapObject[] = []
     const scopesData: ScopeData[] = []
-    const connections: Array<{ source: string; target: string; type: 'var-ref' | 'prop-ref' | 'memval-ref' }> = []
+    const heapReferences = new Map<string, string[]>()  // Track which scope vars reference each heap object
 
     const maxDepth = getMaxDepth(steps)
 
@@ -118,21 +115,19 @@ export const transformMemorySnapshot = (
             displayValue = `<Reference to ${mem.ref}>`
         }
 
-        memvalItems.push({
+        const item: MemValItem = {
             id: `memval-${index}`,
             value: displayValue,
             type: mem.type,
             animation: 'none'
-        })
-
-        // Add connection if it's a reference
-        if (mem.type === 'reference' && mem.ref) {
-            connections.push({
-                source: `memval-${index}`,
-                target: `obj-${mem.ref}`,
-                type: 'memval-ref'
-            })
         }
+
+        // Store target reference for connections
+        if (mem.type === 'reference' && mem.ref !== undefined) {
+            item.targetRef = `obj-${mem.ref}`
+        }
+
+        memvalItems.push(item)
     })
 
     // Transform heap objects
@@ -157,13 +152,8 @@ export const transformMemorySnapshot = (
                         : '<Reference>'
                 }
 
-                if (propValue.type === 'reference' && propValue.ref) {
+                if (propValue.type === 'reference' && propValue.ref !== undefined) {
                     property.targetRef = `obj-${propValue.ref}`
-                    connections.push({
-                        source: `${objId}-prop-${propName}`,
-                        target: `obj-${propValue.ref}`,
-                        type: 'prop-ref'
-                    })
                 }
 
                 properties.push(property)
@@ -178,13 +168,8 @@ export const transformMemorySnapshot = (
                             : '<Reference>'
                     }
 
-                    if (element.type === 'reference' && element.ref) {
+                    if (element.type === 'reference' && element.ref !== undefined) {
                         property.targetRef = `obj-${element.ref}`
-                        connections.push({
-                            source: `${objId}-prop-${index}`,
-                            target: `obj-${element.ref}`,
-                            type: 'prop-ref'
-                        })
                     }
 
                     properties.push(property)
@@ -209,9 +194,8 @@ export const transformMemorySnapshot = (
     })
 
     // Transform scopes (reverse order - global at bottom)
-    const reversedScopes = [...(currentStep.memorySnapshot.scopes || [])].reverse()
-    reversedScopes.forEach((scope, reversedIndex) => {
-        const originalIndex = (currentStep.memorySnapshot.scopes.length || 0) - 1 - reversedIndex
+    currentStep.memorySnapshot.scopes.forEach((scope, index) => {
+        const originalIndex = (currentStep.memorySnapshot.scopes.length || 0) - 1 - index
         const scopeId = `scope-${originalIndex}`
 
         const stepColor = getStepColorByDepth(
@@ -249,14 +233,15 @@ export const transformMemorySnapshot = (
                 targetRef: undefined as string | undefined
             }
 
-            // Add connection if it's a reference
-            if (variable.value.type === "reference" && variable.value.ref) {
+            // Store target reference for connections
+            if (variable.value.type === "reference" && variable.value.ref !== undefined) {
                 varData.targetRef = `obj-${variable.value.ref}`
-                connections.push({
-                    source: `${scopeId}-var-${name}`,
-                    target: `obj-${variable.value.ref}`,
-                    type: 'var-ref'
-                })
+
+                // Track reverse reference: heap object -> scope variable
+                const heapId = `obj-${variable.value.ref}`
+                const varId = `${scopeId}-var-${name}`
+                const existing = heapReferences.get(heapId) || []
+                heapReferences.set(heapId, [...existing, varId])
             }
 
             return varData
@@ -272,11 +257,15 @@ export const transformMemorySnapshot = (
         })
     })
 
+    // Add referencedBy to heap objects
+    heapObjects.forEach(heapObj => {
+        heapObj.referencedBy = heapReferences.get(heapObj.id) || []
+    })
+
     return {
         memval: memvalItems,
         heap: heapObjects,
-        scopes: scopesData,
-        connections
+        scopes: scopesData
     }
 }
 
@@ -343,14 +332,8 @@ export const calculateLayout = async (data: VisualizationData): Promise<Visualiz
 
     elkGraph.children?.push(memvalSection, heapSection, scopesSection)
 
-    // Add edges for connections
-    data.connections.forEach((conn, index) => {
-        elkGraph.edges.push({
-            id: `edge-${index}`,
-            sources: [conn.source],
-            targets: [conn.target]
-        })
-    })
+    // Note: We don't add edges to ELK layout because react-archer handles connections at render time
+    // based on the targetRef properties in the data
 
     try {
         const layouted = await elk.layout(elkGraph)
@@ -385,8 +368,7 @@ export const calculateLayout = async (data: VisualizationData): Promise<Visualiz
             scopes: data.scopes.map(scope => {
                 const pos = positionMap.get(scope.id)
                 return { ...scope, x: pos?.x, y: pos?.y }
-            }),
-            connections: data.connections
+            })
         }
 
         return positionedData
