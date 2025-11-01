@@ -1,14 +1,15 @@
-import { ArcherElement } from "react-archer"
-import type { ArcherContainerProps } from "react-archer"
+import ScopeItem from "./ScopeItem"
 
-interface Scope {
+interface Variable {
+    name: string
+    value: string
+    targetRef?: string
+}
+
+interface ScopeData {
     id: string
     name: string
-    variables: Array<{
-        name: string
-        value: string
-        targetRef?: string
-    }>
+    variables: Variable[]
     isCurrent: boolean
     color?: string
     borderColor?: string
@@ -17,51 +18,19 @@ interface Scope {
 }
 
 interface ScopeProps {
-    scopes: Scope[]
+    scopes: ScopeData[]
 }
 
 const Scope = ({ scopes }: ScopeProps) => {
     if (!scopes) return null
 
     return (
-        <div className="w-1/4 flex flex-col">
-            <div className="flex flex-col overflow-hidden border border-gray-300 rounded p-2 flex-grow bg-gray-50">
+        <div className="w-6/12 flex flex-col">
+            <div className="flex flex-col overflow-y-auto overflow-x-hidden border border-gray-300 rounded p-2 flex-grow bg-gray-50">
                 <div className="flex-1"></div>
-                <div className="flex flex-col-reverse justify-end space-y-reverse space-y-2 min-h-0">
+                <div className="flex flex-col-reverse justify-end space-y-reverse space-y-2 min-h-0 w-full">
                     {scopes.map(scope => (
-                        <div
-                            key={scope.id}
-                            className={`p-3 border-2 rounded flex-shrink-0 transition-all ${scope.isCurrent ? 'ring-2 ring-blue-500 ring-offset-1' : ''}`}
-                            style={{
-                                backgroundColor: scope.color || '#ffffff',
-                                borderColor: scope.borderColor || '#d1d5db'
-                            }}
-                        >
-                            <div className="font-semibold mb-1 text-gray-800">{scope.name}</div>
-                            {scope.variables.length > 0 ? (
-                                <div className="space-y-1">
-                                    {scope.variables.map(variable => {
-                                        const varId = `${scope.id}-var-${variable.name}`
-
-                                        return (
-                                            <ArcherElement
-                                                key={variable.name}
-                                                id={varId}
-                                            >
-                                                <div className="text-sm">
-                                                    <span className="font-medium">{variable.name}:</span>{" "}
-                                                    <span className={`${variable.targetRef ? 'text-purple-600 font-medium' : 'text-blue-600'}`}>
-                                                        {variable.value}
-                                                    </span>
-                                                </div>
-                                            </ArcherElement>
-                                        )
-                                    })}
-                                </div>
-                            ) : (
-                                <p className="text-xs text-gray-500 italic">No variables</p>
-                            )}
-                        </div>
+                        <ScopeItem key={scope.id} scope={scope} />
                     ))}
                 </div>
             </div>
