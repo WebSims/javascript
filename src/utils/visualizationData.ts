@@ -44,6 +44,7 @@ export interface MemValItem {
     x?: number
     y?: number
     animation?: 'slide-in' | 'fade-out' | 'none' | 'fade-in'
+    showConnection?: boolean
 }
 
 interface HeapProperty {
@@ -119,7 +120,8 @@ export const transformMemorySnapshot = (
             id: `memval-${index}`,
             value: displayValue,
             type: mem.type,
-            animation: 'none'
+            animation: 'none',
+            showConnection: true
         }
 
         // Store target reference for connections

@@ -1,5 +1,5 @@
 import { ArcherElement } from "react-archer"
-import type { ArcherContainerProps } from "react-archer"
+import type { ComponentProps } from "react"
 
 interface MemValItem {
     id: string
@@ -9,6 +9,7 @@ interface MemValItem {
     x?: number
     y?: number
     animation?: 'slide-in' | 'fade-out' | 'none' | 'fade-in'
+    showConnection?: boolean
 }
 
 interface MemValProps {
@@ -31,8 +32,9 @@ const getAnimationClass = (animation?: 'slide-in' | 'fade-out' | 'none' | 'fade-
 const MemVal = ({ memval }: MemValProps) => {
     if (!memval) return null
 
-    const getRelations = (item: MemValItem): ArcherContainerProps['relations'] => {
+    const getRelations = (item: MemValItem): ComponentProps<typeof ArcherElement>['relations'] => {
         if (!item.targetRef) return undefined
+        if (item.showConnection === false) return undefined
 
         const relations = [{
             targetId: item.targetRef,

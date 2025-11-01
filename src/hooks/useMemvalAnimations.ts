@@ -5,10 +5,18 @@ interface MemValItem {
     id: string
     value: string
     type: string
+    targetRef?: string
     x?: number
     y?: number
     animation?: 'slide-in' | 'fade-out' | 'none' | 'fade-in'
+    showConnection?: boolean
 }
+
+const ensureMemvalShape = (item: MemValItem): MemValItem => ({
+    ...item,
+    animation: item.animation ?? 'none',
+    showConnection: item.showConnection ?? true
+})
 
 interface MemvalAnimationCallbacks {
     onUpdate: (memval: MemValItem[]) => void
@@ -78,7 +86,7 @@ export const useMemvalAnimations = () => {
         }
 
         // Track the current state of memval items during animation
-        let workingMemval = [...baseMemval]
+        let workingMemval = baseMemval.map(ensureMemvalShape)
 
         const processChange = (index: number) => {
             // Check if animation was cancelled
@@ -93,7 +101,10 @@ export const useMemvalAnimations = () => {
                     if (isCancelledRef.current) {
                         return
                     }
-                    callbacks.onUpdate(workingMemval.filter(item => item.animation !== 'fade-out'))
+                    const settledMemval = workingMemval
+                        .filter(item => item.animation !== 'fade-out')
+                        .map(ensureMemvalShape)
+                    callbacks.onUpdate(settledMemval)
                     callbacks.onComplete()
                 }, 500)
                 timeoutRefsRef.current.push(timeoutId)
@@ -110,12 +121,16 @@ export const useMemvalAnimations = () => {
                     // Mark the item for fade-out
                     const updatedMemval = workingMemval.map((item, idx) => {
                         if (idx === workingMemval.length - 1) {
-                            return { ...item, animation: 'fade-out' as const }
+                            return {
+                                ...item,
+                                animation: 'fade-out' as const,
+                                showConnection: false
+                            }
                         }
                         return item
                     })
 
-                    callbacks.onUpdate(updatedMemval)
+                    callbacks.onUpdate(updatedMemval.map(ensureMemvalShape))
 
                     // After animation, remove the item and process next change
                     const timeoutId = setTimeout(() => {
@@ -123,7 +138,10 @@ export const useMemvalAnimations = () => {
                             return
                         }
                         workingMemval = workingMemval.slice(0, -1)
-                        callbacks.onUpdate(workingMemval.filter(item => item.animation !== 'fade-out'))
+                        const filteredMemval = workingMemval
+                            .filter(item => item.animation !== 'fade-out')
+                            .map(ensureMemvalShape)
+                        callbacks.onUpdate(filteredMemval)
                         processChange(index + 1)
                     }, animationDuration)
                     timeoutRefsRef.current.push(timeoutId)
@@ -133,10 +151,13 @@ export const useMemvalAnimations = () => {
             } else if (change.type === 'push') {
                 // Add new item with animation (slide-in for forward, fade-in for backward)
                 let displayValue: string
+                let targetRef: string | undefined
                 if (change.value.type === 'primitive') {
                     displayValue = String(change.value.value)
+                    targetRef = undefined
                 } else {
                     displayValue = `<Reference to ${change.value.ref}>`
+                    targetRef = `obj-${change.value.ref}`
                 }
 
                 // Use slide-in for forward, fade-in for backward
@@ -146,11 +167,13 @@ export const useMemvalAnimations = () => {
                     id: `memval-${workingMemval.length}`,
                     value: displayValue,
                     type: change.value.type,
-                    animation: animationType
+                    targetRef,
+                    animation: animationType,
+                    showConnection: false
                 }
 
                 workingMemval = [...workingMemval, newItem]
-                callbacks.onUpdate(workingMemval)
+                callbacks.onUpdate(workingMemval.map(ensureMemvalShape))
 
                 // After animation completes, remove animation class and process next change
                 const timeoutId = setTimeout(() => {
@@ -160,11 +183,18 @@ export const useMemvalAnimations = () => {
                     workingMemval = workingMemval.map(item => {
                         // Remove both slide-in and fade-in animations
                         if (item.animation === 'slide-in' || item.animation === 'fade-in') {
-                            return { ...item, animation: 'none' as const }
+                            return {
+                                ...item,
+                                animation: 'none' as const,
+                                showConnection: true
+                            }
+                        }
+                        if (item.showConnection === undefined) {
+                            return { ...item, showConnection: true }
                         }
                         return item
                     })
-                    callbacks.onUpdate(workingMemval)
+                    callbacks.onUpdate(workingMemval.map(ensureMemvalShape))
                     processChange(index + 1)
                 }, animationDuration)
                 timeoutRefsRef.current.push(timeoutId)
