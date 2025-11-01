@@ -29,7 +29,6 @@ const MemVal = ({ memval }: MemValProps) => {
 
     return (
         <div className="w-1/4 flex flex-col">
-            <h2 className="text-lg font-bold mb-2 shrink-0">Memory Values</h2>
             <div className="flex flex-col overflow-hidden border border-gray-300 rounded p-2 flex-grow bg-gray-50">
                 <div className="flex-1"></div>
                 <div className="flex flex-col-reverse justify-end space-y-reverse space-y-2 min-h-0">

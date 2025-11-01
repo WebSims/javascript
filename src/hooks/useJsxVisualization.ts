@@ -32,7 +32,7 @@
 import { useEffect, useRef, useState } from "react"
 import type { ExecStep } from "@/types/simulator"
 import { useMemvalAnimations } from "./useMemvalAnimations"
-import { useVisualizationData, type VisualizationData, type MemValItem } from "./useVisualizationData"
+import { transformMemorySnapshot, calculateLayout, type VisualizationData, type MemValItem } from "@/utils/visualizationData"
 
 export const useJsxVisualization = (currentStep: ExecStep | null, steps: ExecStep[]) => {
     const [visualizationData, setVisualizationData] = useState<VisualizationData | null>(null)
@@ -40,13 +40,12 @@ export const useJsxVisualization = (currentStep: ExecStep | null, steps: ExecSte
     const previousMemvalRef = useRef<MemValItem[]>([])
 
     const { processSequentially, clearAnimations, animationTimeoutRef } = useMemvalAnimations()
-    const { transformMemorySnapshot, calculateLayout } = useVisualizationData(steps)
 
     useEffect(() => {
         // Clear any pending animations when step changes
         clearAnimations()
 
-        const data = transformMemorySnapshot(currentStep)
+        const data = transformMemorySnapshot(currentStep, steps)
         if (data) {
             // Detect if this is a single step change
             if (previousStepRef.current !== null && currentStep) {
@@ -101,7 +100,7 @@ export const useJsxVisualization = (currentStep: ExecStep | null, steps: ExecSte
                 if (stepDiff === -1) {
                     // Get the previous step (the one we were just on)
                     const previousStep = steps.find(s => s.index === previousStepRef.current)
-                    
+
                     if (previousStep?.memvalChanges && previousStep.memvalChanges.length > 0) {
                         // First, update heap and scopes immediately (no animation)
                         calculateLayout(data).then(positionedData => {
@@ -162,7 +161,7 @@ export const useJsxVisualization = (currentStep: ExecStep | null, steps: ExecSte
                 const memvalWithoutAnimation = positionedData.memval
                     .filter(item => item.animation !== 'fade-out')
                     .map(item => ({ ...item, animation: 'none' as const }))
-                
+
                 setVisualizationData({
                     ...positionedData,
                     memval: memvalWithoutAnimation
@@ -180,7 +179,7 @@ export const useJsxVisualization = (currentStep: ExecStep | null, steps: ExecSte
         return () => {
             clearAnimations()
         }
-    }, [currentStep, transformMemorySnapshot, calculateLayout, processSequentially, clearAnimations, animationTimeoutRef])
+    }, [currentStep, steps, processSequentially, clearAnimations, animationTimeoutRef])
 
     return visualizationData
 }
