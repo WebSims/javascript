@@ -74,13 +74,13 @@ const HeapItem = ({ heapObj }: HeapItemProps) => {
             relations={heapRelations}
         >
             <div
-                className={`p-4 border-2 rounded-lg flex-shrink-0 transition-all duration-200 hover:shadow-lg w-full ${colors.bg} ${colors.border}`}
+                className={`p-0.5 md:p-2 border-2 rounded-lg flex-shrink-0 transition-all duration-200 hover:shadow-lg w-full ${colors.bg} ${colors.border}`}
             >
                 <div className="flex items-center gap-2 mb-3 flex-wrap">
-                    <span className={`font-bold text-base ${colors.text} break-all`}>
+                    <span className={`font-bold text-xs md:text-base ${colors.text} break-all`}>
                         {heapObj.id}
                     </span>
-                    <span className={`text-xs font-medium px-2 py-0.5 rounded-full flex-shrink-0 ${colors.badge}`}>
+                    <span className={`text-xs font-medium px-2 py-0.5 rounded-md flex-shrink-0 ${colors.badge}`}>
                         {heapObj.type}
                     </span>
                 </div>
@@ -110,7 +110,7 @@ const HeapItem = ({ heapObj }: HeapItemProps) => {
                                     id={propId}
                                     relations={propRelations}
                                 >
-                                    <div className="text-sm bg-white/60 px-2.5 py-1.5 rounded-md hover:bg-white/80 transition-colors break-words">
+                                    <div className="text-xs md:text-sm bg-white/60 px-2.5 py-1.5 rounded-md hover:bg-white/80 transition-colors break-words">
                                         <span className="font-semibold text-gray-700">{prop.name}:</span>{" "}
                                         <span className={`${prop.targetRef ? 'text-orange-600 font-semibold' : 'text-blue-600 font-medium'}`}>
                                             {prop.value}

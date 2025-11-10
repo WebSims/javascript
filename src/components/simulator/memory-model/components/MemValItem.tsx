@@ -59,15 +59,15 @@ const MemValItem = ({ memval, index }: MemValItemProps) => {
             relations={relations}
         >
             <div
-                className={`bg-white p-4 border-2 rounded-lg flex-shrink-0 transition-all duration-200 hover:shadow-lg w-full ${
+                className={`bg-white p-0.5 md:p-2 border-2 rounded-lg flex-shrink-0 transition-all duration-200 hover:shadow-lg w-full ${
                     isReference ? 'border-purple-300 bg-purple-50/30' : 'border-gray-300'
                 } ${getAnimationClass(memval.animation)}`}
             >
                 <div className="text-xs font-medium text-gray-500 mb-2 break-words">{memval.id}</div>
-                <div className={`font-bold text-base mb-2 break-words ${isReference ? 'text-purple-600' : 'text-gray-800'}`}>
+                <div className={`font-bold text-xs md:text-base mb-2 break-words ${isReference ? 'text-purple-600' : 'text-gray-800'}`}>
                     {memval.value}
                 </div>
-                <div className={`text-xs font-medium px-2 py-0.5 rounded-full inline-block break-all ${
+                <div className={`text-xs font-medium px-2 py-0.5 rounded-md inline-block break-all ${
                     isReference 
                         ? 'bg-purple-100 text-purple-700' 
                         : 'bg-gray-100 text-gray-600'

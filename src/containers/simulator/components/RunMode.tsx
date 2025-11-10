@@ -33,7 +33,7 @@ const RunMode: React.FC = () => {
                         </ResizablePanelGroup>
                     </ResizablePanel>
                     <ResizableHandle withHandle className="bg-slate-100 hover:bg-slate-200 transition-colors" />
-                    <ResizablePanel className='p-2'>
+                    <ResizablePanel>
                         <MemoryModelVisualizer />
                     </ResizablePanel>
                 </ResizablePanelGroup>
