@@ -1,0 +1,23 @@
+version: "3.9"
+services:
+  production:
+    container_name: websims-javascript
+    build:
+      context: .
+      dockerfile: Dockerfile
+    ports:
+      - "8080:80"
+    restart: unless-stopped
+
+  development:
+    container_name: websims-javascript-development
+    build:
+      context: .
+      dockerfile: Dockerfile.dev
+    ports:
+      - "5173:5173"
+    volumes:
+      - .:/app
+      - /app/node_modules
+    environment:
+      - CHOKIDAR_USEPOLLING=true
