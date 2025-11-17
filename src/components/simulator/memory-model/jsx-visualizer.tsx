@@ -1,26 +1,12 @@
 import { useSimulatorStore } from "@/hooks/useSimulatorStore"
 import { useJsxVisualization } from "@/hooks/useJsxVisualization"
+import { useMemoryDimensions } from "@/hooks/useMemoryDimensions"
 import { ArcherContainer } from "react-archer"
 import MemVal from "./components/MemVal"
 import Heap from "./components/Heap"
 import Scope from "./components/Scope"
-import { useState } from "react"
 import useElementSize from "@/hooks/useElementSize"
 import { useResponsive } from "@/hooks/useResponsive"
-
-type Position = { x: number; y: number }
-type Positions = {
-    memval: Position
-    heap: Position
-    scope: Position
-}
-
-type ComponentDimensions = {
-    x: number
-    y: number
-    width: number
-    height: number
-}
 
 const LAYOUT_CONFIG = {
     containerPadding: {
@@ -28,75 +14,8 @@ const LAYOUT_CONFIG = {
         desktop: 8
     },
     componentGap: {
-        mobile: 2,
+        mobile: 4,
         desktop: 8
-    },
-    minComponentWidth: 0,
-    minComponentHeight: 100,
-    widthRatios: {
-        memval: 0.25,
-        heap: 0.35,
-        scope: 0.40
-    }
-}
-
-const calculateInitialPositions = (
-    containerWidth: number,
-    containerPadding: number,
-    componentGap: number,
-    config: typeof LAYOUT_CONFIG
-): Positions => {
-    const { widthRatios } = config
-
-    const availableWidth = containerWidth - (containerPadding * 2) - (componentGap * 2)
-    const memvalWidth = availableWidth * widthRatios.memval
-    const heapWidth = availableWidth * widthRatios.heap
-
-    return {
-        memval: {
-            x: containerPadding,
-            y: containerPadding
-        },
-        heap: {
-            x: containerPadding + memvalWidth + componentGap,
-            y: containerPadding
-        },
-        scope: {
-            x: containerPadding + memvalWidth + componentGap + heapWidth + componentGap,
-            y: containerPadding
-        }
-    }
-}
-
-const calculateComponentDimensions = (
-    position: Position,
-    containerWidth: number,
-    containerHeight: number,
-    widthRatio: number,
-    containerPadding: number,
-    componentGap: number,
-    config: typeof LAYOUT_CONFIG
-): ComponentDimensions => {
-    const { minComponentWidth, minComponentHeight } = config
-
-    const availableWidth = containerWidth - (containerPadding * 2) - (componentGap * 2)
-    const calculatedWidth = availableWidth * widthRatio
-    const width = Math.max(calculatedWidth, minComponentWidth)
-
-    const availableHeight = containerHeight - position.y - containerPadding
-    const height = Math.max(availableHeight, minComponentHeight)
-
-    return {
-        x: position.x,
-        y: position.y,
-        width,
-        height
-    }
-}
-
-declare global {
-    interface Window {
-        setMemoryModelPositions: React.Dispatch<React.SetStateAction<Positions>>
     }
 }
 
@@ -106,11 +25,27 @@ export const JsxVisualizer = () => {
     const [containerRef, containerSize] = useElementSize<HTMLDivElement>()
     const { isDesktop } = useResponsive()
 
+    const endShape = {
+        arrow: {
+            arrowLength: isDesktop ? 7 : 6,
+            arrowThickness: isDesktop ? 5 : 5,
+        },
+    }
+
     const containerPadding = isDesktop ? LAYOUT_CONFIG.containerPadding.desktop : LAYOUT_CONFIG.containerPadding.mobile
     const componentGap = isDesktop ? LAYOUT_CONFIG.componentGap.desktop : LAYOUT_CONFIG.componentGap.mobile
 
-    const [positions, setPositions] = useState<Positions>(() =>
-        calculateInitialPositions(1200, containerPadding, componentGap, LAYOUT_CONFIG)
+    const containerWidth = containerSize.width || 0
+    const containerHeight = containerSize.height || 0
+
+    // Use the memory dimensions hook to calculate virtual dimensions
+    const dimensions = useMemoryDimensions(
+        currentStep, 
+        steps, 
+        containerHeight,
+        containerWidth,
+        containerPadding,
+        componentGap
     )
 
     if (!visualizationData) {
@@ -135,53 +70,9 @@ export const JsxVisualizer = () => {
         variables: s.variables.map(v => ({ name: v.name, targetRef: v.targetRef }))
     })))
 
-    // Expose setPositions to window for JavaScript manipulation
-    if (typeof window !== 'undefined') {
-        window.setMemoryModelPositions = setPositions
-    }
+    // Debug: Log calculated dimensions from the hook
+    console.log('Calculated dimensions:', dimensions)
 
-    const containerWidth = containerSize.width || 0
-    const containerHeight = containerSize.height || 0
-
-    const memvalDimensions = calculateComponentDimensions(
-        positions.memval,
-        containerWidth,
-        containerHeight,
-        LAYOUT_CONFIG.widthRatios.memval,
-        containerPadding,
-        componentGap,
-        LAYOUT_CONFIG
-    )
-
-    const heapPosition = {
-        x: memvalDimensions.x + memvalDimensions.width + componentGap,
-        y: positions.heap.y
-    }
-
-    const heapDimensions = calculateComponentDimensions(
-        heapPosition,
-        containerWidth,
-        containerHeight,
-        LAYOUT_CONFIG.widthRatios.heap,
-        containerPadding,
-        componentGap,
-        LAYOUT_CONFIG
-    )
-
-    const scopePosition = {
-        x: heapDimensions.x + heapDimensions.width + componentGap,
-        y: positions.scope.y
-    }
-
-    const scopeDimensions = calculateComponentDimensions(
-        scopePosition,
-        containerWidth,
-        containerHeight,
-        LAYOUT_CONFIG.widthRatios.scope,
-        containerPadding,
-        componentGap,
-        LAYOUT_CONFIG
-    )
     return (
         <div
             ref={containerRef}
@@ -193,19 +84,20 @@ export const JsxVisualizer = () => {
                 strokeColor="#9333ea"
                 strokeWidth={2}
                 endMarker={true}
+                endShape={endShape}
                 svgContainerStyle={{
                     width: containerWidth,
-                    height: containerHeight,
+                    height: dimensions.maxContainerHeight,
                     zIndex: 1
                 }}
             >
                 <div
                     className="absolute"
                     style={{
-                        left: `${memvalDimensions.x}px`,
-                        top: `${memvalDimensions.y}px`,
-                        width: `${memvalDimensions.width}px`,
-                        height: `${memvalDimensions.height}px`
+                        left: `${dimensions.memval.x}px`,
+                        top: `${dimensions.memval.y}px`,
+                        width: `${dimensions.memval.w}px`,
+                        height: `${dimensions.memval.h}px`
                     }}
                 >
                     <MemVal memval={memval} />
@@ -213,10 +105,10 @@ export const JsxVisualizer = () => {
                 <div
                     className="absolute"
                     style={{
-                        left: `${heapDimensions.x}px`,
-                        top: `${heapDimensions.y}px`,
-                        width: `${heapDimensions.width}px`,
-                        height: `${heapDimensions.height}px`
+                        left: `${dimensions.heap.x}px`,
+                        top: `${dimensions.heap.y}px`,
+                        width: `${dimensions.heap.w}px`,
+                        height: `${dimensions.heap.h}px`
                     }}
                 >
                     <Heap heap={heap} />
@@ -224,10 +116,10 @@ export const JsxVisualizer = () => {
                 <div
                     className="absolute"
                     style={{
-                        left: `${scopeDimensions.x}px`,
-                        top: `${scopeDimensions.y}px`,
-                        width: `${scopeDimensions.width}px`,
-                        height: `${scopeDimensions.height}px`
+                        left: `${dimensions.scope.x}px`,
+                        top: `${dimensions.scope.y}px`,
+                        width: `${dimensions.scope.w}px`,
+                        height: `${dimensions.scope.h}px`
                     }}
                 >
                     <Scope scopes={scopes} />

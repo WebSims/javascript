@@ -26,7 +26,7 @@ const ScopeItem = ({ scope }: ScopeItemProps) => {
         <div
             className={`p-0.5 md:p-2 border-2 rounded-lg flex-shrink-0 transition-all duration-200 hover:shadow-lg w-full ${
                 scope.isCurrent 
-                    ? 'ring-2 ring-blue-500 ring-offset-2 shadow-md' 
+                    ? 'ring-1 ring-blue-500 ring-offset-2 shadow-md' 
                     : ''
             }`}
             style={{
