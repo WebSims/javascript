@@ -55,7 +55,7 @@ const RunMode: React.FC = () => {
                             <TabsTrigger value="MEMORY">Memory</TabsTrigger>
                             <TabsTrigger value="CONSOLE">Console</TabsTrigger>
                         </TabsList>
-                        <TabsContent value="MEMORY" className='h-[calc(100%-36px)]'>
+                        <TabsContent value="MEMORY" className='h-[calc(100%-38px)]'>
                             <MemoryModelVisualizer />
                         </TabsContent>
                         <TabsContent value="CONSOLE">

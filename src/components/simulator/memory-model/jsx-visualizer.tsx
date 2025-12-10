@@ -29,12 +29,13 @@ export const JsxVisualizer = () => {
 
     const scale = !isDesktop ? 0.65 : 1
     const virtualWidth = containerWidth / scale
+    const virtualHeight = containerHeight / scale
 
     // Use the memory dimensions hook to calculate virtual dimensions
     const dimensions = useMemoryDimensions(
         currentStep,
         steps,
-        containerHeight,
+        virtualHeight,
         virtualWidth,
         containerPadding,
         componentGap
@@ -50,7 +51,7 @@ export const JsxVisualizer = () => {
 
     const { memval, heap, scopes } = visualizationData
     const scaledHeight = dimensions.maxContainerHeight * scale
-
+    
     return (
         <div
             ref={containerRef}
