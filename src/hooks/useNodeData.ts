@@ -1,7 +1,7 @@
 import { useEffect, useState, useMemo, RefObject } from "react"
 import { useSimulatorStore } from "./useSimulatorStore"
 import { ESNode } from "hermes-parser"
-import { EXEC_STEP_TYPE, BUBBLE_UP_TYPE, JSValue } from "@/types/simulator"
+import { EXEC_STEP_TYPE, BUBBLE_UP_TYPE, JSValue, ExecStep } from "@/types/simulator"
 import { formatJSValue, FormattedValue } from "@/utils/formatJSValue"
 
 export type NodeData = {
@@ -10,20 +10,36 @@ export type NodeData = {
     isEvaluating: boolean
     isEvaluated: boolean
     isErrorThrown: boolean
+    wasEvaluated: boolean
     evaluatedValue: FormattedValue | null
     rawValue: JSValue | null
 }
 
 /**
+ * Check if a step matches a node by range and type
+ */
+const isStepForNode = (step: ExecStep, node: ESNode): boolean => {
+    const stepRange = step.node?.range
+    const nodeRange = node?.range
+    if (!stepRange || !nodeRange) return false
+    return (
+        stepRange[0] === nodeRange[0] &&
+        stepRange[1] === nodeRange[1] &&
+        step.node.type === node.type
+    )
+}
+
+/**
  * Custom hook to get rendering data for an AST node
  * Provides execution state and evaluated value for display
+ * Persists evaluated values from previous steps
  * 
  * @param node - The AST node to track
  * @param ref - Optional ref for scroll behavior
  * @returns NodeData with execution state and evaluated value
  */
 export const useNodeData = (node?: ESNode, ref?: RefObject<HTMLElement | null>): NodeData => {
-    const { currentStep } = useSimulatorStore()
+    const { currentStep, steps } = useSimulatorStore()
     const [isExecuting, setIsExecuting] = useState(false)
     const [isExecuted, setIsExecuted] = useState(false)
     const [isEvaluating, setIsEvaluating] = useState(false)
@@ -114,37 +130,37 @@ export const useNodeData = (node?: ESNode, ref?: RefObject<HTMLElement | null>):
         }
     }, [isExecuting, isExecuted, isEvaluating, isEvaluated, ref])
 
-    // Get the evaluated value when node is evaluated
-    const { evaluatedValue, rawValue } = useMemo(() => {
-        if (!isEvaluated || !currentStep) {
-            return { evaluatedValue: null, rawValue: null }
+    // Find the evaluated value from current or previous steps
+    const { evaluatedValue, rawValue, wasEvaluated } = useMemo(() => {
+        if (!node || !currentStep || !steps.length) {
+            return { evaluatedValue: null, rawValue: null, wasEvaluated: false }
         }
 
-        // When a node is evaluated, the value is pushed to memval
-        // Look for the push operation in memvalChanges
-        const pushChange = currentStep.memvalChanges.find(change => change.type === "push")
-        
-        if (pushChange) {
-            const heap = currentStep.memorySnapshot.heap
-            return {
-                evaluatedValue: formatJSValue(pushChange.value, heap),
-                rawValue: pushChange.value
+        const currentIndex = currentStep.index
+
+        // Search backwards from current step to find when this node was evaluated
+        for (let i = currentIndex; i >= 0; i--) {
+            const step = steps[i]
+            
+            // Check if this step is an EVALUATED step for our node
+            if (step.type === EXEC_STEP_TYPE.EVALUATED && isStepForNode(step, node)) {
+                // Found the evaluation step - get the value from memvalChanges
+                const pushChange = step.memvalChanges.find(change => change.type === "push")
+                
+                if (pushChange) {
+                    // Use the heap from the step where evaluation happened
+                    const heap = step.memorySnapshot.heap
+                    return {
+                        evaluatedValue: formatJSValue(pushChange.value, heap),
+                        rawValue: pushChange.value,
+                        wasEvaluated: true
+                    }
+                }
             }
         }
 
-        // Fallback: get the last value from memval stack
-        const memval = currentStep.memorySnapshot.memval
-        if (memval.length > 0) {
-            const lastValue = memval[memval.length - 1]
-            const heap = currentStep.memorySnapshot.heap
-            return {
-                evaluatedValue: formatJSValue(lastValue, heap),
-                rawValue: lastValue
-            }
-        }
-
-        return { evaluatedValue: null, rawValue: null }
-    }, [isEvaluated, currentStep])
+        return { evaluatedValue: null, rawValue: null, wasEvaluated: false }
+    }, [node, currentStep, steps])
 
     return {
         isExecuting,
@@ -152,6 +168,7 @@ export const useNodeData = (node?: ESNode, ref?: RefObject<HTMLElement | null>):
         isEvaluating,
         isEvaluated,
         isErrorThrown,
+        wasEvaluated,
         evaluatedValue,
         rawValue
     }
