@@ -4,6 +4,7 @@ import React, { useRef, useEffect, RefObject } from "react"
 import * as _ from 'lodash'
 import { useSimulatorStore } from "@/hooks/useSimulatorStore"
 import { useExecStep } from "@/hooks/useExecStep"
+import ReadVar from "./components/ReadVar"
 
 // import * as ts from "typescript";
 // const ast = ts.createSourceFile("temp.ts", codeStr, ts.ScriptTarget.Latest);
@@ -324,7 +325,7 @@ const Expression = ({ expr, parent, parens }: { expr: any, parent: any, parens: 
     // Identifier name:string
     if (expr.type == "Identifier") {
         expr.category = "expression.read.var"
-        component = <ReadVar name={expr.name} />
+        component = <ReadVar name={expr.name} node={expr} />
     }
 
     // ThisExpression
@@ -529,10 +530,6 @@ const FnParamsDef = ({ params, parent, parens }) => (
         })}
         <span className="text-slate-500 align-middle font-bold">)</span>
     </>
-)
-
-const ReadVar = ({ name }) => (
-    <span>{name}</span>
 )
 
 const ReadProp = ({ name, of, parent, parens }) => (
