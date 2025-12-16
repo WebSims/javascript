@@ -156,6 +156,18 @@ export const useNodeData = (node?: ESNode, ref?: RefObject<HTMLElement | null>):
                         wasEvaluated: true
                     }
                 }
+
+                // For CallExpression: return value is at top of memval stack (pushed by ReturnStatement)
+                // but not in memvalChanges (which was reset after ReturnStatement step)
+                if (node.type === "CallExpression" && step.memorySnapshot.memval.length > 0) {
+                    const returnValue = step.memorySnapshot.memval[step.memorySnapshot.memval.length - 1]
+                    const heap = step.memorySnapshot.heap
+                    return {
+                        evaluatedValue: formatJSValue(returnValue, heap),
+                        rawValue: returnValue,
+                        wasEvaluated: true
+                    }
+                }
             }
         }
 
