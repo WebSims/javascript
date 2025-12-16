@@ -27,7 +27,7 @@ const ReadVar: React.FC<ReadVarProps> = ({ name, node }) => {
             {/* Evaluated value badge - shown above the name when evaluated (current or previous) */}
             {showEvaluated && evaluatedValue && (
                 <span
-                    className="absolute -top-5 left-1/2 -translate-x-1/2 whitespace-nowrap rounded border border-emerald-500 px-1.5 py-0.5 text-xs font-medium text-emerald-700"
+                    className="absolute -top-5 left-1/2 -translate-x-1/2 whitespace-nowrap text-xs font-medium text-emerald-700"
                     title={`Evaluated to: ${evaluatedValue.display}`}
                 >
                     {evaluatedValue.display}
