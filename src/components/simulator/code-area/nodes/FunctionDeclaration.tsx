@@ -61,5 +61,3 @@ const FunctionDeclaration: React.FC<FunctionDeclarationProps> = ({
 }
 
 export default FunctionDeclaration
-
-
