@@ -3,10 +3,13 @@ import { useSimulatorStore } from './useSimulatorStore'
 import { ESNode } from 'hermes-parser'
 import { BUBBLE_UP_TYPE, EXEC_STEP_TYPE } from '@/types/simulator'
 import { useExecutionUiEnabled } from '@/contexts/ExecutionUiContext'
+import { useScopedStep } from '@/contexts/ScopedStepContext'
 
 export const useExecStep = (node?: ESNode, ref?: RefObject<HTMLElement | null>) => {
-    const { currentStep } = useSimulatorStore()
+    const { currentStep: globalCurrentStep } = useSimulatorStore()
     const isExecutionUiEnabled = useExecutionUiEnabled()
+    const scopedStepState = useScopedStep()
+    const currentStep = scopedStepState.step || globalCurrentStep
     const [isExecuting, setIsExecuting] = useState(false)
     const [isExecuted, setIsExecuted] = useState(false)
     const [isEvaluating, setIsEvaluating] = useState(false)
@@ -78,6 +81,14 @@ export const useExecStep = (node?: ESNode, ref?: RefObject<HTMLElement | null>) 
 
     useEffect(() => {
         if (!isExecutionUiEnabled) {
+            setIsExecuting(false)
+            setIsExecuted(false)
+            setIsEvaluating(false)
+            setIsEvaluated(false)
+            setIsErrorThrown(false)
+            return
+        }
+        if (!currentStep) {
             setIsExecuting(false)
             setIsExecuted(false)
             setIsEvaluating(false)

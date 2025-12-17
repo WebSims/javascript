@@ -4,6 +4,7 @@ import { ESNode } from "hermes-parser"
 import { EXEC_STEP_TYPE, BUBBLE_UP_TYPE, JSValue, ExecStep } from "@/types/simulator"
 import { formatJSValue, FormattedValue } from "@/utils/formatJSValue"
 import { useExecutionUiEnabled } from "@/contexts/ExecutionUiContext"
+import { useScopedStep } from "@/contexts/ScopedStepContext"
 
 export type NodeData = {
     isExecuting: boolean
@@ -40,8 +41,10 @@ const isStepForNode = (step: ExecStep, node: ESNode): boolean => {
  * @returns NodeData with execution state and evaluated value
  */
 export const useNodeData = (node?: ESNode, ref?: RefObject<HTMLElement | null>): NodeData => {
-    const { currentStep, steps } = useSimulatorStore()
+    const { currentStep: globalCurrentStep, steps } = useSimulatorStore()
     const isExecutionUiEnabled = useExecutionUiEnabled()
+    const scopedStepState = useScopedStep()
+    const currentStep = scopedStepState.step || globalCurrentStep
     const [isExecuting, setIsExecuting] = useState(false)
     const [isExecuted, setIsExecuted] = useState(false)
     const [isEvaluating, setIsEvaluating] = useState(false)
@@ -124,6 +127,14 @@ export const useNodeData = (node?: ESNode, ref?: RefObject<HTMLElement | null>):
             setIsErrorThrown(false)
             return
         }
+        if (!currentStep) {
+            setIsExecuting(false)
+            setIsExecuted(false)
+            setIsEvaluating(false)
+            setIsEvaluated(false)
+            setIsErrorThrown(false)
+            return
+        }
         if (node) {
             setIsExecuting(checkExecuting(node))
             setIsExecuted(checkExecuted(node))
@@ -151,9 +162,10 @@ export const useNodeData = (node?: ESNode, ref?: RefObject<HTMLElement | null>):
         }
 
         const currentIndex = currentStep.index
+        const startIndex = scopedStepState.startIndex ?? 0
 
         // Search backwards from current step to find when this node was evaluated
-        for (let i = currentIndex; i >= 0; i--) {
+        for (let i = currentIndex; i >= startIndex; i--) {
             const step = steps[i]
             
             // Check if this step is an EVALUATED step for our node

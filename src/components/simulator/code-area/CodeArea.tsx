@@ -5,6 +5,9 @@ import { ESNode } from "hermes-parser"
 import * as ESTree from "estree"
 import { useSimulatorStore } from "@/hooks/useSimulatorStore"
 import { useExecStep } from "@/hooks/useExecStep"
+import { useFunctionCallStack } from "@/hooks/useFunctionCallStack"
+import { useRenderDepth } from "@/contexts/RenderDepthContext"
+import { ScopedStepContext } from "@/contexts/ScopedStepContext"
 import {
     getNodeDecoration,
     getNodeContext,
@@ -444,7 +447,9 @@ const ClassMember = ({ member, parent: parentProp, parens }: { member: ESNode; p
 
 // ----- CodeArea Component -----
 const CodeArea: React.FC<CodeAreaProps> = ({ ast, parent: parentProp, parens: parensProp }) => {
-    const { astOfCode, codeAreaRef, astError, simulatorError } = useSimulatorStore()
+    const { astOfCode, codeAreaRef, astError, simulatorError, steps, currentStep } = useSimulatorStore()
+    const frames = useFunctionCallStack()
+    const depth = useRenderDepth()
 
     const pickAst = ast || astOfCode
 
@@ -482,17 +487,29 @@ const CodeArea: React.FC<CodeAreaProps> = ({ ast, parent: parentProp, parens: pa
         statements = [pickAst as unknown as ESNode]
     }
 
+    // Each scope popover keeps local view state by using a scoped/frozen step:
+    // - If we are not the deepest scope, freeze at the nested call's FUNCTION_CALL step
+    // - The deepest scope uses the real currentStep
+    const scopedStepIndex = frames.length > depth ? frames[depth].stepIndex : (currentStep?.index ?? 0)
+    const scopedStep = steps?.[scopedStepIndex] || currentStep
+
+    // Bound evaluated-history lookup to this scope's activation window
+    // depth mapping: 0 = Program, 1 = frames[0], 2 = frames[1], ...
+    const startIndex = depth === 0 ? 0 : (frames[depth - 1]?.stepIndex ?? 0)
+
     return (
-        <div className="w-full h-full overflow-auto">
-            <pre
-                ref={!ast ? (codeAreaRef as unknown as React.RefObject<HTMLPreElement>) : undefined}
-                className="min-w-fit max-w-full font-mono space-y-1 lg:p-2"
-            >
-                {statements.map((statement: ESNode, i: number) => (
-                    <Statement key={i} st={statement} parent={parent} parens={parens} />
-                ))}
-            </pre>
-        </div>
+        <ScopedStepContext.Provider value={{ step: scopedStep || null, startIndex }}>
+            <div className="w-full h-full overflow-auto">
+                <pre
+                    ref={!ast ? (codeAreaRef as unknown as React.RefObject<HTMLPreElement>) : undefined}
+                    className="min-w-fit max-w-full font-mono space-y-1 lg:p-2"
+                >
+                    {statements.map((statement: ESNode, i: number) => (
+                        <Statement key={i} st={statement} parent={parent} parens={parens} />
+                    ))}
+                </pre>
+            </div>
+        </ScopedStepContext.Provider>
     )
 }
 
