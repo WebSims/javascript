@@ -3,6 +3,7 @@ import { useSimulatorStore } from "./useSimulatorStore"
 import { ESNode } from "hermes-parser"
 import { EXEC_STEP_TYPE, BUBBLE_UP_TYPE, JSValue, ExecStep } from "@/types/simulator"
 import { formatJSValue, FormattedValue } from "@/utils/formatJSValue"
+import { useExecutionUiEnabled } from "@/contexts/ExecutionUiContext"
 
 export type NodeData = {
     isExecuting: boolean
@@ -40,6 +41,7 @@ const isStepForNode = (step: ExecStep, node: ESNode): boolean => {
  */
 export const useNodeData = (node?: ESNode, ref?: RefObject<HTMLElement | null>): NodeData => {
     const { currentStep, steps } = useSimulatorStore()
+    const isExecutionUiEnabled = useExecutionUiEnabled()
     const [isExecuting, setIsExecuting] = useState(false)
     const [isExecuted, setIsExecuted] = useState(false)
     const [isEvaluating, setIsEvaluating] = useState(false)
@@ -114,6 +116,14 @@ export const useNodeData = (node?: ESNode, ref?: RefObject<HTMLElement | null>):
     }
 
     useEffect(() => {
+        if (!isExecutionUiEnabled) {
+            setIsExecuting(false)
+            setIsExecuted(false)
+            setIsEvaluating(false)
+            setIsEvaluated(false)
+            setIsErrorThrown(false)
+            return
+        }
         if (node) {
             setIsExecuting(checkExecuting(node))
             setIsExecuted(checkExecuted(node))
@@ -122,16 +132,20 @@ export const useNodeData = (node?: ESNode, ref?: RefObject<HTMLElement | null>):
             setIsErrorThrown(checkErrorThrown(node))
         }
         // eslint-disable-next-line react-hooks/exhaustive-deps
-    }, [currentStep, node])
+    }, [currentStep, node, isExecutionUiEnabled])
 
     useEffect(() => {
+        if (!isExecutionUiEnabled) return
         if ((isExecuting || isExecuted || isEvaluating || isEvaluated) && ref?.current) {
             ref.current.scrollIntoView({ behavior: "smooth", block: "center" })
         }
-    }, [isExecuting, isExecuted, isEvaluating, isEvaluated, ref])
+    }, [isExecuting, isExecuted, isEvaluating, isEvaluated, ref, isExecutionUiEnabled])
 
     // Find the evaluated value from current or previous steps
     const { evaluatedValue, rawValue, wasEvaluated } = useMemo(() => {
+        if (!isExecutionUiEnabled) {
+            return { evaluatedValue: null, rawValue: null, wasEvaluated: false }
+        }
         if (!node || !currentStep || !steps.length) {
             return { evaluatedValue: null, rawValue: null, wasEvaluated: false }
         }
@@ -172,7 +186,7 @@ export const useNodeData = (node?: ESNode, ref?: RefObject<HTMLElement | null>):
         }
 
         return { evaluatedValue: null, rawValue: null, wasEvaluated: false }
-    }, [node, currentStep, steps])
+    }, [node, currentStep, steps, isExecutionUiEnabled])
 
     return {
         isExecuting,

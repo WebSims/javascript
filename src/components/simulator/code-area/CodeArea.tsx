@@ -59,6 +59,7 @@ const parensSetOf = (tokens: any[]) => {
 
 // ----- Component Props -----
 interface CodeAreaProps {
+    ast?: ESNode | ESNode[]
     fromAstOf?: string
     parent?: any
     parens?: any
@@ -442,10 +443,12 @@ const ClassMember = ({ member, parent: parentProp, parens }: { member: ESNode; p
 }
 
 // ----- CodeArea Component -----
-const CodeArea: React.FC<CodeAreaProps> = ({ parent: parentProp, parens: parensProp }) => {
+const CodeArea: React.FC<CodeAreaProps> = ({ ast, parent: parentProp, parens: parensProp }) => {
     const { astOfCode, codeAreaRef, astError, simulatorError } = useSimulatorStore()
 
-    if (!astOfCode || astError) {
+    const pickAst = ast || astOfCode
+
+    if (!pickAst || astError) {
         return (
             <div className="relative w-full h-full bg-slate-50 p-4">
                 <pre className="text-red-500 font-mono text-sm">
@@ -455,7 +458,7 @@ const CodeArea: React.FC<CodeAreaProps> = ({ parent: parentProp, parens: parensP
         )
     }
 
-    if (astOfCode && simulatorError) {
+    if (pickAst && simulatorError) {
         return (
             <div className="relative w-full h-full bg-slate-50 p-4">
                 <pre className="text-red-500 font-mono text-sm">
@@ -465,15 +468,24 @@ const CodeArea: React.FC<CodeAreaProps> = ({ parent: parentProp, parens: parensP
         )
     }
 
-    const parens = parensProp || parensSetOf((astOfCode as any).tokens)
-    const parent = parentProp || astOfCode
+    const parens = parensProp || parensSetOf((pickAst as any).tokens)
+    const parent = parentProp || pickAst
 
-    const statements = astOfCode instanceof Array ? astOfCode : ((astOfCode as any).body ? (astOfCode as any).body : [astOfCode])
+    let statements: ESNode[] = []
+    if (Array.isArray(pickAst)) {
+        statements = pickAst as unknown as ESNode[]
+    } else if (pickAst.type === "Program") {
+        statements = (pickAst as unknown as ESTree.Program).body as unknown as ESNode[]
+    } else if (pickAst.type === "BlockStatement") {
+        statements = (pickAst as unknown as ESTree.BlockStatement).body as unknown as ESNode[]
+    } else {
+        statements = [pickAst as unknown as ESNode]
+    }
 
     return (
         <div className="w-full h-full overflow-auto">
             <pre
-                ref={codeAreaRef as unknown as React.RefObject<HTMLPreElement>}
+                ref={!ast ? (codeAreaRef as unknown as React.RefObject<HTMLPreElement>) : undefined}
                 className="min-w-fit max-w-full font-mono space-y-1 lg:p-2"
             >
                 {statements.map((statement: ESNode, i: number) => (
