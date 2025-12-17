@@ -258,7 +258,7 @@ const Expression = ({ expr, parent, parens }: { expr: ESNode; parent: ESNode; pa
 
     // CallExpression
     if (expr.type === "CallExpression") {
-        component = <CallExpressionNode node={expr as any} parent={parent} parens={parens} Expression={Expression} Statement={Statement} />
+        component = <CallExpressionNode node={expr as any} parent={parent} parens={parens} Expression={Expression} />
     }
 
     // NewExpression
