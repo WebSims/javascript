@@ -471,7 +471,7 @@ const CodeArea: React.FC<CodeAreaProps> = ({ parent: parentProp, parens: parensP
     const statements = astOfCode instanceof Array ? astOfCode : ((astOfCode as any).body ? (astOfCode as any).body : [astOfCode])
 
     return (
-        <div className="w-full h-full overflow-auto">
+        <div className="w-full h-full overflow-auto" style={{ containerType: "inline-size" }}>
             <pre
                 ref={codeAreaRef as unknown as React.RefObject<HTMLPreElement>}
                 className="min-w-fit max-w-full font-mono space-y-1 lg:p-2"

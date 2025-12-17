@@ -132,7 +132,7 @@ export const useExecStep = (node?: ESNode, ref?: RefObject<HTMLElement | null>, 
                 stepRange[0] === nodeRange[0] &&
                 stepRange[1] === nodeRange[1] &&
                 currentStep.node.type === node.type &&
-                (currentStep.type === EXEC_STEP_TYPE.EXECUTED || currentStep.type === EXEC_STEP_TYPE.POP_SCOPE)
+                currentStep.type === EXEC_STEP_TYPE.EXECUTED
             )
         }
         return false
