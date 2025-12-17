@@ -3,6 +3,8 @@ import * as ESTree from "estree"
 import { ESNode } from "hermes-parser"
 import { useExecStep } from "@/hooks/useExecStep"
 import { getNodeDecoration } from "@/configs/ast-render.config"
+import { useRenderDepth } from "@/contexts/RenderDepthContext"
+import { ExecutionUiContext } from "@/contexts/ExecutionUiContext"
 
 // Forward declaration for components
 type StatementRenderer = React.FC<{ st: ESNode; parent: ESNode; parens: Set<number> }>
@@ -27,20 +29,25 @@ const FunctionDeclaration: React.FC<FunctionDeclarationProps> = ({
 }) => {
     const ref = useRef<HTMLDivElement>(null)
     const { isExecuting, isExecuted, isErrorThrown } = useExecStep(node, ref)
+    const depth = useRenderDepth()
 
     // Assign category for backwards compatibility
     ;(node as any).category = "statement.declaration"
 
     const decoration = getNodeDecoration("FunctionDeclaration", "default")
 
+    // In the main code area, don't show execution/hoisting highlight for top-level function declarations
+    const showExecutionUi = !(depth === 0 && parent.type === "Program")
+
     // Build execution state classes
     const stateClasses = [
-        isExecuting && "executing",
-        isExecuted && "executed",
-        isErrorThrown && "error-thrown",
+        showExecutionUi && isExecuting && "executing",
+        showExecutionUi && isExecuted && "executed",
+        showExecutionUi && isErrorThrown && "error-thrown",
     ].filter(Boolean).join(" ")
 
     return (
+        <ExecutionUiContext.Provider value={showExecutionUi}>
         <div
             ref={ref}
             className={`${decoration.className} ${stateClasses}`}
@@ -57,6 +64,7 @@ const FunctionDeclaration: React.FC<FunctionDeclarationProps> = ({
             <FnParamsDef params={node.params as ESNode[]} parens={parens} parent={node} />
             <Statement st={node.body as ESNode} parent={node} parens={parens} />
         </div>
+        </ExecutionUiContext.Provider>
     )
 }
 
