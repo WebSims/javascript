@@ -4,10 +4,9 @@ import { ESNode } from "hermes-parser"
 import { useNodeData } from "@/hooks/useNodeData"
 import { getNodeDecoration } from "@/configs/ast-render.config"
 import { useFunctionCallStack } from "@/hooks/useFunctionCallStack"
-import { Popover, PopoverContent, PopoverAnchor } from "@/components/ui/popover"
-import CodeArea from "../CodeArea"
-import { formatJSValue } from "@/utils/formatJSValue"
-import { RenderDepthContext, useRenderDepth } from "@/contexts/RenderDepthContext"
+import { useRenderDepth } from "@/contexts/RenderDepthContext"
+import { useActiveScopeOptional } from "@/contexts/ActiveScopeContext"
+import { cn } from "@/lib/utils"
 
 // Forward declaration for Expression component
 type ExpressionRenderer = React.FC<{ expr: ESNode; parent: ESNode; parens: Set<number> }>
@@ -26,11 +25,15 @@ const CallExpression: React.FC<CallExpressionProps> = ({ node, parent, parens, E
     const { isEvaluating, isEvaluated, isErrorThrown, wasEvaluated, evaluatedValue } = useNodeData(node, ref)
     const frames = useFunctionCallStack()
     const depth = useRenderDepth()
+    const activeScope = useActiveScopeOptional()
 
     // Check if this specific CallExpression is active at the current depth
     const rangeKey = node.range ? `${node.range[0]}-${node.range[1]}` : ''
     const activeFrame = frames[depth]
     const isCallActive = activeFrame && activeFrame.callNodeKey === rangeKey
+
+    // Check if this call is the currently viewed frame in the navigator
+    const isViewedFrame = activeScope && activeScope.activeFrame?.callNodeKey === rangeKey
 
     // Assign category for backwards compatibility
     ;(node as any).category = "expression.call"
@@ -50,16 +53,29 @@ const CallExpression: React.FC<CallExpressionProps> = ({ node, parent, parens, E
         showExecutionUi && isErrorThrown && "error-thrown",
     ].filter(Boolean).join(" ")
 
-    const callVisual = (
+    return (
         <span
             ref={ref}
-            className={`inline-flex items-center gap-1 ${decoration.className} ${stateClasses}`}
+            className={cn(
+                "inline-flex items-center gap-1",
+                decoration.className,
+                stateClasses,
+                // Highlight when this call is active in the execution
+                isCallActive && "ring-2 ring-blue-400 ring-offset-1 rounded bg-blue-50/50",
+                // Additional highlight when this is the viewed frame
+                isViewedFrame && "ring-blue-500 bg-blue-100/70"
+            )}
             title={decoration.tooltip}
             data-cheat-sheet-id={decoration.cheatSheetId}
+            data-call-active={isCallActive ? "true" : undefined}
+            data-viewed-frame={isViewedFrame ? "true" : undefined}
         >
             {/* Function call with subtle background when evaluated */}
             <span
-                className={`inline-flex items-center rounded px-0.5 transition-colors ${showEvaluated ? "bg-blue-100/60" : ""}`}
+                className={cn(
+                    "inline-flex items-center rounded px-0.5 transition-colors",
+                    showEvaluated && "bg-blue-100/60"
+                )}
             >
                 <Expression expr={node.callee as ESNode} parens={parens} parent={node} />
                 <span className="text-slate-500 align-middle font-bold">(</span>
@@ -94,68 +110,6 @@ const CallExpression: React.FC<CallExpressionProps> = ({ node, parent, parens, E
             )}
         </span>
     )
-
-    return (
-        <Popover open={isCallActive}>
-            <PopoverAnchor asChild>
-                {callVisual}
-            </PopoverAnchor>
-            
-            {activeFrame && (
-                <PopoverContent 
-                    className="w-[500px] max-w-[90vw] max-h-[60vh] overflow-hidden p-0 flex flex-col shadow-xl border-slate-200"
-                    side="bottom"
-                    align="start"
-                    sideOffset={8}
-                    avoidCollisions
-                >
-                    {/* Header */}
-                    <div className="bg-slate-100 border-b border-slate-200 p-2 text-sm font-mono flex items-center gap-2">
-                        <span className="text-purple-600 font-bold">
-                            {activeFrame.fnNode.id?.name || 'anonymous'}
-                        </span>
-                        <span className="text-slate-500">(</span>
-                        <div className="flex gap-1">
-                            {activeFrame.fnNode.params.map((param, i) => {
-                                const argVal = activeFrame.args[i]
-                                const formattedArg = argVal 
-                                    ? formatJSValue(argVal, activeFrame.heapAtCall)
-                                    : { display: 'undefined' }
-                                
-                                return (
-                                    <span key={i} className="flex items-center">
-                                        <span className="text-blue-600">
-                                            {(param as any).name}
-                                        </span>
-                                        <span className="text-slate-400 mx-1">=</span>
-                                        <span className="text-slate-700 bg-slate-200/50 px-1 rounded text-xs">
-                                            {formattedArg.display}
-                                        </span>
-                                        {i < activeFrame.fnNode.params.length - 1 && (
-                                            <span className="text-slate-400 mr-1">,</span>
-                                        )}
-                                    </span>
-                                )
-                            })}
-                        </div>
-                        <span className="text-slate-500">)</span>
-                    </div>
-
-                    {/* Function Body */}
-                    <div className="flex-1 overflow-auto bg-white p-2">
-                        <RenderDepthContext.Provider value={depth + 1}>
-                            <CodeArea 
-                                ast={activeFrame.fnNode.body as ESNode} 
-                                parent={activeFrame.fnNode}
-                            />
-                        </RenderDepthContext.Provider>
-                    </div>
-                </PopoverContent>
-            )}
-        </Popover>
-    )
 }
 
 export default CallExpression
-
-
