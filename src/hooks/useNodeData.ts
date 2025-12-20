@@ -31,6 +31,11 @@ const isStepForNode = (step: ExecStep, node: ESNode): boolean => {
     )
 }
 
+const getFunctionDepth = (step: ExecStep): number => {
+    const scopes = step.memorySnapshot?.scopes || []
+    return scopes.reduce((count, scope) => (scope.type === "function" ? count + 1 : count), 0)
+}
+
 /**
  * Custom hook to get rendering data for an AST node
  * Provides execution state and evaluated value for display
@@ -163,10 +168,12 @@ export const useNodeData = (node?: ESNode, ref?: RefObject<HTMLElement | null>):
 
         const currentIndex = currentStep.index
         const startIndex = scopedStepState.startIndex ?? 0
+        const selectedFunctionDepth = getFunctionDepth(currentStep)
 
         // Search backwards from current step to find when this node was evaluated
         for (let i = currentIndex; i >= startIndex; i--) {
             const step = steps[i]
+            if (getFunctionDepth(step) > selectedFunctionDepth) continue
             
             // Check if this step is an EVALUATED step for our node
             if (step.type === EXEC_STEP_TYPE.EVALUATED && isStepForNode(step, node)) {

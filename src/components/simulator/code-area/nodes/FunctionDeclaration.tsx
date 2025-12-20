@@ -5,6 +5,7 @@ import { useExecStep } from "@/hooks/useExecStep"
 import { getNodeDecoration } from "@/configs/ast-render.config"
 import { useRenderDepth } from "@/contexts/RenderDepthContext"
 import { ExecutionUiContext } from "@/contexts/ExecutionUiContext"
+import { useActiveCallFrame } from "@/contexts/ActiveCallFrameContext"
 
 // Forward declaration for components
 type StatementRenderer = React.FC<{ st: ESNode; parent: ESNode; parens: Set<number> }>
@@ -30,14 +31,19 @@ const FunctionDeclaration: React.FC<FunctionDeclarationProps> = ({
     const ref = useRef<HTMLDivElement>(null)
     const { isExecuting, isExecuted, isErrorThrown } = useExecStep(node, ref)
     const depth = useRenderDepth()
+    const { activeFrame } = useActiveCallFrame()
 
     // Assign category for backwards compatibility
     ;(node as any).category = "statement.declaration"
 
     const decoration = getNodeDecoration("FunctionDeclaration", "default")
 
-    // In the main code area, don't show execution/hoisting highlight for top-level function declarations
-    const showExecutionUi = !(depth === 0 && parent.type === "Program")
+    const nodeKey = node.range ? `${node.range[0]}-${node.range[1]}` : ""
+    const frameKey = activeFrame?.fnNode?.range ? `${activeFrame.fnNode.range[0]}-${activeFrame.fnNode.range[1]}` : ""
+    const isActiveFrameFunction = Boolean(nodeKey && frameKey && nodeKey === frameKey)
+
+    // In the main code area, keep top-level function declarations quiet unless they are the active frame
+    const showExecutionUi = isActiveFrameFunction || !(depth === 0 && parent.type === "Program")
 
     // Build execution state classes
     const stateClasses = [

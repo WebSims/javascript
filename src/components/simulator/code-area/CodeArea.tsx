@@ -1,13 +1,17 @@
 /* eslint-disable */
 
-import React, { useRef, useEffect, RefObject } from "react"
+import React, { useRef, useEffect, RefObject, useMemo } from "react"
 import { ESNode } from "hermes-parser"
 import * as ESTree from "estree"
 import { useSimulatorStore } from "@/hooks/useSimulatorStore"
 import { useExecStep } from "@/hooks/useExecStep"
 import { useFunctionCallStack } from "@/hooks/useFunctionCallStack"
-import { useRenderDepth } from "@/contexts/RenderDepthContext"
 import { ScopedStepContext } from "@/contexts/ScopedStepContext"
+import ScopeOverlayContext from "@/contexts/ScopeOverlayContext"
+import { useOpenScopeOverlays } from "@/hooks/useOpenScopeOverlays"
+import { useActiveScopeOptional } from "@/contexts/ActiveScopeContext"
+import ActiveCallFrameContext, { useActiveCallFrame } from "@/contexts/ActiveCallFrameContext"
+import { useInScopeVariableValue } from "@/hooks/useInScopeVariableValue"
 import {
     getNodeDecoration,
     getNodeContext,
@@ -316,38 +320,77 @@ const Expression = ({ expr, parent, parens }: { expr: ESNode; parent: ESNode; pa
 }
 
 // ----- FnParamsDef Component -----
-const FnParamsDef = ({ params, parens }: { params: ESNode[]; parent: ESNode; parens: Set<number> }) => (
-    <>
-        <span className="text-slate-500 align-middle font-bold">(</span>
-        {params.map((param, i) => {
-            let component: React.ReactNode = null
+const FnParamWithValue = ({
+    paramName,
+    showValue
+}: {
+    paramName: string
+    showValue: boolean
+}) => {
+    const value = useInScopeVariableValue(paramName)
 
-            if (param.type === "Identifier") {
-                component = <span className="text-blue-500">{(param as unknown as ESTree.Identifier).name}</span>
-            }
-
-            if (param.type === "AssignmentPattern") {
-                const pattern = param as unknown as ESTree.AssignmentPattern
-                const left = pattern.left as ESTree.Identifier
-                component = (
-                    <>
-                        <span className="text-blue-600">{left.name}</span>
-                        <span className="text-slate-500 font-bold">&nbsp;=&nbsp;</span>
-                        <Expression expr={pattern.right as ESNode} parens={parens} parent={param} />
-                    </>
-                )
-            }
-
-            return (
-                <span key={i} className="ast-fn-def-arg">
-                    {component}
-                    {i < params.length - 1 && <span className="align-middle font-bold">,&nbsp;</span>}
+    return (
+        <span className="inline-flex items-center gap-1">
+            <span className="text-blue-600">{paramName}</span>
+            {showValue && value && (
+                <span className="rounded bg-slate-200/70 px-1 py-0.5 text-[10px] font-mono text-slate-700">
+                    {value.display}
                 </span>
-            )
-        })}
-        <span className="text-slate-500 align-middle font-bold">)</span>
-    </>
-)
+            )}
+        </span>
+    )
+}
+
+const FnParamsDef = ({
+    params,
+    parens,
+    parent
+}: {
+    params: ESNode[]
+    parent: ESNode
+    parens: Set<number>
+}) => {
+    const { activeFrame } = useActiveCallFrame()
+    const frame = activeFrame
+
+    const parentKey = (parent as any)?.range ? `${(parent as any).range[0]}-${(parent as any).range[1]}` : ""
+    const frameKey = frame?.fnNode?.range ? `${frame.fnNode.range[0]}-${frame.fnNode.range[1]}` : ""
+    const isActiveFn = Boolean(parentKey && frameKey && parentKey === frameKey)
+
+    return (
+        <>
+            <span className="text-slate-500 align-middle font-bold">(</span>
+            {params.map((param, i) => {
+                let component: React.ReactNode = null
+
+                if (param.type === "Identifier") {
+                    const name = (param as unknown as ESTree.Identifier).name
+                    component = <FnParamWithValue paramName={name} showValue={isActiveFn} />
+                }
+
+                if (param.type === "AssignmentPattern") {
+                    const pattern = param as unknown as ESTree.AssignmentPattern
+                    const left = pattern.left as ESTree.Identifier
+                    component = (
+                        <>
+                            <FnParamWithValue paramName={left.name} showValue={isActiveFn} />
+                            <span className="text-slate-500 font-bold">&nbsp;=&nbsp;</span>
+                            <Expression expr={pattern.right as ESNode} parens={parens} parent={param} />
+                        </>
+                    )
+                }
+
+                return (
+                    <span key={i} className="ast-fn-def-arg">
+                        {component}
+                        {i < params.length - 1 && <span className="align-middle font-bold">,&nbsp;</span>}
+                    </span>
+                )
+            })}
+            <span className="text-slate-500 align-middle font-bold">)</span>
+        </>
+    )
+}
 
 // ----- ClassMember Component -----
 const ClassMember = ({ member, parent: parentProp, parens }: { member: ESNode; parent: ESNode; parens: Set<number> }) => {
@@ -449,7 +492,12 @@ const ClassMember = ({ member, parent: parentProp, parens }: { member: ESNode; p
 const CodeArea: React.FC<CodeAreaProps> = ({ ast, parent: parentProp, parens: parensProp }) => {
     const { astOfCode, codeAreaRef, astError, simulatorError, steps, currentStep } = useSimulatorStore()
     const frames = useFunctionCallStack()
-    const depth = useRenderDepth()
+    const activeScope = useActiveScopeOptional()
+
+    const viewDepth = useMemo(() => {
+        if (!activeScope?.hasFrames) return 0
+        return Math.max(0, Math.min(activeScope.activeFrameIndex + 1, activeScope.totalFrames))
+    }, [activeScope?.activeFrameIndex, activeScope?.hasFrames, activeScope?.totalFrames])
 
     const pickAst = ast || astOfCode
 
@@ -487,28 +535,36 @@ const CodeArea: React.FC<CodeAreaProps> = ({ ast, parent: parentProp, parens: pa
         statements = [pickAst as unknown as ESNode]
     }
 
-    // Each scope popover keeps local view state by using a scoped/frozen step:
-    // - If we are not the deepest scope, freeze at the nested call's FUNCTION_CALL step
-    // - The deepest scope uses the real currentStep
-    const scopedStepIndex = frames.length > depth ? frames[depth].stepIndex : (currentStep?.index ?? 0)
+    // Single, static code view:
+    // - frame selection changes the scoped/frozen step for overlays (not the code)
+    // - if viewing a non-deepest frame, freeze at the nested call's FUNCTION_CALL step
+    // - deepest frame uses the real currentStep
+    const scopedStepIndex = frames.length > viewDepth ? frames[viewDepth].stepIndex : (currentStep?.index ?? 0)
     const scopedStep = steps?.[scopedStepIndex] || currentStep
 
-    // Bound evaluated-history lookup to this scope's activation window
-    // depth mapping: 0 = Program, 1 = frames[0], 2 = frames[1], ...
-    const startIndex = depth === 0 ? 0 : (frames[depth - 1]?.stepIndex ?? 0)
+    // Bound evaluated-history lookup to the selected frame's activation window
+    // viewDepth mapping: 0 = Program, 1 = frames[0], 2 = frames[1], ...
+    const startIndex = viewDepth === 0 ? 0 : (frames[viewDepth - 1]?.stepIndex ?? 0)
+
+    const scopeOverlay = useOpenScopeOverlays()
+    const activeFrame = activeScope?.activeFrame ?? null
 
     return (
         <ScopedStepContext.Provider value={{ step: scopedStep || null, startIndex }}>
-            <div className="w-full h-full overflow-auto">
-                <pre
-                    ref={!ast ? (codeAreaRef as unknown as React.RefObject<HTMLPreElement>) : undefined}
-                    className="min-w-fit max-w-full font-mono space-y-1 lg:p-2"
-                >
-                    {statements.map((statement: ESNode, i: number) => (
-                        <Statement key={i} st={statement} parent={parent} parens={parens} />
-                    ))}
-                </pre>
-            </div>
+            <ActiveCallFrameContext.Provider value={{ activeFrame }}>
+                <ScopeOverlayContext.Provider value={scopeOverlay}>
+                    <div className="w-full h-full overflow-auto">
+                        <pre
+                            ref={!ast ? (codeAreaRef as unknown as React.RefObject<HTMLPreElement>) : undefined}
+                            className="min-w-fit max-w-full font-mono space-y-1 lg:p-2"
+                        >
+                            {statements.map((statement: ESNode, i: number) => (
+                                <Statement key={i} st={statement} parent={parent} parens={parens} />
+                            ))}
+                        </pre>
+                    </div>
+                </ScopeOverlayContext.Provider>
+            </ActiveCallFrameContext.Provider>
         </ScopedStepContext.Provider>
     )
 }
