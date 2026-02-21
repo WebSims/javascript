@@ -1,4 +1,5 @@
 import { useActiveScope } from "@/contexts/ActiveScopeContext"
+import { useScopeMorph } from "@/contexts/ScopeMorphContext"
 import { formatJSValue } from "@/utils/formatJSValue"
 import { cn } from "@/lib/utils"
 import { ChevronRight, Play, Layers } from "lucide-react"
@@ -9,13 +10,19 @@ interface CallStackPanelProps {
 }
 
 const CallStackPanel = ({ className, compact = false }: CallStackPanelProps) => {
-  const { 
-    frames, 
-    activeFrameIndex, 
-    setActiveFrame, 
+  const {
+    frames,
+    activeFrameIndex,
+    setActiveFrame,
     hasFrames,
-    isAtDeepest 
   } = useActiveScope()
+
+  const { setActiveCardIndex } = useScopeMorph()
+
+  const handleFrameClick = (index: number) => {
+    setActiveFrame(index)
+    setActiveCardIndex(index)
+  }
 
   if (!hasFrames) {
     return (
@@ -34,7 +41,6 @@ const CallStackPanel = ({ className, compact = false }: CallStackPanelProps) => 
       "flex flex-col bg-slate-50 border-r border-slate-200",
       className
     )}>
-      {/* Header */}
       <div className="px-3 py-2 border-b border-slate-200 bg-slate-100">
         <div className="flex items-center gap-2">
           <Layers className="w-4 h-4 text-slate-500" />
@@ -47,18 +53,16 @@ const CallStackPanel = ({ className, compact = false }: CallStackPanelProps) => 
         </div>
       </div>
 
-      {/* Stack Frames */}
       <div className="flex-1 overflow-auto">
         <div className="py-1">
           {frames.map((frame, index) => {
             const isActive = index === activeFrameIndex
             const isDeepest = index === frames.length - 1
             const fnName = frame.fnNode.id?.name || "anonymous"
-            
-            // Format arguments for display
+
             const argsPreview = frame.fnNode.params.map((param, i) => {
               const argVal = frame.args[i]
-              const formatted = argVal 
+              const formatted = argVal
                 ? formatJSValue(argVal, frame.heapAtCall)
                 : { display: "undefined" }
               return {
@@ -70,7 +74,7 @@ const CallStackPanel = ({ className, compact = false }: CallStackPanelProps) => 
             return (
               <button
                 key={`${frame.callNodeKey}-${index}`}
-                onClick={() => setActiveFrame(index)}
+                onClick={() => handleFrameClick(index)}
                 className={cn(
                   "w-full text-left px-2 py-1.5 transition-all duration-150",
                   "hover:bg-slate-100 focus:outline-none focus:ring-2 focus:ring-inset focus:ring-blue-400",
@@ -80,9 +84,9 @@ const CallStackPanel = ({ className, compact = false }: CallStackPanelProps) => 
                 )}
                 aria-label={`Navigate to ${fnName} scope`}
                 aria-current={isActive ? "true" : undefined}
+                tabIndex={0}
               >
-                {/* Depth indicator */}
-                <div 
+                <div
                   className="flex items-center shrink-0"
                   style={{ paddingLeft: compact ? 0 : `${index * 8}px` }}
                 >
@@ -91,19 +95,16 @@ const CallStackPanel = ({ className, compact = false }: CallStackPanelProps) => 
                   )}
                 </div>
 
-                {/* Frame content */}
                 <div className="flex-1 min-w-0 flex items-center gap-1.5">
-                  {/* Execution indicator */}
                   {isDeepest && (
-                    <Play 
+                    <Play
                       className={cn(
                         "w-3 h-3 shrink-0 fill-current",
                         isActive ? "text-blue-500" : "text-green-500"
-                      )} 
+                      )}
                     />
                   )}
 
-                  {/* Function name */}
                   <span className={cn(
                     "font-mono text-sm font-medium truncate",
                     isActive ? "text-blue-700" : "text-purple-600"
@@ -111,7 +112,6 @@ const CallStackPanel = ({ className, compact = false }: CallStackPanelProps) => 
                     {fnName}
                   </span>
 
-                  {/* Arguments preview */}
                   {!compact && (
                     <span className="text-slate-400 text-xs truncate">
                       ({argsPreview.map((a, i) => (
@@ -126,11 +126,10 @@ const CallStackPanel = ({ className, compact = false }: CallStackPanelProps) => 
                   )}
                 </div>
 
-                {/* Frame index badge */}
                 <span className={cn(
                   "text-[10px] px-1 py-0.5 rounded shrink-0",
-                  isActive 
-                    ? "bg-blue-200 text-blue-700" 
+                  isActive
+                    ? "bg-blue-200 text-blue-700"
                     : "bg-slate-200 text-slate-500 group-hover:bg-slate-300"
                 )}>
                   {index + 1}

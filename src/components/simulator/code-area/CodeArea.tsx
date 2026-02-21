@@ -499,9 +499,12 @@ const CodeArea: React.FC<CodeAreaProps> = ({ ast, parent: parentProp, parens: pa
         return Math.max(0, Math.min(activeScope.activeFrameIndex + 1, activeScope.totalFrames))
     }, [activeScope?.activeFrameIndex, activeScope?.hasFrames, activeScope?.totalFrames])
 
+    const scopeOverlay = useOpenScopeOverlays()
+
     const pickAst = ast || astOfCode
 
     if (!pickAst || astError) {
+        if (ast) return null
         return (
             <div className="relative w-full h-full bg-slate-50 p-4">
                 <pre className="text-red-500 font-mono text-sm">
@@ -512,6 +515,7 @@ const CodeArea: React.FC<CodeAreaProps> = ({ ast, parent: parentProp, parens: pa
     }
 
     if (pickAst && simulatorError) {
+        if (ast) return null
         return (
             <div className="relative w-full h-full bg-slate-50 p-4">
                 <pre className="text-red-500 font-mono text-sm">
@@ -535,18 +539,21 @@ const CodeArea: React.FC<CodeAreaProps> = ({ ast, parent: parentProp, parens: pa
         statements = [pickAst as unknown as ESNode]
     }
 
-    // Single, static code view:
-    // - frame selection changes the scoped/frozen step for overlays (not the code)
-    // - if viewing a non-deepest frame, freeze at the nested call's FUNCTION_CALL step
-    // - deepest frame uses the real currentStep
+    // Sub-tree rendering: contexts are provided by the caller (ScopeCard)
+    if (ast) {
+        return (
+            <pre className="min-w-fit max-w-full font-mono space-y-1 lg:p-2">
+                {statements.map((statement: ESNode, i: number) => (
+                    <Statement key={i} st={statement} parent={parent} parens={parens} />
+                ))}
+            </pre>
+        )
+    }
+
+    // Full CodeArea: compute scoped contexts for the program view
     const scopedStepIndex = frames.length > viewDepth ? frames[viewDepth].stepIndex : (currentStep?.index ?? 0)
     const scopedStep = steps?.[scopedStepIndex] || currentStep
-
-    // Bound evaluated-history lookup to the selected frame's activation window
-    // viewDepth mapping: 0 = Program, 1 = frames[0], 2 = frames[1], ...
     const startIndex = viewDepth === 0 ? 0 : (frames[viewDepth - 1]?.stepIndex ?? 0)
-
-    const scopeOverlay = useOpenScopeOverlays()
     const activeFrame = activeScope?.activeFrame ?? null
 
     return (
@@ -555,7 +562,7 @@ const CodeArea: React.FC<CodeAreaProps> = ({ ast, parent: parentProp, parens: pa
                 <ScopeOverlayContext.Provider value={scopeOverlay}>
                     <div className="w-full h-full overflow-auto">
                         <pre
-                            ref={!ast ? (codeAreaRef as unknown as React.RefObject<HTMLPreElement>) : undefined}
+                            ref={codeAreaRef as unknown as React.RefObject<HTMLPreElement>}
                             className="min-w-fit max-w-full font-mono space-y-1 lg:p-2"
                         >
                             {statements.map((statement: ESNode, i: number) => (
