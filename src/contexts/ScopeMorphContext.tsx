@@ -11,6 +11,7 @@ import {
 } from "react"
 import type { CallFrame } from "@/hooks/useFunctionCallStack"
 import { useActiveScopeOptional } from "@/contexts/ActiveScopeContext"
+import { useSimulatorStore } from "@/hooks/useSimulatorStore"
 
 export type MorphPhase = "entering" | "active" | "exiting"
 
@@ -62,11 +63,13 @@ interface ScopeMorphProviderProps {
 
 export const ScopeMorphProvider = ({ children }: ScopeMorphProviderProps) => {
   const activeScope = useActiveScopeOptional()
+  const { currentStep } = useSimulatorStore()
   const containerRef = useRef<HTMLDivElement>(null)
   const refRegistryRef = useRef<Map<string, RefRegistryEntry>>(new Map())
   const [entries, setEntries] = useState<ScopeMorphEntry[]>([])
   const [activeCardIndex, setActiveCardIndex] = useState(-1)
   const prevFrameIdsRef = useRef<string[]>([])
+  const prevStepIndexRef = useRef<number>(currentStep?.index ?? 0)
   const exitTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
 
   const frames = activeScope?.frames ?? []
@@ -94,6 +97,7 @@ export const ScopeMorphProvider = ({ children }: ScopeMorphProviderProps) => {
       prevIds.length === currentIds.length &&
       prevIds.every((id, i) => id === currentIds[i])
     ) {
+      prevStepIndexRef.current = currentStep?.index ?? 0
       return
     }
 
@@ -102,8 +106,28 @@ export const ScopeMorphProvider = ({ children }: ScopeMorphProviderProps) => {
       exitTimerRef.current = null
     }
 
+    const stepDelta = Math.abs((currentStep?.index ?? 0) - prevStepIndexRef.current)
+    const shouldAnimate = stepDelta === 1
+    prevStepIndexRef.current = currentStep?.index ?? 0
+
     const isPush = currentIds.length > prevIds.length
     const isPop = currentIds.length < prevIds.length
+
+    const buildActiveEntries = () =>
+      frames.map((frame, i) => ({
+        id: currentIds[i],
+        frame,
+        callLabel: buildCallLabel(frame),
+        originRect: refRegistryRef.current.get(frame.callNodeKey)?.element?.getBoundingClientRect() ?? null,
+        phase: "active" as MorphPhase,
+      }))
+
+    if (!shouldAnimate) {
+      setEntries(buildActiveEntries())
+      setActiveCardIndex(frames.length > 0 ? frames.length - 1 : -1)
+      prevFrameIdsRef.current = currentIds
+      return
+    }
 
     if (isPush) {
       const newEntries: ScopeMorphEntry[] = []
@@ -142,7 +166,11 @@ export const ScopeMorphProvider = ({ children }: ScopeMorphProviderProps) => {
         const removed = prev.slice(currentIds.length)
         return [
           ...kept.map(e => ({ ...e, phase: "active" as MorphPhase })),
-          ...removed.map(e => ({ ...e, phase: "exiting" as MorphPhase })),
+          ...removed.map(e => ({
+            ...e,
+            phase: "exiting" as MorphPhase,
+            originRect: refRegistryRef.current.get(e.frame.callNodeKey)?.element?.getBoundingClientRect() ?? e.originRect,
+          })),
         ]
       })
       setActiveCardIndex(Math.max(-1, currentIds.length - 1))
@@ -152,19 +180,12 @@ export const ScopeMorphProvider = ({ children }: ScopeMorphProviderProps) => {
         exitTimerRef.current = null
       }, 900)
     } else {
-      const rebuilt = frames.map((frame, i) => ({
-        id: currentIds[i],
-        frame,
-        callLabel: buildCallLabel(frame),
-        originRect: refRegistryRef.current.get(frame.callNodeKey)?.element?.getBoundingClientRect() ?? null,
-        phase: "active" as MorphPhase,
-      }))
-      setEntries(rebuilt)
+      setEntries(buildActiveEntries())
       setActiveCardIndex(frames.length > 0 ? frames.length - 1 : -1)
     }
 
     prevFrameIdsRef.current = currentIds
-  }, [frameIds, frames])
+  }, [frameIds, frames, currentStep])
 
   useEffect(() => {
     if (activeScope && activeScope.hasFrames) {
