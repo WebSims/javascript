@@ -18,7 +18,9 @@ export type MorphPhase = "entering" | "active" | "exiting"
 export type ScopeMorphEntry = {
   id: string
   frame: CallFrame
-  callLabel: string
+  callerLabel: string
+  callerHtml: string
+  definitionLabel: string
   originRect: DOMRect | null
   phase: MorphPhase
 }
@@ -34,6 +36,7 @@ export type ScopeMorphState = {
   registerCallRef: (nodeKey: string, element: HTMLElement | null, label: string) => void
   activeCardIndex: number
   setActiveCardIndex: (index: number) => void
+  isNodeMorphing: (nodeKey: string) => boolean
 }
 
 const ScopeMorphContext = createContext<ScopeMorphState>({
@@ -42,11 +45,12 @@ const ScopeMorphContext = createContext<ScopeMorphState>({
   registerCallRef: () => {},
   activeCardIndex: -1,
   setActiveCardIndex: () => {},
+  isNodeMorphing: () => false,
 })
 
 export const useScopeMorph = () => useContext(ScopeMorphContext)
 
-const buildCallLabel = (frame: CallFrame): string => {
+const buildDefinitionLabel = (frame: CallFrame): string => {
   const fnName = frame.fnNode.id?.name ?? "anonymous"
   const paramNames = frame.fnNode.params.map((p: any) => {
     if (p.type === "Identifier") return p.name
@@ -55,6 +59,12 @@ const buildCallLabel = (frame: CallFrame): string => {
     return "..."
   })
   return `${fnName}(${paramNames.join(", ")})`
+}
+
+const getCleanHtml = (element: HTMLElement | null): string => {
+  if (!element) return ""
+  let html = element.outerHTML
+  return html.replace(/opacity-0\b/g, "").replace(/transition-opacity\b/g, "").replace(/duration-300\b/g, "")
 }
 
 interface ScopeMorphProviderProps {
@@ -114,13 +124,18 @@ export const ScopeMorphProvider = ({ children }: ScopeMorphProviderProps) => {
     const isPop = currentIds.length < prevIds.length
 
     const buildActiveEntries = () =>
-      frames.map((frame, i) => ({
-        id: currentIds[i],
-        frame,
-        callLabel: buildCallLabel(frame),
-        originRect: refRegistryRef.current.get(frame.callNodeKey)?.element?.getBoundingClientRect() ?? null,
-        phase: "active" as MorphPhase,
-      }))
+      frames.map((frame, i) => {
+        const refEntry = refRegistryRef.current.get(frame.callNodeKey)
+        return {
+          id: currentIds[i],
+          frame,
+          callerLabel: refEntry?.label ?? "fn()",
+          callerHtml: getCleanHtml(refEntry?.element ?? null),
+          definitionLabel: buildDefinitionLabel(frame),
+          originRect: refEntry?.element?.getBoundingClientRect() ?? null,
+          phase: "active" as MorphPhase,
+        }
+      })
 
     if (!shouldAnimate) {
       setEntries(buildActiveEntries())
@@ -139,7 +154,9 @@ export const ScopeMorphProvider = ({ children }: ScopeMorphProviderProps) => {
         newEntries.push({
           id: currentIds[i],
           frame,
-          callLabel: buildCallLabel(frame),
+          callerLabel: refEntry?.label ?? "fn()",
+          callerHtml: getCleanHtml(refEntry?.element ?? null),
+          definitionLabel: buildDefinitionLabel(frame),
           originRect,
           phase: "entering",
         })
@@ -166,11 +183,15 @@ export const ScopeMorphProvider = ({ children }: ScopeMorphProviderProps) => {
         const removed = prev.slice(currentIds.length)
         return [
           ...kept.map(e => ({ ...e, phase: "active" as MorphPhase })),
-          ...removed.map(e => ({
-            ...e,
-            phase: "exiting" as MorphPhase,
-            originRect: refRegistryRef.current.get(e.frame.callNodeKey)?.element?.getBoundingClientRect() ?? e.originRect,
-          })),
+          ...removed.map(e => {
+            const refEntry = refRegistryRef.current.get(e.frame.callNodeKey)
+            const originRect = refEntry?.element?.getBoundingClientRect() ?? e.originRect
+            return {
+              ...e,
+              phase: "exiting" as MorphPhase,
+              originRect,
+            }
+          }),
         ]
       })
       setActiveCardIndex(Math.max(-1, currentIds.length - 1))
@@ -178,7 +199,7 @@ export const ScopeMorphProvider = ({ children }: ScopeMorphProviderProps) => {
       exitTimerRef.current = setTimeout(() => {
         setEntries(prev => prev.filter(e => e.phase !== "exiting"))
         exitTimerRef.current = null
-      }, 900)
+      }, 3100)
     } else {
       setEntries(buildActiveEntries())
       setActiveCardIndex(frames.length > 0 ? frames.length - 1 : -1)
@@ -201,6 +222,10 @@ export const ScopeMorphProvider = ({ children }: ScopeMorphProviderProps) => {
     }
   }, [])
 
+  const isNodeMorphing = useCallback((nodeKey: string) => {
+    return entries.some(e => e.frame.callNodeKey === nodeKey && e.phase !== "exiting")
+  }, [entries])
+
   const value = useMemo<ScopeMorphState>(
     () => ({
       entries,
@@ -208,8 +233,9 @@ export const ScopeMorphProvider = ({ children }: ScopeMorphProviderProps) => {
       registerCallRef,
       activeCardIndex,
       setActiveCardIndex,
+      isNodeMorphing,
     }),
-    [entries, registerCallRef, activeCardIndex],
+    [entries, registerCallRef, activeCardIndex, isNodeMorphing],
   )
 
   return (

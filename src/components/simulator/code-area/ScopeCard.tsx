@@ -48,11 +48,11 @@ const ScopeCardBody: React.FC<{
   )
 }
 
-const ANIM_DURATION = 800
-const ANIM_CONTENT_DELAY = 400
-const ANIM_CONTENT_FADE = 500
+const ANIM_DURATION = 3000
+const ANIM_CONTENT_DELAY = 1500
+const ANIM_CONTENT_FADE = 1500
 const ANIM_EASING = "cubic-bezier(0.25, 0.8, 0.25, 1)"
-const ANIM_DEPTH = 600
+const ANIM_DEPTH = 1500
 const BRACE_W = 14
 
 const buildPosTransition = (dur: number, ease: string) =>
@@ -93,19 +93,23 @@ const ScopeCard: React.FC<ScopeCardProps> = ({
   currentStep,
   containerRect,
 }) => {
-  const { phase, originRect, callLabel } = entry
+  const { phase, originRect, callerLabel, callerHtml, definitionLabel } = entry
   const cH = containerRect?.height ?? 400
   const cW = containerRect?.width ?? 600
 
   const hasOrigin = !!originRect && !!containerRect
-  const oX = hasOrigin ? originRect!.left - containerRect!.left : cW * 0.4
-  const oY = hasOrigin ? originRect!.top - containerRect!.top : cH * 0.4
-  const oW = hasOrigin ? originRect!.width : 60
-  const oH = hasOrigin ? originRect!.height : 20
-
-  const isCollapsed = phase === "entering" || phase === "exiting"
-  const noTransition = phase === "entering"
-
+  
+  const isEntering = phase === "entering"
+  const isExiting = phase === "exiting"
+  const isCollapsed = isEntering || isExiting
+  const noTransition = isEntering
+  const easing = isExiting ? "cubic-bezier(0.8, 0, 0.2, 1)" : ANIM_EASING
+  
+  // Calculate exact target destination based on origin
+  const originTop = hasOrigin ? originRect!.top - containerRect!.top : cH * 0.4
+  const originLeft = hasOrigin ? originRect!.left - containerRect!.left : cW * 0.4
+  const originWidth = hasOrigin ? originRect!.width : 60
+  const originHeight = hasOrigin ? originRect!.height : 20
   const scopedStep = useMemo(() => {
     const frameIdx = cardIndex
     if (frames.length > frameIdx + 1) {
@@ -120,54 +124,50 @@ const ScopeCard: React.FC<ScopeCardProps> = ({
 
   const parens = useMemo(() => new Set<number>(), [])
 
-  const bgClipPath = useMemo(() => {
-    if (isCollapsed) {
-      const top = Math.max(0, oY)
-      const right = Math.max(0, cW - oX - oW)
-      const bottom = Math.max(0, cH - oY - oH)
-      const left = Math.max(0, oX)
-      return `inset(${top}px ${right}px ${bottom}px ${left}px round 4px)`
-    }
-    return "inset(0)"
-  }, [isCollapsed, oX, oY, oW, oH, cW, cH])
-
+  // Card background fades in
   const bgStyle = useMemo((): React.CSSProperties => ({
-    clipPath: bgClipPath,
+    opacity: isCollapsed ? 0 : 1,
     transition: noTransition
       ? "none"
-      : `clip-path ${ANIM_DURATION}ms ${ANIM_EASING}`,
-  }), [bgClipPath, noTransition])
+      : `opacity ${ANIM_DURATION}ms ${easing}`,
+  }), [isCollapsed, noTransition, easing])
 
-  const labelStyle = useMemo((): React.CSSProperties => ({
+  // Caller label moves to top left
+  const labelWrapperStyle = useMemo((): React.CSSProperties => ({
     position: "absolute",
-    top: isCollapsed ? oY : 4,
-    left: isCollapsed ? oX : BRACE_W + 8,
+    top: isCollapsed ? originTop : 4,
+    left: isCollapsed ? originLeft : BRACE_W + 8,
     zIndex: 30,
     pointerEvents: "none",
+    display: "flex",
+    alignItems: "flex-start",
     transition: noTransition
       ? "none"
-      : `top ${ANIM_DURATION}ms ${ANIM_EASING}, left ${ANIM_DURATION}ms ${ANIM_EASING}`,
-  }), [isCollapsed, oX, oY, noTransition])
+      : `top ${ANIM_DURATION}ms ${easing}, left ${ANIM_DURATION}ms ${easing}`,
+  }), [isCollapsed, originTop, originLeft, noTransition, easing])
 
+  // Braces start at origin and expand to sides
   const leftBraceBoxStyle = useMemo((): React.CSSProperties => ({
     position: "absolute",
-    top: isCollapsed ? oY : 0,
-    left: isCollapsed ? oX : 0,
-    height: isCollapsed ? oH : cH,
+    top: isCollapsed ? originTop : 0,
+    left: isCollapsed ? originLeft : 0,
+    height: isCollapsed ? originHeight : cH,
     width: BRACE_W,
     zIndex: 25,
-    transition: noTransition ? "none" : buildPosTransition(ANIM_DURATION, ANIM_EASING),
-  }), [isCollapsed, oX, oY, oH, cH, noTransition])
+    opacity: isCollapsed ? 0 : 1,
+    transition: noTransition ? "none" : `${buildPosTransition(ANIM_DURATION, easing)}, opacity ${ANIM_DURATION}ms ${easing}`,
+  }), [isCollapsed, originTop, originLeft, originHeight, cH, noTransition, easing])
 
   const rightBraceBoxStyle = useMemo((): React.CSSProperties => ({
     position: "absolute",
-    top: isCollapsed ? oY : 0,
-    left: isCollapsed ? oX + oW : cW - BRACE_W,
-    height: isCollapsed ? oH : cH,
+    top: isCollapsed ? originTop : 0,
+    left: isCollapsed ? originLeft + originWidth : cW - BRACE_W,
+    height: isCollapsed ? originHeight : cH,
     width: BRACE_W,
     zIndex: 25,
-    transition: noTransition ? "none" : buildPosTransition(ANIM_DURATION, ANIM_EASING),
-  }), [isCollapsed, oX, oY, oW, oH, cH, cW, noTransition])
+    opacity: isCollapsed ? 0 : 1,
+    transition: noTransition ? "none" : `${buildPosTransition(ANIM_DURATION, easing)}, opacity ${ANIM_DURATION}ms ${easing}`,
+  }), [isCollapsed, originTop, originLeft, originWidth, originHeight, cH, cW, noTransition, easing])
 
   const isAboveActive = cardIndex > activeCardIndex
   const distanceFromActive = activeCardIndex - cardIndex
@@ -228,17 +228,58 @@ const ScopeCard: React.FC<ScopeCardProps> = ({
         </div>
       </div>
 
-      <div style={labelStyle}>
-        <span className="inline-flex items-center gap-1.5">
-          <span className="font-mono text-[11px] font-medium text-blue-500/80">
-            {callLabel}
-          </span>
-          <span className="text-[9px] font-medium px-1 py-px rounded bg-blue-100/60 text-blue-400">
+      <div style={labelWrapperStyle}>
+        <div className="flex items-start gap-1.5 relative">
+          <div className="relative">
+            <span
+              className="font-mono text-[11px] font-medium text-blue-500/80 whitespace-nowrap flex items-center h-full"
+              style={{
+                opacity: isCollapsed ? 0 : 1,
+                transition: noTransition ? "none" : `opacity ${ANIM_DURATION}ms ${easing}`,
+              }}
+            >
+              {definitionLabel}
+            </span>
+            {!callerHtml && (
+              <div
+                className="font-mono text-[11px] font-medium text-blue-500/80 absolute left-0 top-0 whitespace-nowrap"
+                style={{
+                  opacity: isCollapsed ? 1 : 0,
+                  transition: noTransition ? "none" : `opacity ${ANIM_DURATION}ms ${easing}`,
+                }}
+              >
+                {callerLabel}
+              </div>
+            )}
+          </div>
+          <span
+            className="text-[9px] font-medium px-1 py-px rounded bg-blue-100/60 text-blue-400 self-center"
+            style={{
+              opacity: isCollapsed ? 0 : 1,
+              transition: noTransition ? "none" : `opacity ${ANIM_DURATION}ms ${easing}`,
+            }}
+          >
             {cardIndex + 1}/{totalEntries}
           </span>
-        </span>
+        </div>
       </div>
 
+      {/* Exact Caller HTML Clone Overlay */}
+      {callerHtml && (
+        <div
+          className="absolute z-40 pointer-events-none font-mono origin-top-left"
+          style={{
+            top: isCollapsed ? originTop : 4,
+            left: isCollapsed ? originLeft : BRACE_W + 8,
+            opacity: isCollapsed ? 1 : 0,
+            transform: isCollapsed ? "scale(1)" : "scale(0.8)",
+            transition: noTransition
+              ? "none"
+              : `top ${ANIM_DURATION}ms ${easing}, left ${ANIM_DURATION}ms ${easing}, opacity ${ANIM_DURATION}ms ${easing}, transform ${ANIM_DURATION}ms ${easing}`,
+          }}
+          dangerouslySetInnerHTML={{ __html: callerHtml }}
+        />
+      )}
       <div
         className="text-slate-300 select-none pointer-events-none"
         style={leftBraceBoxStyle}

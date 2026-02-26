@@ -17,7 +17,7 @@ export interface CallExpressionProps {
 const CallExpression: React.FC<CallExpressionProps> = ({ node, parent, parens, Expression }) => {
     const ref = useRef<HTMLSpanElement>(null)
     const { isEvaluating, isEvaluated, isErrorThrown, wasEvaluated, evaluatedValue } = useNodeData(node, ref)
-    const { registerCallRef } = useScopeMorph()
+    const { registerCallRef, isNodeMorphing } = useScopeMorph()
 
     ;(node as any).category = "expression.call"
 
@@ -42,18 +42,30 @@ const CallExpression: React.FC<CallExpressionProps> = ({ node, parent, parens, E
         return "fn"
     }, [node.callee])
 
+    const fullCallLabel = useMemo(() => {
+        const argsStr = args.map(a => {
+            if (a.type === "Literal") return String(a.value)
+            if (a.type === "Identifier") return a.name
+            return "..."
+        }).join(", ")
+        return `${callLabel}(${argsStr})`
+    }, [callLabel, args])
+
     useEffect(() => {
         if (!nodeKey) return
-        registerCallRef(nodeKey, ref.current, callLabel)
-        return () => registerCallRef(nodeKey, null, callLabel)
-    }, [nodeKey, callLabel, registerCallRef])
+        registerCallRef(nodeKey, ref.current, fullCallLabel)
+        return () => registerCallRef(nodeKey, null, fullCallLabel)
+    }, [nodeKey, fullCallLabel, registerCallRef])
 
     const showEvaluated = isEvaluated || wasEvaluated
+    const isHidden = isNodeMorphing(nodeKey)
 
     const stateClasses = [
         isEvaluating && "evaluating",
         isEvaluated && "evaluated",
         isErrorThrown && "error-thrown",
+        "transition-opacity duration-300",
+        isHidden && "opacity-0",
     ].filter(Boolean).join(" ")
 
     return (
