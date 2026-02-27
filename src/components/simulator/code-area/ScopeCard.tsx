@@ -223,7 +223,23 @@ const ScopeCard: React.FC<ScopeCardProps> = ({
     return base
   }, [cardIndex, phase, isAboveActive, distanceFromActive])
 
-  const contentOpacity = phase === "entering" ? 0 : 1
+  // Content Body syncs with braces
+  const bodyBoxStyle = useMemo((): React.CSSProperties => ({
+    position: "absolute",
+    top: isCollapsed ? originTop : 36, // Header height
+    left: isCollapsed ? originLeft + BRACE_W : 4 + BRACE_W, // Inside left brace
+    width: isCollapsed ? Math.max(0, originWidth - BRACE_W) : cW - 8 - (BRACE_W * 2),
+    height: isCollapsed ? originHeight : cH - 44,
+    zIndex: 20,
+    opacity: isCollapsed ? 0 : 1,
+    overflow: "hidden",
+    paddingLeft: 12,
+    paddingRight: 12,
+    paddingTop: 12,
+    transition: noTransition 
+      ? "none" 
+      : `${buildPosTransition(ANIM_DURATION, easing)}, width ${ANIM_DURATION}ms ${easing}, opacity ${ANIM_DURATION}ms ${easing}`,
+  }), [isCollapsed, originTop, originLeft, originWidth, originHeight, cH, cW, noTransition, easing])
 
   return (
     <div className="absolute inset-0" style={outerStyle}>
@@ -277,21 +293,20 @@ const ScopeCard: React.FC<ScopeCardProps> = ({
           </span>
         </div>
 
-        <div
-          className="flex-1 relative z-10"
-          style={{
-            marginTop: 36, // Clear larger header
-            paddingLeft: BRACE_W + 16, // Match the new brace padding
-            paddingRight: BRACE_W + 16,
-            opacity: contentOpacity,
-            transition: `opacity ${ANIM_CONTENT_FADE}ms ease ${ANIM_CONTENT_DELAY}ms`,
-          }}
-        >
-          <ScopedStepContext.Provider
-            value={{ step: scopedStep, startIndex }}
+        <div style={bodyBoxStyle}>
+          <div 
+            className="w-full h-full origin-top-left"
+            style={{
+              transform: isCollapsed ? "scale(0.85)" : "scale(1)",
+              transition: noTransition ? "none" : `transform ${ANIM_DURATION}ms ${easing}`
+            }}
           >
-            <ScopeCardBody entry={entry} parens={parens} />
-          </ScopedStepContext.Provider>
+            <ScopedStepContext.Provider
+              value={{ step: scopedStep, startIndex }}
+            >
+              <ScopeCardBody entry={entry} parens={parens} />
+            </ScopedStepContext.Provider>
+          </div>
         </div>
       </div>
 
