@@ -67,7 +67,7 @@ const BraceSvg: React.FC<{ side: "left" | "right" }> = ({ side }) => {
     <svg
       viewBox="0 0 10 100"
       preserveAspectRatio="none"
-      className="w-full h-full"
+      className="w-full h-full text-slate-300/80"
       aria-hidden="true"
     >
       <path
@@ -81,6 +81,20 @@ const BraceSvg: React.FC<{ side: "left" | "right" }> = ({ side }) => {
       />
     </svg>
   )
+}
+
+const renderJSValue = (val: any) => {
+  if (!val) return <span className="text-slate-400 italic">undefined</span>
+  if (val.type === "primitive") {
+    if (typeof val.value === "string") return <span className="text-green-600 font-bold">"{val.value}"</span>
+    if (val.value === null) return <span className="text-slate-400 italic">null</span>
+    if (val.value === undefined) return <span className="text-slate-400 italic">undefined</span>
+    return <span className="text-blue-600 font-bold">{String(val.value)}</span>
+  }
+  if (val.type === "reference") {
+    return <span className="text-purple-600 font-bold">ref({val.ref})</span>
+  }
+  return <span className="text-slate-600 font-bold">{String(val)}</span>
 }
 
 const ScopeCard: React.FC<ScopeCardProps> = ({
@@ -135,34 +149,39 @@ const ScopeCard: React.FC<ScopeCardProps> = ({
   // Caller label moves to top left
   const labelWrapperStyle = useMemo((): React.CSSProperties => ({
     position: "absolute",
-    top: isCollapsed ? originTop : 4,
+    top: isCollapsed ? originTop : 0,
     left: isCollapsed ? originLeft : BRACE_W + 8,
+    right: BRACE_W + 8,
+    height: 36, // Increased height
     zIndex: 30,
     pointerEvents: "none",
     display: "flex",
-    alignItems: "flex-start",
+    alignItems: "center",
+    justifyContent: "space-between",
+    borderBottom: isCollapsed ? "none" : "1px solid rgba(226, 232, 240, 0.6)", // slate-200
     transition: noTransition
       ? "none"
-      : `top ${ANIM_DURATION}ms ${easing}, left ${ANIM_DURATION}ms ${easing}`,
+      : `top ${ANIM_DURATION}ms ${easing}, left ${ANIM_DURATION}ms ${easing}, border-color ${ANIM_DURATION}ms ${easing}`,
   }), [isCollapsed, originTop, originLeft, noTransition, easing])
 
-  // Braces start at origin and expand to sides
+  // Left Brace
   const leftBraceBoxStyle = useMemo((): React.CSSProperties => ({
     position: "absolute",
-    top: isCollapsed ? originTop : 0,
-    left: isCollapsed ? originLeft : 0,
-    height: isCollapsed ? originHeight : cH,
+    top: isCollapsed ? originTop : 36, // Moved down to make room for larger header
+    left: isCollapsed ? originLeft : 4, // Added side spacing
+    height: isCollapsed ? originHeight : cH - 44, // Subtracted more to prevent bottom overlap
     width: BRACE_W,
     zIndex: 25,
     opacity: isCollapsed ? 0 : 1,
     transition: noTransition ? "none" : `${buildPosTransition(ANIM_DURATION, easing)}, opacity ${ANIM_DURATION}ms ${easing}`,
   }), [isCollapsed, originTop, originLeft, originHeight, cH, noTransition, easing])
 
+  // Right Brace
   const rightBraceBoxStyle = useMemo((): React.CSSProperties => ({
     position: "absolute",
-    top: isCollapsed ? originTop : 0,
-    left: isCollapsed ? originLeft + originWidth : cW - BRACE_W,
-    height: isCollapsed ? originHeight : cH,
+    top: isCollapsed ? originTop : 36, // Moved down to make room for larger header
+    left: isCollapsed ? originLeft + originWidth : cW - BRACE_W - 4, // Added side spacing
+    height: isCollapsed ? originHeight : cH - 44, // Subtracted more to prevent bottom overlap
     width: BRACE_W,
     zIndex: 25,
     opacity: isCollapsed ? 0 : 1,
@@ -208,14 +227,62 @@ const ScopeCard: React.FC<ScopeCardProps> = ({
 
   return (
     <div className="absolute inset-0" style={outerStyle}>
-      <div className="scope-card absolute inset-0" style={bgStyle}>
-        <div className="absolute inset-0 bg-white/[0.97]" />
+      <div className="scope-card absolute inset-0 rounded bg-white/[0.97] shadow-sm flex flex-col" style={bgStyle}>
+        
+        <div style={labelWrapperStyle}>
+          <div className="flex items-center gap-6 h-full pl-3 w-full">
+            <div className="relative flex items-center h-full min-w-fit">
+              <span
+                className="font-mono text-base font-semibold text-blue-600/90 whitespace-nowrap flex items-center h-full"
+                style={{
+                  opacity: isCollapsed ? 0 : 1,
+                  transition: noTransition ? "none" : `opacity ${ANIM_DURATION}ms ${easing}`,
+                }}
+              >
+                {definitionLabel}
+              </span>
+            </div>
+
+            <div
+              className="flex items-center gap-3 px-4 h-5/6 overflow-hidden border-l-2 border-slate-200/60"
+              style={{
+                opacity: isCollapsed ? 0 : 1,
+                transition: noTransition ? "none" : `opacity ${ANIM_DURATION}ms ${easing}`,
+              }}
+            >
+              {/* Memvals display */}
+              <div className="flex items-center gap-2 text-[12px] font-mono whitespace-nowrap overflow-x-auto custom-scrollbar">
+                {scopedStep?.memorySnapshot?.memval?.length ? (
+                  scopedStep.memorySnapshot.memval.map((val, idx) => (
+                    <span key={idx} className="flex items-center gap-1.5 bg-slate-100/80 px-2 py-1 rounded-md shadow-sm border border-slate-200/50">
+                      <span className="text-slate-400 font-medium text-[10px]">[{idx}]</span>
+                      {renderJSValue(val)}
+                    </span>
+                  ))
+                ) : (
+                  <span className="text-slate-400 text-[11px] italic px-1">empty</span>
+                )}
+              </div>
+            </div>
+          </div>
+
+          <span
+            className="text-[11px] font-bold px-2.5 py-1 rounded-full bg-slate-100/80 text-slate-400 self-center mr-3 border border-slate-200/60"
+            style={{
+              opacity: isCollapsed ? 0 : 1,
+              transition: noTransition ? "none" : `opacity ${ANIM_DURATION}ms ${easing}`,
+            }}
+          >
+            {cardIndex + 1}/{totalEntries}
+          </span>
+        </div>
 
         <div
-          className="h-full relative z-10 pt-6"
+          className="flex-1 relative z-10"
           style={{
-            paddingLeft: BRACE_W + 8,
-            paddingRight: BRACE_W + 8,
+            marginTop: 36, // Clear larger header
+            paddingLeft: BRACE_W + 16, // Match the new brace padding
+            paddingRight: BRACE_W + 16,
             opacity: contentOpacity,
             transition: `opacity ${ANIM_CONTENT_FADE}ms ease ${ANIM_CONTENT_DELAY}ms`,
           }}
@@ -228,60 +295,25 @@ const ScopeCard: React.FC<ScopeCardProps> = ({
         </div>
       </div>
 
-      <div style={labelWrapperStyle}>
-        <div className="flex items-start gap-1.5 relative">
-          <div className="relative">
-            <span
-              className="font-mono text-[11px] font-medium text-blue-500/80 whitespace-nowrap flex items-center h-full"
-              style={{
-                opacity: isCollapsed ? 0 : 1,
-                transition: noTransition ? "none" : `opacity ${ANIM_DURATION}ms ${easing}`,
-              }}
-            >
-              {definitionLabel}
-            </span>
-            {!callerHtml && (
-              <div
-                className="font-mono text-[11px] font-medium text-blue-500/80 absolute left-0 top-0 whitespace-nowrap"
-                style={{
-                  opacity: isCollapsed ? 1 : 0,
-                  transition: noTransition ? "none" : `opacity ${ANIM_DURATION}ms ${easing}`,
-                }}
-              >
-                {callerLabel}
-              </div>
-            )}
-          </div>
-          <span
-            className="text-[9px] font-medium px-1 py-px rounded bg-blue-100/60 text-blue-400 self-center"
-            style={{
-              opacity: isCollapsed ? 0 : 1,
-              transition: noTransition ? "none" : `opacity ${ANIM_DURATION}ms ${easing}`,
-            }}
-          >
-            {cardIndex + 1}/{totalEntries}
-          </span>
-        </div>
-      </div>
-
       {/* Exact Caller HTML Clone Overlay */}
       {callerHtml && (
         <div
-          className="absolute z-40 pointer-events-none font-mono origin-top-left"
+          className="absolute z-40 pointer-events-none font-mono text-base origin-top-left flex items-center justify-center"
           style={{
-            top: isCollapsed ? originTop : 4,
-            left: isCollapsed ? originLeft : BRACE_W + 8,
+            top: isCollapsed ? originTop : 0, // Align with header top
+            left: isCollapsed ? originLeft : BRACE_W + 16, // Move past brace + pl-3 padding
+            height: isCollapsed ? originHeight : 36, // Match new header height
             opacity: isCollapsed ? 1 : 0,
-            transform: isCollapsed ? "scale(1)" : "scale(0.8)",
+            transform: isCollapsed ? "scale(1)" : "scale(1)",
             transition: noTransition
               ? "none"
-              : `top ${ANIM_DURATION}ms ${easing}, left ${ANIM_DURATION}ms ${easing}, opacity ${ANIM_DURATION}ms ${easing}, transform ${ANIM_DURATION}ms ${easing}`,
+              : `top ${ANIM_DURATION}ms ${easing}, left ${ANIM_DURATION}ms ${easing}, height ${ANIM_DURATION}ms ${easing}, opacity ${ANIM_DURATION}ms ${easing}, transform ${ANIM_DURATION}ms ${easing}`,
           }}
           dangerouslySetInnerHTML={{ __html: callerHtml }}
         />
       )}
       <div
-        className="text-slate-300 select-none pointer-events-none"
+        className="select-none pointer-events-none"
         style={leftBraceBoxStyle}
         aria-hidden="true"
       >
@@ -289,7 +321,7 @@ const ScopeCard: React.FC<ScopeCardProps> = ({
       </div>
 
       <div
-        className="text-slate-300 select-none pointer-events-none"
+        className="select-none pointer-events-none"
         style={rightBraceBoxStyle}
         aria-hidden="true"
       >
